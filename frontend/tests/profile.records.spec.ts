@@ -399,6 +399,304 @@ test("Profile runs remember mode and rating column visibility", async ({
   })
 })
 
+test("First completion times sort the full collection and keep missing dates last", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  await page.context().addCookies([
+    {
+      name: "profile_runs_auto_load_more",
+      value: "false",
+      url: "http://localhost:5173",
+    },
+  ])
+  const records = Array.from({ length: 55 }, (_, index) => ({
+    ...ovrRecords[0],
+    uuid: `019d7777-7777-7777-8777-${String(index).padStart(12, "0")}`,
+    map_id: 980300 + index,
+    map_name: `kz_first_${String(index).padStart(3, "0")}`,
+    created_on: new Date(Date.UTC(2026, 0, index + 1)).toISOString(),
+  }))
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) =>
+    route.fulfill({ json: records }),
+  )
+  let requests = 0
+  await page.route(/\/v1\/records\/pb\/first-completions\?/, async (route) => {
+    requests++
+    const url = new URL(route.request().url())
+    expect(url.searchParams.get("identifier")).toBe(steamid64)
+    expect(url.searchParams.get("scope")).toBe("OVR")
+    await route.fulfill({
+      json: records.flatMap((record, index) =>
+        index === 53
+          ? []
+          : [
+              {
+                map_id: record.map_id,
+                stage: 0,
+                first_completed_at: new Date(
+                  Date.UTC(2020, 0, 55 - index),
+                ).toISOString(),
+              },
+            ],
+      ),
+    })
+  })
+  await page.goto(`/profile/${steamid64}/runs`)
+  const rows = page.locator('[data-testid^="pb-record-row-"]')
+  await expect(rows.first()).toHaveAttribute(
+    "data-testid",
+    `pb-record-row-${records[54].uuid}`,
+  )
+  expect(requests).toBe(0)
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemcheckbox", {
+      name: "Show first completion time",
+      exact: true,
+    })
+    .click()
+  await expect(
+    page.getByRole("button", { name: "First completion", exact: true }),
+  ).toBeEnabled()
+  await expect(rows.first()).toHaveAttribute(
+    "data-testid",
+    `pb-record-row-${records[54].uuid}`,
+  )
+  await expect(
+    page.getByTestId("pb-record-first-completion").first(),
+  ).toContainText("2020")
+  await page
+    .getByRole("button", { name: "First completion", exact: true })
+    .click()
+  await expect(rows.first()).toHaveAttribute(
+    "data-testid",
+    `pb-record-row-${records[0].uuid}`,
+  )
+  await page
+    .getByRole("button", { name: "Go to last page", exact: true })
+    .click()
+  await expect(rows.last()).toHaveAttribute(
+    "data-testid",
+    `pb-record-row-${records[53].uuid}`,
+  )
+  await expect(
+    rows.last().getByTestId("pb-record-first-completion"),
+  ).toHaveText("-")
+  await page
+    .getByRole("button", { name: "First completion", exact: true })
+    .click()
+  await expect(rows.first()).toHaveAttribute(
+    "data-testid",
+    `pb-record-row-${records[54].uuid}`,
+  )
+  await page.screenshot({
+    path: "../.temp/first-completion/profile-first-completion.png",
+    fullPage: true,
+  })
+  await page
+    .getByRole("button", { name: "Go to last page", exact: true })
+    .click()
+  await expect(rows.last()).toHaveAttribute(
+    "data-testid",
+    `pb-record-row-${records[53].uuid}`,
+  )
+  expect(requests).toBe(1)
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemcheckbox", {
+      name: "Show first completion time",
+      exact: true,
+    })
+    .click()
+  await expect(page.getByTestId("pb-record-first-completion")).toHaveCount(0)
+  await expect(rows.first()).toHaveAttribute(
+    "data-testid",
+    `pb-record-row-${records[54].uuid}`,
+  )
+})
+
+test("First completion respects date and clock preferences when PB dates are hidden", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  await page.addInitScript(() => {
+    localStorage.setItem("gokz-datetime-format", "us")
+    localStorage.setItem("gokz-hour-cycle", "12h")
+  })
+  await page.context().addCookies([
+    {
+      name: "profile_runs_show_date",
+      value: "false",
+      url: "http://localhost:5173",
+    },
+  ])
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) =>
+    route.fulfill({ json: [ovrRecords[0]] }),
+  )
+  await page.route(/\/v1\/records\/pb\/first-completions\?/, (route) =>
+    route.fulfill({
+      json: [
+        {
+          map_id: ovrRecords[0].map_id,
+          stage: 0,
+          first_completed_at: "2020-02-03T12:34:00Z",
+        },
+      ],
+    }),
+  )
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemcheckbox", {
+      name: "Show first completion time",
+      exact: true,
+    })
+    .click()
+  await expect(page.getByTestId("pb-record-first-completion")).toContainText(
+    "02/03/2020",
+  )
+  await expect(page.getByTestId("pb-record-first-completion")).toContainText(
+    /\d{1,2}:34\s*[AP]M/,
+  )
+  await expect(
+    page.getByRole("button", { name: "Datetime", exact: true }),
+  ).toHaveCount(0)
+})
+
+test("First completion loading and retry leave normal records available", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) =>
+    route.fulfill({ json: ovrRecords.slice(0, 2) }),
+  )
+  let release: (() => void) | undefined
+  const gate = new Promise<void>((resolve) => {
+    release = resolve
+  })
+  let requests = 0
+  await page.route(/\/v1\/records\/pb\/first-completions\?/, async (route) => {
+    requests++
+    if (requests === 1) {
+      await gate
+      await route.fulfill({ status: 503, json: { detail: "Unavailable" } })
+    } else {
+      await route.fulfill({
+        json: [
+          {
+            map_id: ovrRecords[0].map_id,
+            stage: 0,
+            first_completed_at: "2020-01-01T12:00:00Z",
+          },
+        ],
+      })
+    }
+  })
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemcheckbox", {
+      name: "Show first completion time",
+      exact: true,
+    })
+    .click()
+  await expect(page.getByText("Loading first completion times…")).toBeVisible()
+  await expect(
+    page.getByRole("button", { name: "First completion", exact: true }),
+  ).toBeDisabled()
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(2)
+  release?.()
+  await expect(
+    page.getByText("Could not load first completion times."),
+  ).toBeVisible()
+  expect(requests).toBe(1)
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect(
+    page.getByRole("button", { name: "First completion", exact: true }),
+  ).toBeEnabled()
+  await expect(
+    page.getByText("Could not load first completion times."),
+  ).toHaveCount(0)
+  expect(requests).toBe(2)
+})
+
+test("First completion is temporary and saved sorts cannot enable its query", async ({
+  page,
+}) => {
+  await installProfileShellRoutes(page)
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "gokz-profile-record-presets-v1",
+      JSON.stringify({
+        version: 1,
+        presets: [
+          {
+            id: "first",
+            name: "First finish",
+            settings: {
+              isProOnly: false,
+              isBonus: false,
+              view: {
+                selectedMode: "all",
+                selectedTier: "all",
+                selectedStage: null,
+                sort: { column: "firstCompletion", direction: "asc" },
+              },
+            },
+          },
+        ],
+      }),
+    )
+  })
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) =>
+    route.fulfill({ json: ovrRecords.slice(0, 2) }),
+  )
+  const requests: URL[] = []
+  await page.route(/\/v1\/records\/pb\/first-completions\?/, async (route) => {
+    requests.push(new URL(route.request().url()))
+    await route.fulfill({ json: [] })
+  })
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await page.getByRole("button", { name: "Apply preset First finish" }).click()
+  await expect(page.getByTestId("pb-record-first-completion")).toHaveCount(0)
+  expect(requests).toHaveLength(0)
+  const enable = async () => {
+    await page.getByRole("button", { name: "Record page settings" }).click()
+    await page
+      .getByRole("menuitemcheckbox", {
+        name: "Show first completion time",
+        exact: true,
+      })
+      .click()
+    await expect(
+      page.getByRole("button", { name: "First completion", exact: true }),
+    ).toBeEnabled()
+  }
+  await enable()
+  await page.locator("#profile-records-pro-only").click()
+  await expect.poll(() => requests.at(-1)?.searchParams.get("type")).toBe("PRO")
+  await page.locator("#profile-records-bonus").click()
+  await expect
+    .poll(() => requests.at(-1)?.searchParams.get("is_bonus"))
+    .toBe("true")
+  await page.getByRole("tab", { name: "Home", exact: true }).click()
+  await page.getByRole("tab", { name: "Runs", exact: true }).click()
+  await expect(page.getByTestId("pb-record-first-completion")).toHaveCount(0)
+  await enable()
+  const count = requests.length
+  await page.reload()
+  await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(2)
+  await expect(page.getByTestId("pb-record-first-completion")).toHaveCount(0)
+  expect(requests).toHaveLength(count)
+  expect(
+    (await page.context().cookies()).some((cookie) =>
+      cookie.name.includes("first_completion"),
+    ),
+  ).toBe(false)
+})
+
 test("Profile PB ranks are opt-in, scoped, sortable, and remembered", async ({
   page,
 }) => {

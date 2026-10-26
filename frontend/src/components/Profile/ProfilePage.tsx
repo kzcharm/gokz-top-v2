@@ -176,6 +176,18 @@ export function ProfilePage({
   const [showRanks, setShowRanks] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_SHOW_RANKS_COOKIE),
   )
+  // A 27M-record benchmark exceeded the DB latency budget on initial reads.
+  // Keep activation local to this player's current Runs visit.
+  const [firstCompletionOwner, setFirstCompletionOwner] = useState<
+    string | null
+  >(null)
+  const showFirstCompletion =
+    activeTab === "records" && firstCompletionOwner === identifier
+  useEffect(() => {
+    if (activeTab !== "records" || firstCompletionOwner !== identifier) {
+      setFirstCompletionOwner(null)
+    }
+  }, [activeTab, identifier, firstCompletionOwner])
   const [showWrTime, setShowWrTime] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_SHOW_WR_TIME_COOKIE),
   )
@@ -856,6 +868,14 @@ export function ProfilePage({
               {t("profile.records.showRanks")}
             </DropdownMenuCheckboxItem>
             <DropdownMenuCheckboxItem
+              checked={showFirstCompletion}
+              onCheckedChange={(checked) =>
+                setFirstCompletionOwner(checked ? identifier : null)
+              }
+            >
+              {t("profile.records.showFirstCompletion")}
+            </DropdownMenuCheckboxItem>
+            <DropdownMenuCheckboxItem
               checked={showWrTime}
               onCheckedChange={(checked) => {
                 setShowWrTime(checked)
@@ -1133,6 +1153,7 @@ export function ProfilePage({
               showMode={showMode}
               showRating={showRating}
               showRanks={showRanks}
+              showFirstCompletion={showFirstCompletion}
               showWrGap={showWrGap}
               showServer={showServer}
               showDate={showDate}

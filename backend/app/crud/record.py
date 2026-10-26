@@ -85,6 +85,7 @@ from app.models import (
     mode_scope_to_id,
     seconds_to_time_ms,
 )
+from app.models.record import RecordFirstCompletionPublic
 from app.models.utils import get_sqlmodel_table, select_row
 from app.services.course_points import (
     CoursePbEntry,
@@ -2300,6 +2301,61 @@ async def read_recent_records(
         ],
         count,
     )
+
+
+def first_completion_statement(
+    *,
+    steamid64: int,
+    scope: ModeScope,
+    record_type: RecordType,
+    stage: int = 0,
+    is_bonus: bool = False,
+) -> Select[tuple[int, int, datetime]]:
+    """Aggregate only one player's eligible history, using player-prefixed indexes."""
+    statement = (
+        select(Record.map_id, Record.stage, func.min(Record.created_at))
+        .join(Map, col(Map.id) == col(Record.map_id))
+        .where(
+            col(Record.steamid64) == steamid64,
+            col(Record.is_valid) == true(),
+            col(Map.validated).is_(True),
+            col(Record.mode).in_(list(mode_scope_modes(scope))),
+            col(Record.stage) > 0 if is_bonus else col(Record.stage) == stage,
+        )
+        .group_by(col(Record.map_id), col(Record.stage))
+        .order_by(col(Record.map_id), col(Record.stage))
+    )
+    if is_bonus and stage > 0:
+        statement = statement.where(col(Record.stage) == stage)
+    if record_type.is_pro:
+        statement = statement.where(col(Record.teleports) == 0)
+    return statement
+
+
+async def read_first_completions(
+    *,
+    session: AsyncSession,
+    steamid64: int,
+    scope: ModeScope,
+    record_type: RecordType,
+    stage: int = 0,
+    is_bonus: bool = False,
+) -> list[RecordFirstCompletionPublic]:
+    rows = await session.exec(
+        first_completion_statement(
+            steamid64=steamid64,
+            scope=scope,
+            record_type=record_type,
+            stage=stage,
+            is_bonus=is_bonus,
+        )
+    )
+    return [
+        RecordFirstCompletionPublic(
+            map_id=map_id, stage=course_stage, first_completed_at=completed_at
+        )
+        for map_id, course_stage, completed_at in rows
+    ]
 
 
 async def read_record_run_history(

@@ -31,6 +31,7 @@ import { PbRecordsTable } from "@/components/Records/PbRecordsTable"
 import {
   attachMapWrsToPbRecords,
   getPbPageRanksQueryOptions,
+  getProfileFirstCompletionsQueryOptions,
   getProfilePbRecordsQueryOptions,
   type PbRecordsColumn,
   sortPbRecords,
@@ -995,6 +996,7 @@ export function ProfileRecordsTab({
   showMode,
   showRating,
   showRanks,
+  showFirstCompletion,
   showWrGap,
   showServer,
   showDate,
@@ -1022,6 +1024,7 @@ export function ProfileRecordsTab({
   showMode: boolean
   showRating: boolean
   showRanks: boolean
+  showFirstCompletion: boolean
   showWrGap: boolean
   showServer: boolean
   showDate: boolean
@@ -1102,10 +1105,46 @@ export function ProfileRecordsTab({
       isProOnly,
     }),
   )
-  const recordsWithWrs = useMemo(
-    () => attachMapWrsToPbRecords(recordsQuery.data ?? [], wrsQuery.data ?? []),
-    [recordsQuery.data, wrsQuery.data],
+  const firstCompletionsQuery = useQuery(
+    getProfileFirstCompletionsQueryOptions({
+      identifier: steamid64,
+      scope,
+      isProOnly,
+      isBonus,
+      stage: selectedStage,
+      enabled: showFirstCompletion,
+    }),
   )
+  const firstCompletionReady =
+    showFirstCompletion && firstCompletionsQuery.isSuccess
+  useEffect(() => {
+    if (!showFirstCompletion && sort.column === "firstCompletion") {
+      onViewStateChange((current) => ({
+        ...current,
+        sort: { column: "datetime", direction: "desc" },
+      }))
+    }
+  }, [showFirstCompletion, sort.column, onViewStateChange])
+  const recordsWithWrs = useMemo(() => {
+    const firstByCourse = new Map(
+      (showFirstCompletion ? (firstCompletionsQuery.data ?? []) : []).map(
+        (entry) => [`${entry.map_id}:${entry.stage}`, entry.first_completed_at],
+      ),
+    )
+    return attachMapWrsToPbRecords(
+      recordsQuery.data ?? [],
+      wrsQuery.data ?? [],
+    ).map((record) => ({
+      ...record,
+      first_completed_at:
+        firstByCourse.get(`${record.map_id}:${record.stage}`) ?? null,
+    }))
+  }, [
+    recordsQuery.data,
+    wrsQuery.data,
+    firstCompletionsQuery.data,
+    showFirstCompletion,
+  ])
 
   const pageSortRef = useRef(
     sort.column === "rank"
@@ -1113,6 +1152,12 @@ export function ProfileRecordsTab({
       : sort,
   )
   if (sort.column !== "rank") pageSortRef.current = sort
+  if (
+    !showFirstCompletion &&
+    pageSortRef.current.column === "firstCompletion"
+  ) {
+    pageSortRef.current = { column: "datetime", direction: "desc" }
+  }
   const pageSort = pageSortRef.current
 
   const sortedRecords = useMemo(() => {
@@ -1271,7 +1316,12 @@ export function ProfileRecordsTab({
       return true
     })
 
-    return sortPbRecords(filteredRecords, pageSort)
+    return sortPbRecords(
+      filteredRecords,
+      pageSort.column === "firstCompletion" && !firstCompletionReady
+        ? { column: "datetime", direction: "desc" }
+        : pageSort,
+    )
   }, [
     deferredMapSearch,
     deferredServerSearch,
@@ -1297,6 +1347,7 @@ export function ProfileRecordsTab({
     hiddenMapIds,
     showHiddenRecords,
     pageSort,
+    firstCompletionReady,
   ])
 
   const pageCount = Math.max(1, Math.ceil(sortedRecords.length / pageSize))
@@ -1504,6 +1555,25 @@ export function ProfileRecordsTab({
         <ProfileRecordsTableSkeleton />
       ) : (
         <div className="space-y-4">
+          {showFirstCompletion && firstCompletionsQuery.isFetching ? (
+            <p aria-live="polite" className="text-sm text-muted-foreground">
+              {t("profile.records.firstCompletionLoading")}
+            </p>
+          ) : null}
+          {showFirstCompletion && firstCompletionsQuery.isError ? (
+            <Alert variant="destructive">
+              <AlertDescription>
+                {t("profile.records.firstCompletionError")}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void firstCompletionsQuery.refetch()}
+                >
+                  {t("profile.records.firstCompletionRetry")}
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : null}
           {showRanks && (ranksQuery.isFetching || ranksQuery.isError) ? (
             <p className="text-sm text-muted-foreground" aria-live="polite">
               {ranksQuery.isFetching
@@ -1514,6 +1584,7 @@ export function ProfileRecordsTab({
           ) : null}
           <PbRecordsTable
             records={displayedRecords}
+            firstCompletionSortEnabled={firstCompletionReady}
             pagination={
               autoLoadMore
                 ? undefined
@@ -1542,6 +1613,7 @@ export function ProfileRecordsTab({
               ...(!isBonus && showRating ? ["rating" as const] : []),
               ...(showServer ? ["server" as const] : []),
               ...(showDate ? ["datetime" as const] : []),
+              ...(showFirstCompletion ? ["firstCompletion" as const] : []),
             ]}
             showReplayColumn
             columnFilters={{

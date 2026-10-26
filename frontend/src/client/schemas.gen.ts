@@ -9337,6 +9337,27 @@ export const RecordFinishSchema = {
     title: 'RecordFinish'
 } as const;
 
+export const RecordFirstCompletionPublicSchema = {
+    properties: {
+        map_id: {
+            type: 'integer',
+            title: 'Map Id'
+        },
+        stage: {
+            type: 'integer',
+            title: 'Stage'
+        },
+        first_completed_at: {
+            type: 'string',
+            format: 'date-time',
+            title: 'First Completed At'
+        }
+    },
+    type: 'object',
+    required: ['map_id', 'stage', 'first_completed_at'],
+    title: 'RecordFirstCompletionPublic'
+} as const;
+
 export const RecordIntegritySchema = {
     properties: {
         fresh_map: {

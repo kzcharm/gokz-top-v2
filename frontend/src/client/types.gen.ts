@@ -1879,6 +1879,12 @@ export type RecordFinish = {
     finished_at: string;
 };
 
+export type RecordFirstCompletionPublic = {
+    map_id: number;
+    stage: number;
+    first_completed_at: string;
+};
+
 export type RecordIntegrity = {
     fresh_map: boolean;
     server_settings: boolean;
@@ -3705,6 +3711,16 @@ export type RecordsReadPbRecordsData = {
 };
 
 export type RecordsReadPbRecordsResponse = (Array<RecordPublic>);
+
+export type RecordsReadPbFirstCompletionsData = {
+    identifier: string;
+    isBonus?: boolean;
+    scope?: ModeScope;
+    stage?: number;
+    type?: RecordType;
+};
+
+export type RecordsReadPbFirstCompletionsResponse = (Array<RecordFirstCompletionPublic>);
 
 export type RecordsReadPbPageRanksData = {
     country?: (string | null);

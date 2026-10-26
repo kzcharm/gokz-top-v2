@@ -260,6 +260,85 @@ async function recentRecordSocketUrls(page: Page) {
   })
 }
 
+test("first completion dates refresh on live events and scope changes only while enabled", async ({
+  page,
+}) => {
+  let includeLiveRecord = false
+  let firstYear = 2020
+  await installWebSocketMock(page)
+  await installProfileRoutes({
+    currentUserSteamid64: null,
+    page,
+    records: () =>
+      includeLiveRecord ? [initialRecord, liveRecord] : [initialRecord],
+  })
+  const requests: URL[] = []
+  await page.route(/\/v1\/records\/pb\/first-completions\?/, async (route) => {
+    requests.push(new URL(route.request().url()))
+    await route.fulfill({
+      json: [
+        {
+          map_id: initialRecord.map_id,
+          stage: 0,
+          first_completed_at: `${firstYear}-01-01T12:00:00Z`,
+        },
+      ],
+    })
+  })
+  const dispatch = async () =>
+    page.evaluate((steamid64) => {
+      const state = window as typeof window & {
+        __dispatchRecordMessage: (payload: unknown) => void
+      }
+      state.__dispatchRecordMessage({
+        type: "record.upserted",
+        record: {
+          uuid: "019d2222-2222-7222-8222-222222222222",
+          player: { steamid64 },
+        },
+      })
+    }, profileSteamid64)
+  await page.goto(`/profile/${profileSteamid64}/runs`)
+  await expect(page.getByText("kz_live_initial")).toBeVisible()
+  expect(requests).toHaveLength(0)
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemcheckbox", {
+      name: "Show first completion time",
+      exact: true,
+    })
+    .click()
+  await expect(page.getByTestId("pb-record-first-completion")).toContainText(
+    "2020",
+  )
+  firstYear = 2000
+  await dispatch()
+  await expect(page.getByTestId("pb-record-first-completion")).toContainText(
+    "2000",
+  )
+  await page.getByRole("button", { name: "Select record scope" }).click()
+  await page.getByRole("menuitemradio", { name: "SKZ", exact: true }).click()
+  await expect
+    .poll(() => requests.at(-1)?.searchParams.get("scope"))
+    .toBe("SKZ")
+  await expect(
+    page.getByRole("button", { name: "First completion", exact: true }),
+  ).toBeEnabled()
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page
+    .getByRole("menuitemcheckbox", {
+      name: "Show first completion time",
+      exact: true,
+    })
+    .click()
+  await expect(page.getByTestId("pb-record-first-completion")).toHaveCount(0)
+  const count = requests.length
+  includeLiveRecord = true
+  await dispatch()
+  await expect(page.getByText("kz_live_arrival")).toBeVisible()
+  expect(requests).toHaveLength(count)
+})
+
 test("own runs page subscribes to player-filtered live records", async ({
   page,
 }) => {

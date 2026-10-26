@@ -6,6 +6,7 @@ import {
   Trash2Icon,
 } from "lucide-react"
 import { useState } from "react"
+import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import type { ModeSelectorValue } from "@/components/Common/ModeSelector"
 import type { TierSelectorValue } from "@/components/Common/TierSelector"
@@ -148,6 +149,7 @@ function parseViewState(value: unknown): ProfileRecordsViewState | null {
       "rating",
       "server",
       "datetime",
+      "firstCompletion",
     ].includes(String(sort.column)) ||
     (sort.direction !== "asc" && sort.direction !== "desc")
   ) {
@@ -243,13 +245,18 @@ function writeSavedPresets(presets: SavedProfileRecordsPreset[]) {
   }
 }
 
-function summarizePreset(settings: ProfileRecordsPresetSettings) {
+function summarizePreset(
+  settings: ProfileRecordsPresetSettings,
+  firstCompletionLabel: string,
+) {
   const type = settings.isProOnly ? "PRO" : "NUB"
   const course = settings.isBonus ? "Bonus" : "Main"
   const sortColumn =
     settings.view.sort.column === "datetime"
       ? "Date"
-      : settings.view.sort.column.toUpperCase()
+      : settings.view.sort.column === "firstCompletion"
+        ? firstCompletionLabel
+        : settings.view.sort.column.toUpperCase()
   const direction = settings.view.sort.direction === "desc" ? "down" : "up"
   return `${type} · ${course} · ${sortColumn} ${direction}`
 }
@@ -275,6 +282,7 @@ export function ProfileRecordsPresetMenu({
   currentSettings: ProfileRecordsPresetSettings
   onApply: (settings: ProfileRecordsPresetSettings) => void
 }) {
+  const { t } = useTranslation()
   const [presets, setPresets] = useState(readSavedPresets)
   const [menuOpen, setMenuOpen] = useState(false)
   const [saveDialogOpen, setSaveDialogOpen] = useState(false)
@@ -359,7 +367,10 @@ export function ProfileRecordsPresetMenu({
                       {preset.name}
                     </span>
                     <span className="block truncate text-[11px] text-muted-foreground">
-                      {summarizePreset(preset.settings)}
+                      {summarizePreset(
+                        preset.settings,
+                        t("profile.records.firstCompletion"),
+                      )}
                     </span>
                   </button>
                   <Button

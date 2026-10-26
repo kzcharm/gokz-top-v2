@@ -58,6 +58,7 @@ interface PbRecordsTableProps {
   showMilliseconds?: boolean
   dateTimeDateOnly?: boolean
   dateTimeDisplay?: DateTimeDisplay
+  firstCompletionSortEnabled?: boolean
   sort?: PbRecordsSortState
   onSortChange?: (column: PbRecordsColumn) => void
   getRowContextMenu?: (record: RecordPublic) => ReactNode
@@ -307,6 +308,18 @@ function PbRecordTableRow({
           />
         </TableCell>
       ) : null}
+      {visibleColumns.has("firstCompletion") ? (
+        <TableCell
+          className="text-sm text-muted-foreground"
+          data-testid="pb-record-first-completion"
+        >
+          <FormattedDateTime
+            value={record.first_completed_at}
+            display="absolute"
+            fallback="-"
+          />
+        </TableCell>
+      ) : null}
       {showReplayColumn ? (
         <TableCell className="w-10 px-2">
           <div className="flex justify-center">
@@ -372,12 +385,14 @@ function SortableHeader({
   sort,
   onSortChange,
   className,
+  disabled = false,
 }: {
   column: PbRecordsColumn
   label: ReactNode
   sort?: PbRecordsSortState
   onSortChange?: (column: PbRecordsColumn) => void
   className?: string
+  disabled?: boolean
 }) {
   const isActive = sort?.column === column
   const direction = isActive ? sort.direction : null
@@ -392,6 +407,7 @@ function SortableHeader({
       variant="ghost"
       className={`-ml-3 h-8 px-3 text-left ${className ?? ""}`}
       onClick={() => onSortChange(column)}
+      disabled={disabled}
     >
       <span>{label}</span>
       {direction === "asc" ? (
@@ -422,6 +438,7 @@ export function PbRecordsTable({
   showMilliseconds = true,
   dateTimeDateOnly = false,
   dateTimeDisplay = "relative",
+  firstCompletionSortEnabled = true,
   sort,
   onSortChange,
   getRowContextMenu,
@@ -455,6 +472,7 @@ export function PbRecordsTable({
     rating: 96,
     server: 160,
     datetime: dateTimeDateOnly ? 144 : 208,
+    firstCompletion: 208,
   }
   const flexibleColumns = new Set<PbRecordsColumn>(["player", "map", "server"])
   const orderedColumns = (
@@ -689,6 +707,18 @@ export function PbRecordsTable({
                     )}
                     sort={sort}
                     onSortChange={onSortChange}
+                    className={tableHeadClassName}
+                  />
+                </TableHead>
+              ) : null}
+              {visibleColumns.has("firstCompletion") ? (
+                <TableHead className={tableHeadClassName}>
+                  <SortableHeader
+                    column="firstCompletion"
+                    label={t("profile.records.firstCompletion")}
+                    sort={sort}
+                    onSortChange={onSortChange}
+                    disabled={!firstCompletionSortEnabled}
                     className={tableHeadClassName}
                   />
                 </TableHead>

@@ -57,6 +57,7 @@ from app.models import (
     User,
     mode_scope_modes,
 )
+from app.models.record import RecordFirstCompletionPublic
 
 router = APIRouter(prefix="/records", tags=["records"])
 
@@ -274,6 +275,29 @@ async def read_pb_records(
         exclude_cheaters=exclude_cheaters,
         offset=offset,
         limit=min(limit, 50) if include_ranks else limit,
+    )
+
+
+@router.get("/pb/first-completions")
+async def read_pb_first_completions(
+    session: SessionDep,
+    identifier: str,
+    scope: ModeScope = ModeScope.OVR,
+    type: RecordType = RecordType.NUB,
+    stage: Annotated[int, Query(ge=0)] = 0,
+    is_bonus: bool = False,
+) -> list[RecordFirstCompletionPublic]:
+    """Return earliest valid course finishes; PRO requires zero teleports."""
+    steamid64 = await _resolve_player_identifier_to_steamid64_or_404(
+        session=session, identifier=identifier
+    )
+    return await record_crud.read_first_completions(
+        session=session,
+        steamid64=steamid64,
+        scope=scope,
+        record_type=type,
+        stage=stage,
+        is_bonus=is_bonus,
     )
 
 

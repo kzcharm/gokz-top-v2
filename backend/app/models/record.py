@@ -640,6 +640,12 @@ class RecordPbBucketRebuildResult(SQLModel):
     updated_count: int
 
 
+class RecordFirstCompletionPublic(SQLModel):
+    map_id: int
+    stage: int
+    first_completed_at: datetime
+
+
 class RecordPublic(SQLModel):
     uuid: uuid.UUID
     rank: int | None = None

@@ -2,6 +2,7 @@ import { queryOptions } from "@tanstack/react-query"
 
 import {
   type MapWrPublic,
+  type RecordFirstCompletionPublic,
   type RecordPublic,
   type RecordRunHistoryPublic,
   RecordsService,
@@ -38,6 +39,7 @@ export type PbRecordsColumn =
   | "rating"
   | "server"
   | "datetime"
+  | "firstCompletion"
 
 export type PbRecordsSortDirection = "asc" | "desc"
 
@@ -48,6 +50,7 @@ export interface PbRecordsSortState {
 
 export type PbRecordWithWr = RecordPublic & {
   wr_teleports?: number | null
+  first_completed_at?: string | null
 }
 
 function roundWrGap(gap: number | null) {
@@ -84,7 +87,7 @@ function compareStrings(left: string, right: string) {
   })
 }
 
-function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
+function getRecordSortValue(column: PbRecordsColumn, record: PbRecordWithWr) {
   switch (column) {
     case "player":
       return getPlayerDisplayName(record.player)
@@ -114,14 +117,28 @@ function getRecordSortValue(column: PbRecordsColumn, record: RecordPublic) {
       return record.server_name
     case "datetime":
       return Date.parse(record.created_on)
+    case "firstCompletion":
+      return Date.parse(record.first_completed_at ?? "")
   }
 }
 
-export function sortPbRecords<Record extends RecordPublic>(
+export function sortPbRecords<Record extends PbRecordWithWr>(
   records: Record[],
   sort: PbRecordsSortState,
 ) {
   return [...records].sort((left, right) => {
+    if (sort.column === "firstCompletion") {
+      const leftMissing = !Number.isFinite(
+        Date.parse(left.first_completed_at ?? ""),
+      )
+      const rightMissing = !Number.isFinite(
+        Date.parse(right.first_completed_at ?? ""),
+      )
+      if (leftMissing || rightMissing) {
+        if (leftMissing !== rightMissing) return leftMissing ? 1 : -1
+        return compareStrings(left.uuid, right.uuid)
+      }
+    }
     if (sort.column === "rank" && (left.rank == null || right.rank == null)) {
       if (left.rank == null && right.rank != null) return 1
       if (left.rank != null && right.rank == null) return -1
@@ -194,6 +211,56 @@ export function getProfilePbRecordsQueryOptions({
       return (await response.json()) as RecordPublic[]
     },
     ...PB_RECORDS_QUERY_CONFIG,
+  })
+}
+
+export function getProfileFirstCompletionsQueryOptions({
+  identifier,
+  scope,
+  isProOnly,
+  isBonus,
+  stage,
+  enabled,
+}: {
+  identifier: string
+  scope: AppScope
+  isProOnly: boolean
+  isBonus: boolean
+  stage: number | null
+  enabled: boolean
+}) {
+  return queryOptions({
+    // Share the PB invalidation prefix without replacing its cached response.
+    queryKey: [
+      "profile-records",
+      identifier,
+      "first-completions",
+      scope,
+      isProOnly,
+      isBonus,
+      stage ?? 0,
+    ],
+    queryFn: async ({ signal }) => {
+      const params = new URLSearchParams({
+        identifier,
+        scope,
+        type: isProOnly ? "PRO" : "NUB",
+        is_bonus: String(isBonus),
+        stage: String(stage ?? 0),
+      })
+      const response = await fetch(
+        `${OpenAPI.BASE}/v1/records/pb/first-completions?${params}`,
+        {
+          credentials: OpenAPI.CREDENTIALS,
+          signal,
+        },
+      )
+      if (!response.ok) throw new Error("Failed to load first completion times")
+      return (await response.json()) as RecordFirstCompletionPublic[]
+    },
+    ...PB_RECORDS_QUERY_CONFIG,
+    enabled,
+    retry: false,
   })
 }
 

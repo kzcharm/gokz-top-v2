@@ -261,6 +261,11 @@ Scope model:
 
 - Migration 89e9355f393f preserves storage_capacity_unit (GB/TB, existing entries default GB) alongside integer GB capacity. Editor converts using decimal storage units (1 TB = 1000 GB); public setup respects the saved unit. Points distributions render only on profile Stats via ProfileRecordDistributionSection; gear categories appear as wrapping buttons above the leaderboard table, defaulting to Mouse; the title and category dropdown are removed.
 
+## Profile first completion dates
+
+- `/profile/:identifier/runs` offers an opt-in Show first completion time column, sortable across the full loaded PB list. Dates reflect the earliest valid recorded finish per map/course within the selected scope; NUB includes any teleport count, PRO requires zero teleports, and KZT includes NKZ. Existing PB dates and date filters retain their meaning. Missing first-completion dates sort last.
+- The option resets when leaving Runs, changing player, or reloading to limit expensive initial history reads. Presets never enable it. Loading and retryable failures leave ordinary PB rows available, and displayed datetimes respect viewer date and clock preferences.
+
 ## Shareable player cards
 
 - The official QQ bot generates portrait cards from `/cards/player/:identifier`, with player identity/country flag, rating icon/global and regional standings/total points, long-jump personal best, NUB completion, and the relative six-skill radar. Cards omit site branding, Steam IDs, and URLs, support OVR/KZT/SKZ/VNL and English/Chinese/Russian, and do not trigger profile-view writes or player synchronization. Images are cached in the bot for 15 minutes; forced image regeneration is separate from player-data refresh.
