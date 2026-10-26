@@ -16,7 +16,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.core.config import settings
 from app.core.db import init_db
-from app.models import Record, RecordUploadReceipt, ServerGroup
+from app.models import KZMode, Record, RecordUploadReceipt, ServerGlobalapi, ServerGroup
 from app.services.record_ingestion import accept_record
 from tests.services.test_record_ingestion import setup_finish
 
@@ -46,7 +46,16 @@ def test_concurrent_receipts_and_conflicting_uuid():
             engine = create_async_engine(url.set(database=name), pool_size=12)
             try:
                 async with AsyncSession(engine, expire_on_commit=False) as session:
-                    group, _, payload = await setup_finish(session)
+                    group, _, payload = await setup_finish(session, KZMode.KZT)
+                    session.add(
+                        ServerGlobalapi(
+                            id=998877,
+                            name="shared endpoint",
+                            ip="192.0.2.77",
+                            port=27016,
+                            group_id=group.id,
+                        )
+                    )
                     group_id = group.id
                     await session.commit()
 
@@ -59,9 +68,32 @@ def test_concurrent_receipts_and_conflicting_uuid():
                             await session.rollback()
                             return exc.status_code
 
-                results = await asyncio.gather(
-                    *(submit("same-finish", payload) for _ in range(12))
+                async def mirror():
+                    from app.services.globalapi_record_sync import _upsert_record
+
+                    async with AsyncSession(engine, expire_on_commit=False) as session:
+                        result = await _upsert_record(
+                            session=session,
+                            payload={
+                                "id": 998877,
+                                "steamid64": payload.steamid64,
+                                "server_id": 998877,
+                                "map_id": 982345,
+                                "mode": "kz_timer",
+                                "stage": 0,
+                                "time": "35.288",
+                                "teleports": 0,
+                                "created_on": payload.finished_at.isoformat(),
+                                "updated_on": payload.finished_at.isoformat(),
+                            },
+                        )
+                        await session.commit()
+                        return result
+
+                combined = await asyncio.gather(
+                    *(submit("same-finish", payload) for _ in range(12)), mirror()
                 )
+                results = combined[:-1]
                 assert all(result == results[0] for result in results)
                 assert isinstance(results[0], dict)
                 assert (
@@ -74,6 +106,9 @@ def test_concurrent_receipts_and_conflicting_uuid():
                 assert await submit("different-key", payload) == 409
                 async with AsyncSession(engine) as session:
                     assert len((await session.exec(select(Record))).all()) == 1
+                    record = (await session.exec(select(Record))).one()
+                    assert record.id == 998877 and record.uuid == payload.record_uuid
+                    assert record.time == Decimal("35.288")
                     assert (
                         len((await session.exec(select(RecordUploadReceipt))).all())
                         == 1

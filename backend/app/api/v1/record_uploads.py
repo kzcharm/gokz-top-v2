@@ -63,6 +63,9 @@ async def upload_replay(
 ) -> dict[str, Any]:
     from app.services.record_replay_upload import accept_replay
 
+    # Authentication is complete; do not hold a pooled connection while the
+    # game server streams a potentially large replay.
+    await session.commit()
     # Bound both chunked and Content-Length uploads. No unbounded request.body().
     data = bytearray()
     async for chunk in request.stream():

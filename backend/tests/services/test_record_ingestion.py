@@ -423,15 +423,15 @@ async def test_sync_first_restores_replay_eligibility_and_preserves_moderation(d
         is_valid=True,
     )
     original = mirror.uuid
-    result = await accept_record(db, group, payload, "sync-first")
-    assert not result["replay_eligible"]
-    claims = (await db.exec(select(RecordSourceClaim))).all()
-    assert len(claims) == 1 and claims[0].state == "review"
-    # A moderation decision made between ingestion and reconciliation must survive.
     mirror.is_valid = False
     db.add(mirror)
     await db.flush()
-    response = await submit_claim(db, group, payload.record_uuid, mirror.id)
+    result = await accept_record(db, group, payload, "sync-first")
+    assert result["replay_eligible"]
+    claims = (await db.exec(select(RecordSourceClaim))).all()
+    assert len(claims) == 1 and claims[0].state == "verified"
+    # Repeated identity claims preserve the moderation decision and receipt.
+    response = await submit_claim(db, group, payload.record_uuid, 987654)
     assert response["state"] == "verified"
     assert response["replay_eligible"]
     canonical = await db.get(Record, payload.record_uuid)
@@ -468,7 +468,16 @@ async def test_replay_storage_failure_keeps_record_and_retries(db, monkeypatch):
         + bytes(76)
         + struct.pack("<I", 1) * 4517
     )
-    put = AsyncMock(side_effect=[httpx.ConnectError("offline"), None])
+    calls = 0
+
+    async def stored_without_connection(**_kwargs):
+        nonlocal calls
+        assert not db.in_transaction()
+        calls += 1
+        if calls == 1:
+            raise httpx.ConnectError("offline")
+
+    put = AsyncMock(side_effect=stored_without_connection)
     monkeypatch.setattr(r2_storage, "put_object", put)
     with pytest.raises(HTTPException) as error:
         await accept_replay(db, group, payload.record_uuid, data)

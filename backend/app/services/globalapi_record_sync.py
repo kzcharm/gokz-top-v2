@@ -13,6 +13,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
+from app.crud.player import SteamPlayerPayload
 from app.models import (
     GlobalApiSyncResult,
     GlobalApiSyncState,
@@ -430,9 +431,11 @@ async def _ensure_player(
     steamid64: int,
     player_name: str,
     created_on: datetime,
+    steam_data: SteamPlayerPayload | None = None,
 ) -> Player:
     player = await crud.get_player_by_steamid64(session=session, steamid64=steamid64)
-    steam_data = await crud._fetch_player_from_steam_api(steamid64)
+    if steam_data is None:
+        steam_data = await crud._fetch_player_from_steam_api(steamid64)
     steam_name = _parse_string(steam_data.get("name"))
     resolved_name = (
         steam_name
@@ -594,11 +597,23 @@ async def _upsert_record(
     updated_by = _parse_int(payload.get("updated_by", 0), field_name="updated_by")
     replay_id = _parse_optional_int(payload.get("replay_id"))
 
+    # Release the sync-state read transaction before network I/O. Steam can be
+    # slow/unavailable; it must never occupy a pool slot or hold record locks.
+    await session.commit()
+    steam_data = await crud._fetch_player_from_steam_api(steamid64)
+    from app.services.record_ingestion import identity_lock
+
+    # Every record writer takes course before player rows and upstream identity.
+    # The inverse order deadlocked against direct finishes updating Last Played.
+    await identity_lock(session, f"course:{map_id}:{stage}")
+    await identity_lock(session, f"globalapi:{record_id}")
+
     await _ensure_player(
         session=session,
         steamid64=steamid64,
         player_name=_parse_string(payload.get("player_name")),
         created_on=created_on,
+        steam_data=steam_data,
     )
     await _ensure_map(
         session=session,
@@ -612,11 +627,7 @@ async def _upsert_record(
     )
 
     from app.models import Record
-    from app.services.record_ingestion import identity_lock
     from app.services.record_reconciliation import resolve_before_sync
-
-    await identity_lock(session, f"globalapi:{record_id}")
-    await identity_lock(session, f"course:{map_id}:{stage}")
 
     canonical = await resolve_before_sync(
         session,
@@ -878,6 +889,7 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                     return result
 
         while True:
+            await session.commit()
             logger.debug("Fetching GlobalAPI record record_id=%s", cursor)
             fetch_result = await _fetch_record_with_retry(
                 client=client, record_id=cursor

@@ -1,5 +1,6 @@
 """Transactional native record acceptance, independent of GlobalAPI availability."""
 
+import asyncio
 import hashlib
 import json
 import uuid
@@ -9,6 +10,7 @@ from typing import Any
 from fastapi import HTTPException
 from sqlalchemy import func, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
+from sqlalchemy.exc import DBAPIError
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -51,6 +53,7 @@ async def identity_lock(session: AsyncSession, identity: str) -> None:
     key = int.from_bytes(
         hashlib.sha256(identity.encode()).digest()[:8], "big", signed=True
     )
+    await session.execute(text("SET LOCAL lock_timeout = '5s'"))
     await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
 
 
@@ -180,7 +183,7 @@ async def replay_buckets(
     return buckets
 
 
-async def accept_record(
+async def _accept_record(
     session: AsyncSession, group: ServerGroup, payload: RecordFinish, key: str
 ) -> dict[str, Any]:
     if not key or len(key) > 128:
@@ -225,12 +228,31 @@ async def accept_record(
         raise HTTPException(409, "Record UUID already belongs to another submission")
     # All contenders for a course serialize before reading prior PBs/WRs.
     await identity_lock(session, f"course:{map_obj.id}:{payload.stage}")
-    buckets = await replay_buckets(session, payload, map_obj.id)
+    from app.services.record_matching import upstream_match
+
+    received_at = get_datetime_utc()
+    preview = Record(
+        uuid=canonical,
+        steamid64=payload.steamid64,
+        native_server_id=server.id,
+        mode=payload.mode,
+        map_id=map_obj.id,
+        stage=payload.stage,
+        time=payload.time,
+        teleports=payload.teleports,
+        created_at=payload.finished_at,
+    )
+    matched = await upstream_match(session, preview, received_at)
+    policy_time = matched.time if matched else payload.time
+    policy_payload = payload.model_copy(update={"time": policy_time})
+    buckets = await replay_buckets(
+        session, policy_payload, map_obj.id, matched.uuid if matched else None
+    )
     eligible = qualifies_for_run_replay(
         mode=payload.mode,
         stage=payload.stage,
         teleports=payload.teleports,
-        time=payload.time,
+        time=policy_time,
         buckets=buckets,
     )
     # Keep uncertain equal-stat runs separate, but freeze the alternative replay
@@ -296,7 +318,7 @@ async def accept_record(
         mode_id=payload.mode.mode_id,
         map_id=map_obj.id,
         stage=payload.stage,
-        time_seconds=payload.time,
+        time_seconds=matched.time if matched else payload.time,
         teleports=payload.teleports,
         points=0,
         created_on=payload.finished_at,
@@ -304,13 +326,13 @@ async def accept_record(
         updated_by=0,
         replay_id=None,
         is_valid=True,
-        emit_wr_notifications=True,
+        emit_wr_notifications=matched is None,
     )
     # Only changed main-course PBs can affect player ranking totals.
     changed_scopes = {
         bucket.scope.scope_id
         for bucket in buckets
-        if bucket.previous_pb is None or payload.time < bucket.previous_pb
+        if bucket.previous_pb is None or policy_time < bucket.previous_pb
     }
     if payload.stage == 0 and changed_scopes:
         await rebuild_leaderboard_players_for_keys(
@@ -325,8 +347,8 @@ async def accept_record(
                 "scope": b.scope.value,
                 "type": b.type.value,
                 "rank": b.rank,
-                "is_pb": b.previous_pb is None or payload.time < b.previous_pb,
-                "is_wr": b.previous_wr is None or payload.time < b.previous_wr,
+                "is_pb": b.previous_pb is None or policy_time < b.previous_pb,
+                "is_wr": b.previous_wr is None or policy_time < b.previous_wr,
             }
             for b in buckets
         ],
@@ -342,7 +364,24 @@ async def accept_record(
             replay_eligible=eligible,
         )
     )
+    await session.flush()
+    if matched:
+        from app.services.record_reconciliation import merge_records
+
+        source_payload = matched.model_dump(mode="json")
+        upstream_id = matched.id
+        await merge_records(session, record, matched)
+        session.add(
+            RecordSourceClaim(
+                record_uuid=canonical,
+                globalapi_id=upstream_id,
+                state="verified",
+                source_payload=source_payload,
+            )
+        )
     for candidate in candidates:
+        if matched and candidate.uuid == matched.uuid:
+            continue
         session.add(
             RecordSourceClaim(
                 record_uuid=canonical,
@@ -354,3 +393,29 @@ async def accept_record(
     await notify_recent_record_updated(session=session, record_uuid=record.uuid)
     await session.commit()
     return result
+
+
+async def accept_record(
+    session: AsyncSession, group: ServerGroup, payload: RecordFinish, key: str
+) -> dict[str, Any]:
+    """Retry complete transactions; durable receipts make lost acknowledgements safe."""
+    group_id = group.id
+    for attempt in range(3):
+        try:
+            return await _accept_record(session, group, payload, key)
+        except DBAPIError as exc:
+            if getattr(exc.orig, "sqlstate", None) not in {"40P01", "40001", "55P03"}:
+                raise
+            await session.rollback()
+            if attempt == 2:
+                raise HTTPException(
+                    503,
+                    "Records are busy; retry this finish",
+                    headers={"Retry-After": "5"},
+                ) from exc
+            await asyncio.sleep(0.05 * (attempt + 1))
+            refreshed = await session.get(ServerGroup, group_id)
+            if refreshed is None:
+                raise HTTPException(403, "Server group no longer exists")
+            group = refreshed
+    raise AssertionError("unreachable")

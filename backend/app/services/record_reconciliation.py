@@ -1,4 +1,4 @@
-"""Merge only explicit upstream identities after exact statistics and ownership checks."""
+"""Reconcile verified upstream identities and conservative legacy compatibility matches."""
 
 import uuid
 from typing import Any
@@ -18,9 +18,7 @@ from app.models import (
     RecordUploadReceipt,
     RecordUuidAlias,
     Server,
-    ServerGlobalapi,
     ServerGroup,
-    seconds_to_time_ms,
 )
 from app.services.record_ingestion import identity_lock
 
@@ -41,29 +39,10 @@ async def owned_record(
 
 
 async def same_source(session: AsyncSession, native: Record, upstream: Record) -> bool:
-    if any(
-        getattr(native, field) != getattr(upstream, field)
-        for field in ("steamid64", "map_id", "stage", "mode", "teleports")
-    ):
-        return False
-    if seconds_to_time_ms(native.time) != seconds_to_time_ms(upstream.time):
-        return False
-    server = (
-        await session.get(Server, native.native_server_id)
-        if native.native_server_id
-        else None
-    )
-    global_server = (
-        await session.get(ServerGlobalapi, upstream.server_id)
-        if upstream.server_id
-        else None
-    )
-    return bool(
-        server
-        and global_server
-        and global_server.group_id == server.group_id
-        and global_server.ip == server.ip
-        and global_server.port == server.port
+    from app.services.record_matching import same_owner, statistics_match
+
+    return statistics_match(native, upstream) and await same_owner(
+        session, native, upstream
     )
 
 
@@ -85,6 +64,8 @@ async def merge_records(
     native.id = upstream_id
     native.server_id = upstream.server_id
     native.replay_id = upstream.replay_id
+    native.time = upstream.time
+    native.points = upstream.points
     # Move FK and historical UUID references transactionally. Cache uniqueness is
     # per bucket; preserve the existing native entry if both ingestion paths ran.
     for table in SQLModel.metadata.tables.values():
@@ -145,8 +126,10 @@ async def merge_records(
 
 
 async def reconcile_claim(session: AsyncSession, claim: RecordSourceClaim) -> bool:
-    await identity_lock(session, f"globalapi:{claim.globalapi_id}")
     native = await session.get(Record, claim.record_uuid)
+    if native:
+        await identity_lock(session, f"course:{native.map_id}:{native.stage}")
+    await identity_lock(session, f"globalapi:{claim.globalapi_id}")
     upstream = (
         await session.exec(select(Record).where(Record.id == claim.globalapi_id))
     ).first()
@@ -155,7 +138,8 @@ async def reconcile_claim(session: AsyncSession, claim: RecordSourceClaim) -> bo
         claim.detail = "Waiting for synchronized upstream record"
         session.add(claim)
         return False
-    claim.source_payload = upstream.model_dump(mode="json")
+    if claim.state != "verified" or claim.source_payload is None:
+        claim.source_payload = upstream.model_dump(mode="json")
     if native.uuid == upstream.uuid:
         claim.state, claim.detail = "verified", ""
     elif upstream.native_server_id is not None or not await same_source(
@@ -189,6 +173,7 @@ async def submit_claim(
     session: AsyncSession, group: ServerGroup, record_uuid: uuid.UUID, globalapi_id: int
 ) -> dict[str, Any]:
     record = await owned_record(session, group, record_uuid)
+    await identity_lock(session, f"course:{record.map_id}:{record.stage}")
     await identity_lock(session, f"globalapi:{globalapi_id}")
     claim = (
         await session.exec(
@@ -243,7 +228,17 @@ async def resolve_before_sync(
     session: AsyncSession, upstream: Record
 ) -> uuid.UUID | None:
     """Resolve pending identities before sync can produce duplicate run events."""
+    await identity_lock(session, f"course:{upstream.map_id}:{upstream.stage}")
     await identity_lock(session, f"globalapi:{upstream.id}")
+    linked = (
+        await session.exec(select(Record).where(Record.id == upstream.id))
+    ).first()
+    if linked and linked.native_server_id is not None:
+        # Later upstream refreshes must not resurrect a moderated native run.
+        linked.replay_id = upstream.replay_id
+        linked.points = upstream.points
+        session.add(linked)
+        return linked.uuid
     claims = (
         await session.exec(
             select(RecordSourceClaim).where(
@@ -257,6 +252,24 @@ async def resolve_before_sync(
         native = await session.get(Record, claim.record_uuid)
         if native and await same_source(session, native, upstream):
             candidates.append((claim, native))
+    if not candidates:
+        from app.services.record_matching import native_match
+
+        native = await native_match(session, upstream)
+        if native:
+            compatible_claim = (
+                await session.exec(
+                    select(RecordSourceClaim).where(
+                        RecordSourceClaim.record_uuid == native.uuid,
+                        RecordSourceClaim.globalapi_id == upstream.id,
+                    )
+                )
+            ).first()
+            if compatible_claim is None:
+                compatible_claim = RecordSourceClaim(
+                    record_uuid=native.uuid, globalapi_id=upstream.id
+                )
+            candidates.append((compatible_claim, native))
     if len(candidates) != 1:
         for claim, _ in candidates:
             claim.state, claim.detail = (
@@ -279,10 +292,58 @@ async def resolve_before_sync(
     ).first()
     if existing and existing.uuid != native.uuid:
         return None
+    before = native.model_copy(deep=True)
     native.id, native.server_id = upstream.id, upstream.server_id
+    native.time = upstream.time
+    native.points = upstream.points
     native.replay_id = upstream.replay_id
     claim.state, claim.detail = "verified", ""
     session.add(native)
     session.add(claim)
     await session.flush()
+    if before.time != native.time:
+        from app.crud.record import _refresh_record_read_models_for_change
+
+        await _refresh_record_read_models_for_change(
+            session=session, before=before, after=native, emit_wr_notifications=False
+        )
     return native.uuid
+
+
+async def reconcile_compatible_receipt(
+    session: AsyncSession, receipt: RecordUploadReceipt, *, apply: bool
+) -> bool:
+    """Bounded operator backfill uses exactly the live compatibility checks."""
+    from app.services.record_matching import upstream_match
+
+    native = await session.get(Record, receipt.record_uuid)
+    if not native or native.id is not None:
+        return False
+    await identity_lock(session, f"course:{native.map_id}:{native.stage}")
+    upstream = await upstream_match(session, native, receipt.created_at)
+    if not upstream:
+        return False
+    if not apply:
+        return True
+    await identity_lock(session, f"globalapi:{upstream.id}")
+    claim = (
+        await session.exec(
+            select(RecordSourceClaim).where(
+                RecordSourceClaim.record_uuid == native.uuid,
+                RecordSourceClaim.globalapi_id == upstream.id,
+            )
+        )
+    ).first()
+    if claim is None:
+        claim = RecordSourceClaim(record_uuid=native.uuid, globalapi_id=upstream.id)
+    upstream_id = upstream.id
+    claim.source_payload = upstream.model_dump(mode="json")
+    await merge_records(session, native, upstream)
+    claim.state, claim.detail = "verified", ""
+    session.add(claim)
+    alternatives = receipt.payload.get("_reconciliation_replay_eligibility", {})
+    if str(upstream_id) in alternatives:
+        receipt.replay_eligible = bool(alternatives[str(upstream_id)])
+        receipt.result = {**receipt.result, "replay_eligible": receipt.replay_eligible}
+        session.add(receipt)
+    return True

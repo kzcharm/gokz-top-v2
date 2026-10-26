@@ -71,11 +71,15 @@ async def accept_replay(
         record.teleports,
     ):
         raise HTTPException(422, "Replay header does not match the accepted record")
-    # SourcePawn's %.3f truncates, while other submitters round to milliseconds.
+    # Support both legacy rounded clients and GlobalAPI-compatible truncation.
     # Match either representation of this exact float, not an arbitrary tolerance.
     if record.time not in {replay.time, replay.truncated_time}:
         raise HTTPException(422, "Replay time does not match the accepted record")
     key = f"replays/runs/{record.uuid}/{checksum}.replay"
+    # Immutable object writes are retry-safe. Release the transaction/connection
+    # during R2 I/O, then serialize and revalidate the catalog acknowledgement.
+    group_id = group.id
+    await session.commit()
     try:
         await r2_storage.put_object(
             key=key,
@@ -89,6 +93,24 @@ async def accept_replay(
             "Replay storage is temporarily unavailable",
             headers={"Retry-After": "30"},
         ) from exc
+    refreshed_group = await session.get(ServerGroup, group_id)
+    if refreshed_group is None:
+        raise HTTPException(403, "Server group no longer exists")
+    record = await owned_record(session, refreshed_group, record_uuid)
+    await identity_lock(session, f"replay:{record.uuid}")
+    await session.refresh(record)
+    receipt = (
+        await session.exec(
+            select(RecordUploadReceipt).where(
+                RecordUploadReceipt.record_uuid == record.uuid
+            )
+        )
+    ).first()
+    if not record.is_valid or not receipt or not receipt.replay_eligible:
+        raise HTTPException(403, "Record is no longer eligible for a replay upload")
+    existing = await session.get(RecordReplay, record.uuid, populate_existing=True)
+    if existing and existing.checksum != checksum:
+        raise HTTPException(409, "A different replay is already registered")
     if existing is None:
         existing = RecordReplay(
             record_uuid=record.uuid,
