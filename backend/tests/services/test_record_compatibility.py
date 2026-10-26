@@ -350,3 +350,125 @@ async def test_explicit_identity_supports_legacy_precision_outside_clock_window(
     result = await submit_claim(db, group, payload.record_uuid, upstream["id"])
     assert result["state"] == "verified"
     assert (await db.get(Record, payload.record_uuid)).time == Decimal("35.288")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("sync_first", [False, True])
+@pytest.mark.parametrize("delay", [11, 30])
+async def test_fast_clock_with_queued_delivery_merges_both_orders(
+    db, monkeypatch, sync_first, delay
+):
+    from app.services import record_ingestion
+
+    group, _, payload, upstream = await fixture(db)
+    finished = payload.finished_at
+    received = finished + timedelta(seconds=delay)
+    monkeypatch.setattr(record_ingestion, "get_datetime_utc", lambda: received)
+    payload = payload.model_copy(
+        update={
+            "finished_at": finished + timedelta(seconds=87),
+            "time": Decimal("82.320"),
+        }
+    )
+    upstream["time"] = "82.320"
+    old = None
+    if sync_first:
+        old, _, _ = await _upsert_record(session=db, payload=upstream)
+    accepted = await accept_record(db, group, payload, "fast-queued")
+    if not sync_first:
+        canonical, created, _ = await _upsert_record(session=db, payload=upstream)
+        assert canonical == payload.record_uuid and not created
+    await db.commit()
+    native = await db.get(Record, payload.record_uuid)
+    assert native.id == upstream["id"]
+    assert native.created_at == payload.finished_at
+    assert native.points == 888
+    assert (await db.exec(select(RecordUploadReceipt))).one().created_at == received
+    assert (await db.exec(select(RecordSourceClaim))).one().state == "verified"
+    if old:
+        assert (await db.get(RecordUuidAlias, old)).record_uuid == native.uuid
+    assert await accept_record(db, group, payload, "fast-queued") == accepted
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "change", ["normal_clock", "slow_clock", "too_late", "short", "natives", "mirrors"]
+)
+async def test_queued_clock_fallback_remains_conservative(db, monkeypatch, change):
+    from app.services import record_ingestion
+
+    group, _, payload, upstream = await fixture(db)
+    finished = payload.finished_at
+    received = finished + timedelta(seconds=31 if change == "too_late" else 11)
+    monkeypatch.setattr(record_ingestion, "get_datetime_utc", lambda: received)
+    clock = {"normal_clock": 11, "slow_clock": -87}.get(change, 87)
+    runtime = "35.000" if change == "short" else "82.320"
+    payload = payload.model_copy(
+        update={
+            "finished_at": finished + timedelta(seconds=clock),
+            "time": Decimal(runtime),
+        }
+    )
+    upstream["time"] = runtime
+    if change == "mirrors":
+        await _upsert_record(session=db, payload=upstream)
+        await _upsert_record(session=db, payload={**upstream, "id": 993323})
+    await accept_record(db, group, payload, "queued-first")
+    if change == "natives":
+        # Both receipt windows cover the upstream finish even though receipt
+        # times are more than five seconds apart. Neither may win by arrival.
+        received += timedelta(seconds=8)
+        await accept_record(
+            db,
+            group,
+            payload.model_copy(update={"record_uuid": generate_uuid7()}),
+            "queued-second",
+        )
+    if change != "mirrors":
+        canonical, _, _ = await _upsert_record(session=db, payload=upstream)
+        assert canonical != payload.record_uuid
+    assert (await db.get(Record, payload.record_uuid)).id is None
+
+
+@pytest.mark.asyncio
+async def test_delayed_fast_clock_backfill_uses_same_matching_rules(db, monkeypatch):
+    from app.crud.record import upsert_record
+    from app.services import record_ingestion
+
+    group, _, payload, upstream = await fixture(db)
+    finished = payload.finished_at
+    monkeypatch.setattr(
+        record_ingestion, "get_datetime_utc", lambda: finished + timedelta(seconds=11)
+    )
+    payload = payload.model_copy(
+        update={
+            "finished_at": finished + timedelta(seconds=87),
+            "time": Decimal("82.320"),
+        }
+    )
+    await accept_record(db, group, payload, "queued-before-upgrade")
+    mirror, _, _ = await upsert_record(
+        session=db,
+        record_id=upstream["id"],
+        record_uuid=generate_uuid7(),
+        steamid64=payload.steamid64,
+        server_id=upstream["server_id"],
+        mode_id=payload.mode.mode_id,
+        map_id=982345,
+        stage=0,
+        time_seconds=Decimal("82.320"),
+        teleports=0,
+        points=888,
+        created_on=finished,
+        updated_on=finished,
+        updated_by=0,
+        replay_id=None,
+        is_valid=True,
+    )
+    receipt = (await db.exec(select(RecordUploadReceipt))).one()
+    assert await reconcile_compatible_receipt(db, receipt, apply=False)
+    assert (await db.get(Record, payload.record_uuid)).id is None
+    old_uuid = mirror.uuid
+    assert await reconcile_compatible_receipt(db, receipt, apply=True)
+    await db.commit()
+    assert (await db.get(RecordUuidAlias, old_uuid)).record_uuid == payload.record_uuid

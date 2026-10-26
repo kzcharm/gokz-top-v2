@@ -19,6 +19,7 @@ from app.models import (
 # Both timestamps have second precision. Cap future client clocks at receipt time;
 # never expand the window to accommodate arbitrary historical clock offsets.
 MATCH_WINDOW = timedelta(seconds=5)
+RECEIPT_DELAY_WINDOW = timedelta(seconds=30)
 LEGACY_PRECISION = Decimal("0.001")
 
 
@@ -53,6 +54,12 @@ def statistics_match(native: Record, upstream: Record, *, legacy: bool = False) 
 
 
 def finish_window(native: Record, received_at: datetime) -> tuple[datetime, datetime]:
+    if native.created_at > received_at + MATCH_WINDOW:
+        # A fast client clock leaves receipt time as the useful anchor. The
+        # plugin's queue/check cycle can delay delivery beyond five seconds.
+        # Bound that delay, and require a run longer than the entire interval
+        # below so this cannot collapse rapid repeated finishes.
+        return received_at - RECEIPT_DELAY_WINDOW, received_at + MATCH_WINDOW
     effective = min(native.created_at, received_at)
     return effective - MATCH_WINDOW, effective + MATCH_WINDOW
 
@@ -60,14 +67,14 @@ def finish_window(native: Record, received_at: datetime) -> tuple[datetime, date
 async def unique_compatible_pair(
     session: AsyncSession, native: Record, upstream: Record, received_at: datetime
 ) -> bool:
-    if native.time <= Decimal(2 * MATCH_WINDOW.total_seconds()):
+    start, end = finish_window(native, received_at)
+    if native.time <= Decimal(str((end - start).total_seconds())):
         # Whole-second timestamps cannot distinguish rapid repeated short runs.
         return False
     if not statistics_match(native, upstream, legacy=True) or not await same_owner(
         session, native, upstream
     ):
         return False
-    start, end = finish_window(native, received_at)
     if not start <= upstream.created_at <= end:
         return False
     # Check both directions, including already linked records. Two finishes in
@@ -111,13 +118,18 @@ async def unique_compatible_pair(
                 func.least(Record.created_at, RecordUploadReceipt.created_at)
                 >= upstream.created_at - MATCH_WINDOW,
                 func.least(Record.created_at, RecordUploadReceipt.created_at)
-                <= upstream.created_at + MATCH_WINDOW,
+                <= upstream.created_at + RECEIPT_DELAY_WINDOW,
             )
             .limit(100)
         )
     ).all()
-    for other, _ in natives:
-        if other.uuid != native.uuid and await same_owner(session, other, upstream):
+    for other, other_received_at in natives:
+        other_start, other_end = finish_window(other, other_received_at)
+        if (
+            other.uuid != native.uuid
+            and other_start <= upstream.created_at <= other_end
+            and await same_owner(session, other, upstream)
+        ):
             return False
     return len(natives) < 100
 
@@ -173,7 +185,7 @@ async def native_match(session: AsyncSession, upstream: Record) -> Record | None
                 func.least(Record.created_at, RecordUploadReceipt.created_at)
                 >= upstream.created_at - MATCH_WINDOW,
                 func.least(Record.created_at, RecordUploadReceipt.created_at)
-                <= upstream.created_at + MATCH_WINDOW,
+                <= upstream.created_at + RECEIPT_DELAY_WINDOW,
             )
             .limit(100)
         )
