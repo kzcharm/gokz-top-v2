@@ -427,7 +427,17 @@ test("Own profile can pin and unpin records from the records tab and home card",
   await expect(page.getByText("Record pinned")).toBeVisible()
 
   await page.goto(`/profile/${steamid64}`)
-  await expect(page.getByText("1 of 6")).toBeVisible()
+  await expect(page.getByText("1 of 6")).toHaveCount(0)
+  const pinnedCard = page.getByTestId("pinned-record-card")
+  await expect(pinnedCard).toHaveCount(1)
+  await expect(pinnedCard).toHaveAttribute("href", "/maps/kz_alpha/maptop")
+  await expect(pinnedCard).toContainText("KZT · NUB")
+  await expect(pinnedCard).toContainText("2026-03-31")
+  await expect(pinnedCard).not.toContainText("12:00")
+  await expect(pinnedCard.locator("[aria-hidden=true]").first()).toHaveCSS(
+    "background-image",
+    /kz_alpha\.webp/,
+  )
   await expect(page.getByText("kz_alpha")).toBeVisible()
 
   await page.getByText("kz_alpha").click({ button: "right" })
@@ -447,6 +457,43 @@ test("Own profile can pin and unpin records from the records tab and home card",
   await expect(
     page.getByRole("menuitem", { name: "Pin this record" }),
   ).toBeVisible()
+})
+
+test("Pinned zero-teleport records show PRO and link to the map", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  await page.route(
+    /\/v1\/players\/[^/]+\/pinned-records(\?.*)?$/,
+    async (route) => {
+      await route.fulfill({
+        json: {
+          data: [
+            {
+              id: "zero-teleport-pin",
+              player_steamid64: steamid64,
+              map_id: nubRecords[0].map_id,
+              scope: "KZT",
+              type: "NUB",
+              record: { ...nubRecords[0], teleports: 0 },
+            },
+          ],
+          count: 1,
+        },
+      })
+    },
+  )
+  await page.goto(`/profile/${steamid64}`)
+  const card = page.getByTestId("pinned-record-card")
+  await expect(card).toContainText("KZT · PRO")
+  await card.focus()
+  await page.keyboard.press("Shift+F10")
+  await expect(
+    page.getByRole("menuitem", { name: "Unpin this record" }),
+  ).toBeVisible()
+  await page.keyboard.press("Escape")
+  await card.click()
+  await expect(page).toHaveURL(/\/maps\/kz_alpha\/maptop$/)
 })
 
 test("Own profile can hide and restore maps from the records tab", async ({

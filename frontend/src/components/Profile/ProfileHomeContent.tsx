@@ -1,9 +1,9 @@
+import { Link } from "@tanstack/react-router"
 import { PinOff } from "lucide-react"
-import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
+import type { ComponentPropsWithRef, KeyboardEvent, MouseEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { PlayerDailyActivityPublic } from "@/client"
-import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { ProfileSetupCard } from "@/components/Gear/ProfileSetupCard"
 import { PointsBadge } from "@/components/Records/PointsBadge"
@@ -26,6 +26,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip"
 import { useHorizontalDragScroll } from "@/hooks/useHorizontalDragScroll"
+import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { getLocale } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
 import { CompletionCard } from "./ProfileCompletionCard"
@@ -550,6 +551,83 @@ function ActivityCard({
   )
 }
 
+function PinnedRecordCard({
+  record,
+  rank,
+  totalCount,
+  ...linkProps
+}: Pick<ProfilePinnedRecord, "record" | "rank" | "totalCount"> &
+  Omit<ComponentPropsWithRef<"a">, "children">) {
+  const { t } = useTranslation()
+  const { formatDateTime } = useDateTimeFormat()
+  const imageUrls = useMapImageUrls(record.map_name)
+
+  return (
+    <Link
+      {...linkProps}
+      to="/maps/$mapName/maptop"
+      params={{ mapName: record.map_name }}
+      data-testid="pinned-record-card"
+      className="group relative isolate flex min-h-[76px] min-w-0 items-center gap-3 overflow-hidden rounded-[14px] border border-white/10 bg-slate-900 px-3.5 py-3 text-white [text-shadow:0_1px_3px_rgb(0_0_0/0.6)] transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+    >
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-20 bg-cover bg-center brightness-110 transition-transform dark:brightness-100 duration-300 group-hover:scale-105 motion-reduce:transition-none motion-reduce:group-hover:scale-100"
+        style={{
+          backgroundImage: imageUrls
+            .map((url) => `url("${url.replace(/"/g, "%22")}")`)
+            .join(", "),
+        }}
+      />
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 -z-10 bg-gradient-to-r from-slate-950/70 via-slate-950/15 to-slate-950/65 dark:from-slate-950/85 dark:via-slate-950/65 dark:to-slate-950/75"
+      />
+      <div className="min-w-0 flex-1">
+        <p className="min-w-0 truncate text-sm font-semibold">
+          {record.map_name}
+        </p>
+        <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-200">
+          <StageBadge
+            stage={record.stage}
+            className="shrink-0 px-1.5 py-0 text-[0.625rem] [text-shadow:none]"
+          />
+          <span className="whitespace-nowrap">
+            {record.mode} · {record.teleports === 0 ? "PRO" : "NUB"}
+          </span>
+          <span>
+            {rank === null
+              ? t("profile.pinned.rankUnavailable")
+              : totalCount === null
+                ? `#${formatNumber(rank)}`
+                : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
+          </span>
+        </div>
+      </div>
+      <div className="shrink-0 text-right">
+        <div className="flex items-center justify-end gap-2">
+          <p className="text-xl font-semibold tracking-tight text-white tabular-nums">
+            {formatRecordTime(record.time)}
+          </p>
+          <PointsBadge
+            points={record.points}
+            className="min-w-0 px-1.5 py-0 text-[0.625rem] [text-shadow:none]"
+          />
+        </div>
+        <div className="mt-1">
+          <span className="whitespace-nowrap text-[0.625rem] text-slate-200">
+            {formatDateTime(record.created_on, {
+              dateOnly: true,
+              display: "absolute",
+              fallback: "-",
+            })}
+          </span>
+        </div>
+      </div>
+    </Link>
+  )
+}
+
 function PinnedRecordsCard({
   canManagePinnedRecords,
   pinnedRecords,
@@ -565,64 +643,28 @@ function PinnedRecordsCard({
 }) {
   const { t } = useTranslation()
   return (
-    <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0">
-      <CardContent className="space-y-5 p-6">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-              {t("profile.pinned.title")}
-            </p>
-          </div>
-          <p className="text-sm text-muted-foreground">
-            {t("profile.pinned.count", { count: pinnedRecords.length })}
-          </p>
-        </div>
+    <Card className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-[#eeece9] py-0 shadow-[0_1px_3px_rgb(0_0_0/0.06)] dark:bg-card/95 dark:shadow-sm">
+      <CardContent className="space-y-4 p-5">
+        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
+          {t("profile.pinned.title")}
+        </p>
 
         {loading ? (
-          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-2">
             {Array.from({ length: 6 }, (_, index) => (
-              <Skeleton key={index} className="h-32 rounded-[22px]" />
+              <Skeleton key={index} className="h-[76px] rounded-[14px]" />
             ))}
           </div>
         ) : pinnedRecords.length > 0 ? (
-          <div className="grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,22rem),1fr))] gap-2">
             {pinnedRecords.map(
               ({ mapId, record, rank, totalCount, stage, type }) => {
                 const content = (
-                  <div className="group rounded-[22px] border border-border/70 bg-background/75 p-4 transition-colors hover:border-primary/35">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <p className="min-w-0 truncate text-sm font-semibold">
-                        {record.map_name}
-                      </p>
-                      <StageBadge
-                        stage={record.stage}
-                        className="shrink-0 px-1.5 py-0 text-[0.625rem]"
-                      />
-                    </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                      <span>{record.mode}</span>
-                      <span>
-                        {rank === null
-                          ? t("profile.pinned.rankUnavailable")
-                          : totalCount === null
-                            ? `#${formatNumber(rank)}`
-                            : `#${formatNumber(rank)} / ${formatCompactCount(totalCount)}`}
-                      </span>
-                    </div>
-                    <p className="mt-4 text-2xl font-semibold tracking-tight text-primary">
-                      {formatRecordTime(record.time)}
-                    </p>
-                    <div className="mt-3 flex items-center gap-2">
-                      <PointsBadge points={record.points} />
-                      <span className="text-xs text-muted-foreground">
-                        <FormattedDateTime
-                          value={record.created_on}
-                          display="absolute"
-                          fallback="-"
-                        />
-                      </span>
-                    </div>
-                  </div>
+                  <PinnedRecordCard
+                    record={record}
+                    rank={rank}
+                    totalCount={totalCount}
+                  />
                 )
 
                 if (!canManagePinnedRecords) {
@@ -632,11 +674,12 @@ function PinnedRecordsCard({
                 return (
                   <ManagedPinnedRecordCard
                     key={record.uuid}
+                    record={record}
+                    rank={rank}
+                    totalCount={totalCount}
                     disabled={mutating}
                     onUnpin={() => onUnpinRecord(mapId, stage, type)}
-                  >
-                    {content}
-                  </ManagedPinnedRecordCard>
+                  />
                 )
               },
             )}
@@ -652,11 +695,10 @@ function PinnedRecordsCard({
 }
 
 function ManagedPinnedRecordCard({
-  children,
   disabled,
   onUnpin,
-}: {
-  children: ReactNode
+  ...recordProps
+}: Pick<ProfilePinnedRecord, "record" | "rank" | "totalCount"> & {
   disabled: boolean
   onUnpin: () => void
 }) {
@@ -681,17 +723,16 @@ function ManagedPinnedRecordCard({
       }}
     >
       <DropdownMenuTrigger asChild>
-        <button
-          type="button"
+        <PinnedRecordCard
+          {...recordProps}
           aria-haspopup="menu"
           aria-disabled={disabled}
-          className="block w-full text-left"
-          onContextMenu={(event: MouseEvent<HTMLButtonElement>) => {
+          onContextMenu={(event: MouseEvent<HTMLAnchorElement>) => {
             event.preventDefault()
             contextMenuRequestedRef.current = true
             setMenuOpen(true)
           }}
-          onKeyDown={(event: KeyboardEvent<HTMLButtonElement>) => {
+          onKeyDown={(event: KeyboardEvent<HTMLAnchorElement>) => {
             if (
               event.key === "ContextMenu" ||
               (event.shiftKey && event.key === "F10")
@@ -701,9 +742,7 @@ function ManagedPinnedRecordCard({
               setMenuOpen(true)
             }
           }}
-        >
-          {children}
-        </button>
+        />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="start" side="bottom" sideOffset={8}>
         <DropdownMenuItem
