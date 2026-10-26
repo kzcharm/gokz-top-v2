@@ -68,7 +68,7 @@ async def unique_compatible_pair(
     session: AsyncSession, native: Record, upstream: Record, received_at: datetime
 ) -> bool:
     start, end = finish_window(native, received_at)
-    if native.time <= Decimal(str((end - start).total_seconds())):
+    if min(native.time, upstream.time) <= Decimal(str((end - start).total_seconds())):
         # Whole-second timestamps cannot distinguish rapid repeated short runs.
         return False
     if not statistics_match(native, upstream, legacy=True) or not await same_owner(

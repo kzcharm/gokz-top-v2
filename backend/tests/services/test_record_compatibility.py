@@ -392,7 +392,16 @@ async def test_fast_clock_with_queued_delivery_merges_both_orders(
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "change", ["normal_clock", "slow_clock", "too_late", "short", "natives", "mirrors"]
+    "change",
+    [
+        "normal_clock",
+        "slow_clock",
+        "too_late",
+        "short",
+        "legacy_short",
+        "natives",
+        "mirrors",
+    ],
 )
 async def test_queued_clock_fallback_remains_conservative(db, monkeypatch, change):
     from app.services import record_ingestion
@@ -402,14 +411,14 @@ async def test_queued_clock_fallback_remains_conservative(db, monkeypatch, chang
     received = finished + timedelta(seconds=31 if change == "too_late" else 11)
     monkeypatch.setattr(record_ingestion, "get_datetime_utc", lambda: received)
     clock = {"normal_clock": 11, "slow_clock": -87}.get(change, 87)
-    runtime = "35.000" if change == "short" else "82.320"
+    runtime = {"short": "35.000", "legacy_short": "35.001"}.get(change, "82.320")
     payload = payload.model_copy(
         update={
             "finished_at": finished + timedelta(seconds=clock),
             "time": Decimal(runtime),
         }
     )
-    upstream["time"] = runtime
+    upstream["time"] = "35.000" if change == "legacy_short" else runtime
     if change == "mirrors":
         await _upsert_record(session=db, payload=upstream)
         await _upsert_record(session=db, payload={**upstream, "id": 993323})
