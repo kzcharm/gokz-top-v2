@@ -14,6 +14,7 @@ from app.models import (
     RecordUuidAlias,
     ServerGlobalapi,
     generate_uuid7,
+    get_datetime_utc,
 )
 from app.services.globalapi_record_sync import _upsert_record
 from app.services.record_ingestion import accept_record
@@ -275,3 +276,22 @@ async def test_pool_timeout_returns_retryable_status_without_holding_transaction
     assert error.value.status_code == 503 and error.value.headers["Retry-After"] == "5"
     assert not db.in_transaction()
     assert operation.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_receipt_clock_evidence_precedes_scoring(db, monkeypatch):
+    from app.services import record_ingestion
+
+    group, _, payload, _ = await fixture(db)
+    original = record_ingestion.upsert_record
+    started = None
+
+    async def scoring(**kwargs):
+        nonlocal started
+        started = get_datetime_utc()
+        return await original(**kwargs)
+
+    monkeypatch.setattr(record_ingestion, "upsert_record", scoring)
+    await accept_record(db, group, payload, "arrival-clock")
+    receipt = (await db.exec(select(RecordUploadReceipt))).one()
+    assert receipt.created_at <= started

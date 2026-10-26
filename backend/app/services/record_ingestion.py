@@ -365,6 +365,7 @@ async def _accept_record(
             payload=body,
             result=result,
             replay_eligible=eligible,
+            created_at=received_at,
         )
     )
     await session.flush()
