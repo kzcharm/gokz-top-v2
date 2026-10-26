@@ -41,7 +41,7 @@ async def owned_record(
 async def same_source(session: AsyncSession, native: Record, upstream: Record) -> bool:
     from app.services.record_matching import same_owner, statistics_match
 
-    return statistics_match(native, upstream) and await same_owner(
+    return statistics_match(native, upstream, legacy=True) and await same_owner(
         session, native, upstream
     )
 
@@ -139,7 +139,17 @@ async def reconcile_claim(session: AsyncSession, claim: RecordSourceClaim) -> bo
     native = await session.get(Record, claim.record_uuid)
     if native:
         await identity_lock(session, f"course:{native.map_id}:{native.stage}")
+        # Another request may have linked this UUID while we waited. Refresh
+        # the ORM identity map before deciding whether a second claim is safe.
+        await session.refresh(native)
     await identity_lock(session, f"globalapi:{claim.globalapi_id}")
+    if native and native.id is not None and native.id != claim.globalapi_id:
+        claim.state, claim.detail = (
+            "review",
+            "Native record already has another upstream identity",
+        )
+        session.add(claim)
+        return False
     upstream = (
         await session.exec(select(Record).where(Record.id == claim.globalapi_id))
     ).first()

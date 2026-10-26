@@ -295,3 +295,58 @@ async def test_receipt_clock_evidence_precedes_scoring(db, monkeypatch):
     await accept_record(db, group, payload, "arrival-clock")
     receipt = (await db.exec(select(RecordUploadReceipt))).one()
     assert receipt.created_at <= started
+
+
+@pytest.mark.asyncio
+async def test_second_upstream_claim_preserves_verified_identity_even_with_stale_orm(
+    db,
+):
+    from sqlalchemy.orm.attributes import set_committed_value
+
+    from app.services.record_reconciliation import submit_claim
+
+    group, _, payload, upstream = await fixture(db)
+    await accept_record(db, group, payload, "identity-owner")
+    await _upsert_record(session=db, payload=upstream)
+    await db.commit()
+    native = await db.get(Record, payload.record_uuid)
+    original_id = native.id
+    other_uuid, _, _ = await _upsert_record(
+        session=db,
+        payload={
+            **upstream,
+            "id": original_id + 1,
+            "created_on": (payload.finished_at + timedelta(seconds=20)).isoformat(),
+        },
+    )
+    await db.commit()
+    # Simulate a request that loaded the native row before the winning request
+    # committed, without changing the actual database identity.
+    set_committed_value(native, "id", None)
+    response = await submit_claim(db, group, payload.record_uuid, original_id + 1)
+    assert response["state"] == "review"
+    assert (await db.get(Record, payload.record_uuid)).id == original_id
+    assert (await db.get(Record, other_uuid)).id == original_id + 1
+    verified = (
+        await db.exec(
+            select(RecordSourceClaim).where(RecordSourceClaim.state == "verified")
+        )
+    ).one()
+    assert verified.globalapi_id == original_id
+
+
+@pytest.mark.asyncio
+async def test_explicit_identity_supports_legacy_precision_outside_clock_window(db):
+    from app.services.record_reconciliation import submit_claim
+
+    group, _, payload, upstream = await fixture(db)
+    payload = payload.model_copy(
+        update={"finished_at": payload.finished_at - timedelta(seconds=87)}
+    )
+    await accept_record(db, group, payload, "legacy-explicit")
+    mirror, _, _ = await _upsert_record(session=db, payload=upstream)
+    await db.commit()
+    assert mirror != payload.record_uuid
+    result = await submit_claim(db, group, payload.record_uuid, upstream["id"])
+    assert result["state"] == "verified"
+    assert (await db.get(Record, payload.record_uuid)).time == Decimal("35.288")
