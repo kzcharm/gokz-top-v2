@@ -2,11 +2,11 @@ import type { EChartsOption } from "echarts"
 import * as echarts from "echarts"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
-
 import type {
   MapStatsPublic,
   MapWrGapDistributionContentPublic,
 } from "@/client"
+import { formatWrGap, wrGapScaleToRatio } from "@/components/Records/wr-gap"
 import { useTheme } from "@/components/theme-provider"
 import { Card, CardContent } from "@/components/ui/card"
 import { useMediaQuery } from "@/hooks/useMobile"
@@ -24,10 +24,7 @@ function formatMedianWrGap(value: number | null | undefined) {
   if (value == null || !Number.isFinite(value)) {
     return null
   }
-  return new Intl.NumberFormat(undefined, {
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 3,
-  }).format(value)
+  return formatWrGapAxisLabel(value)
 }
 
 function medianWrGapToRecordTime(
@@ -113,13 +110,7 @@ function recordTimeToWrGap(
 }
 
 function formatWrGapAxisLabel(value: number) {
-  if (Math.abs(value) < 1e-9) {
-    return "0"
-  }
-  if (Math.abs(value - Math.round(value)) < 1e-9) {
-    return `${Math.round(value)}`
-  }
-  return value.toFixed(1)
+  return formatWrGap(wrGapScaleToRatio(value))
 }
 
 function roundDownToBinStart(value: number) {
@@ -399,6 +390,7 @@ function WrGapDistributionChart({
           max: xAxisMax,
           interval: 0.5,
           axisLabel: {
+            hideOverlap: true,
             rotate: 0,
             fontSize: isNarrowViewport ? 10 : 11,
             color: axisColor,

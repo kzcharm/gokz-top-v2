@@ -3,7 +3,6 @@ import { Flag, InfoIcon } from "lucide-react"
 import type { ReactNode } from "react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import type { RecordPublic } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
@@ -19,6 +18,7 @@ import { RecordServerDisplay } from "@/components/Records/RecordServerDisplay"
 import { ReplayAvailabilityButton } from "@/components/Records/ReplayAvailabilityButton"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
+import { formatWrGap, getWrGap } from "@/components/Records/wr-gap"
 import { ReportPlayerDialog } from "@/components/Reports/ReportPlayerDialog"
 import { Button } from "@/components/ui/button"
 import {
@@ -30,26 +30,11 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import { isLoggedIn } from "@/hooks/useAuth"
-import { getLocale } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
 
 type MapTopTableRow = {
   rank: number
   record: RecordPublic
-}
-
-function getWrGap(recordTime: number, wrTime: number | null): number | null {
-  if (wrTime === null || !Number.isFinite(wrTime) || wrTime <= 0) {
-    return null
-  }
-
-  const ratioDelta = recordTime / wrTime - 1
-  if (!Number.isFinite(ratioDelta) || ratioDelta <= 0) {
-    return null
-  }
-
-  const wrGap = Math.log2(ratioDelta)
-  return Number.isFinite(wrGap) ? wrGap : null
 }
 
 function WrGapHeader() {
@@ -80,9 +65,7 @@ function WrGapHeader() {
           <div className="space-y-3 text-sm leading-relaxed text-foreground/90">
             <div className="rounded-lg border border-border/70 bg-muted/35 p-3">
               <p className="font-medium">{t("maps.wrGapInfoFormulaLabel")}</p>
-              <p className="font-mono text-sm">
-                log2(record.time / wr.time - 1)
-              </p>
+              <p className="font-mono text-sm">record.time / wr.time</p>
             </div>
             <p>{t("maps.wrGapInfoCloser")}</p>
             <div className="rounded-lg border border-border/70 bg-muted/35 p-3">
@@ -127,14 +110,6 @@ export function MapTopTable({
   const { t } = useTranslation()
   const [reportRecord, setReportRecord] = useState<RecordPublic | null>(null)
   const authenticated = isLoggedIn()
-  const wrGapFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(getLocale(), {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }),
-    [],
-  )
 
   const tableData = useMemo<MapTopTableRow[]>(
     () =>
@@ -214,10 +189,10 @@ export function MapTopTable({
         },
         header: () => <WrGapHeader />,
         cell: ({ row }) => {
-          const wrGap = getWrGap(row.original.record.time, wrTime)
+          const wrGap = getWrGap(row.original.record.time, wrTime ?? Number.NaN)
           return (
             <div className="text-right font-mono font-medium text-foreground/90">
-              {wrGap === null ? "-" : wrGapFormatter.format(wrGap)}
+              {wrGap === null ? "-" : formatWrGap(wrGap)}
             </div>
           )
         },
@@ -290,7 +265,7 @@ export function MapTopTable({
           ]
         : []),
     ],
-    [renderAdminActions, t, wrGapFormatter, wrTime],
+    [renderAdminActions, t, wrTime],
   )
 
   const pageCount = Math.max(1, Math.ceil(totalCount / pageSize))

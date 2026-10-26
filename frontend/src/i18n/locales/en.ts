@@ -1236,7 +1236,7 @@ export const en = {
       firstMed:
         "Median of each player’s fastest valid main-course time in the selected scope. This uses player bests, not their first chronological finishes.",
       firstMedWrGap:
-        "Gap between 1st Med and the selected scope’s NUB WR: log2(1st Med / WR − 1). Higher values mean a wider gap and can help indicate map difficulty. Shown as — when either time is unavailable or nonpositive, or 1st Med is at or below WR.",
+        "Ratio of median player-best time to the selected scope’s NUB WR: median PB / WR. Higher values mean a wider gap. Equal times show 1.00x; missing, nonpositive, or inconsistent times show —. Values use two decimal places up to 10x and one above 10x, without rounding up.",
       bonus: "Number of bonus courses on the map.",
     },
     title: "Maps",
@@ -1426,15 +1426,15 @@ export const en = {
     wrGapInfoButtonAria: "Explain WR Gap",
     wrGapInfoTitle: "What is WR Gap?",
     wrGapInfoDescription:
-      "WR Gap shows how far a run is from the world record using a logarithmic scale.",
+      "WR Gap shows your run time divided by the world-record time, as a multiplier.",
     wrGapInfoFormulaLabel: "Formula",
     wrGapInfoCloser:
-      "More negative numbers mean the run is closer to the WR. Numbers closer to 0 mean it is farther away.",
+      "A multiplier closer to 1.00x means a run is closer to the WR. Values use two decimal places up to 10x and one above 10x, without rounding up.",
     wrGapInfoExampleLabel: "Example",
     wrGapInfoExample:
-      "If the WR is 100.00 seconds and a run is 125.00 seconds, the extra 25% becomes log2(0.25) = -2.00.",
+      "If the WR is 100.00 seconds and a run takes 102.56 seconds, the ratio is 1.0256 and displays as 1.02x.",
     wrGapInfoWrRow:
-      "The WR row shows '-' because the formula is undefined for the WR itself.",
+      "A run matching the WR shows 1.00x. Missing WR times show a dash.",
     findMeNotRankedTitle: "You do not have a ranked finish here",
     findMeNotRankedDescription:
       "Try another scope, filter, or the other NUB / PRO view.",

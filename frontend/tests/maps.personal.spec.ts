@@ -1,14 +1,18 @@
 import { expect, type Page, test, type WebSocketRoute } from "@playwright/test"
-import { getWrGap } from "../src/components/Records/wr-gap"
+import {
+  formatWrGap,
+  getWrGap,
+  wrGapScaleToRatio,
+} from "../src/components/Records/wr-gap"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
-test("WR Gap keeps the established scale and rejects undefined inputs", () => {
-  expect(getWrGap(125, 100)).toBe(-2)
-  expect(getWrGap(200, 100)).toBe(0)
-  expect(getWrGap(500, 100)).toBe(2)
+test("WR Gap uses ratios and rejects invalid inputs", () => {
+  expect(getWrGap(125, 100)).toBe(1.25)
+  expect(getWrGap(200, 100)).toBe(2)
+  expect(getWrGap(500, 100)).toBe(5)
+  expect(getWrGap(100, 100)).toBe(1)
   for (const [time, wr] of [
-    [100, 100],
     [90, 100],
     [0, 100],
     [100, 0],
@@ -328,7 +332,7 @@ test("public metrics explain values, sort gaps, and persist card options", async
     ["PRO Ratio", "Percentage of main-course"],
     ["Total Runs", "including repeat finishes"],
     ["1st Med", "Median of each player"],
-    ["1st Med WR Gap", "log2(1st Med"],
+    ["1st Med WR Gap", "median PB / WR"],
     ["Bonus", "Number of bonus courses"],
   ]) {
     await page.getByRole("button", { name: label, exact: true }).hover()
@@ -343,19 +347,19 @@ test("public metrics explain values, sort gaps, and persist card options", async
     page.locator('[data-testid^="map-card-"]').first(),
   ).toHaveAttribute("data-testid", "map-card-kz_pick_02")
   await expect(
-    page.getByRole("button", { name: "1st Med WR Gap: 2.00", exact: true }),
+    page.getByRole("button", { name: "1st Med WR Gap: 5.00x", exact: true }),
   ).toBeVisible()
   await page
     .getByRole("button", { name: "1st Med WR Gap", exact: true })
     .click()
   await expect(
     page.locator('[data-testid^="map-card-"]').first(),
-  ).toHaveAttribute("data-testid", "map-card-kz_pick_00")
+  ).toHaveAttribute("data-testid", "map-card-kz_pick_03")
   await expect(
-    page.getByRole("button", { name: "1st Med WR Gap: -2.00", exact: true }),
+    page.getByRole("button", { name: "1st Med WR Gap: 1.25x", exact: true }),
   ).toBeVisible()
   await page
-    .getByRole("button", { name: "1st Med WR Gap: -2.00", exact: true })
+    .getByRole("button", { name: "1st Med WR Gap: 1.25x", exact: true })
     .focus()
   await expect(page.getByRole("tooltip")).toContainText(
     "Higher values mean a wider gap",
@@ -543,9 +547,7 @@ test.describe("touch controls", () => {
     await page
       .getByRole("button", { name: "Explain 1st Med WR Gap", exact: true })
       .tap()
-    await expect(page.getByRole("dialog")).toContainText(
-      "log2(1st Med / WR − 1)",
-    )
+    await expect(page.getByRole("dialog")).toContainText("median PB / WR")
     await expect(field).toHaveAttribute("aria-pressed", "false")
     await page.keyboard.press("Escape")
     await field.tap()
@@ -563,4 +565,20 @@ test.describe("touch controls", () => {
       fullPage: false,
     })
   })
+})
+
+test("WR ratio formatting truncates at the requested precision", () => {
+  for (const [value, label] of [
+    [1, "1.00x"],
+    [1.0256, "1.02x"],
+    [9.999, "9.99x"],
+    [10, "10.00x"],
+    [10.001, "10.0x"],
+    [10.999, "10.9x"],
+    [125.678, "125.6x"],
+  ] as const)
+    expect(formatWrGap(value)).toBe(label)
+  expect(wrGapScaleToRatio(0)).toBe(2)
+  expect(wrGapScaleToRatio(-2)).toBe(1.25)
+  expect(wrGapScaleToRatio(Number.POSITIVE_INFINITY)).toBeNull()
 })

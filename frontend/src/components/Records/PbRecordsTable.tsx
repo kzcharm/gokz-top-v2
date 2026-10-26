@@ -17,6 +17,7 @@ import {
   RowContextMenuSeparator,
 } from "@/components/Common/RowContextMenu"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
+import { formatWrGap } from "@/components/Records/wr-gap"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Button } from "@/components/ui/button"
 import {
@@ -274,7 +275,7 @@ function PbRecordTableRow({
       ) : null}
       {visibleColumns.has("wrGap") ? (
         <TableCell className="text-right font-mono font-medium">
-          {record.wr_gap == null ? "-" : record.wr_gap.toFixed(2)}
+          {record.wr_gap == null ? "-" : formatWrGap(record.wr_gap)}
         </TableCell>
       ) : null}
       {visibleColumns.has("points") ? (

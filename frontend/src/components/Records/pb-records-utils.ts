@@ -53,10 +53,6 @@ export type PbRecordWithWr = RecordPublic & {
   first_completed_at?: string | null
 }
 
-function roundWrGap(gap: number | null) {
-  return gap === null ? null : Math.round(gap * 1000) / 1000
-}
-
 export function attachMapWrsToPbRecords(
   records: RecordPublic[],
   wrs: MapWrPublic[],
@@ -73,8 +69,7 @@ export function attachMapWrsToPbRecords(
     return {
       ...record,
       wr_time: wr?.time ?? null,
-      wr_gap:
-        wr === undefined ? null : roundWrGap(getWrGap(record.time, wr.time)),
+      wr_gap: wr === undefined ? null : getWrGap(record.time, wr.time),
       wr_teleports: wr?.teleports ?? null,
     }
   })

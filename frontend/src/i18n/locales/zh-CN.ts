@@ -1203,7 +1203,7 @@ export const zhCN = {
       firstMed:
         "当前模式范围内，每位玩家最快有效主线用时的中位数。此指标使用个人最佳用时，并非按时间顺序的首次完赛。",
       firstMedWrGap:
-        "1st Med 与当前模式范围 NUB 世界纪录的差距：log2(1st Med / WR − 1)。数值越大，差距越大，可作为地图难度的参考。任一用时缺失、不为正数，或 1st Med 不大于 WR 时显示 —。",
+        "个人最佳用时中位数除以所选模式的 NUB WR：个人最佳中位数 / WR。数值越高差距越大。用时相同显示 1.00x；时间缺失、非正数或不一致时显示 —。小于等于 10x 时截取两位小数，大于 10x 时截取一位小数，不向上舍入。",
       bonus: "地图的奖励关卡数量。",
     },
     title: "地图",
@@ -1386,14 +1386,16 @@ export const zhCN = {
     findMe: "找我",
     wrGapInfoButtonAria: "解释 WR Gap",
     wrGapInfoTitle: "什么是 WR Gap？",
-    wrGapInfoDescription: "WR Gap 用对数刻度表示这条记录距离世界纪录还有多远。",
+    wrGapInfoDescription:
+      "WR 差距显示成绩用时与世界纪录用时的比值，以倍数表示。",
     wrGapInfoFormulaLabel: "公式",
     wrGapInfoCloser:
-      "数值越负，说明这条记录越接近 WR。越接近 0，则说明它离 WR 更远。",
+      "倍数越接近 1.00x，成绩越接近 WR。小于等于 10x 时截取两位小数，大于 10x 时截取一位小数，不向上舍入。",
     wrGapInfoExampleLabel: "示例",
     wrGapInfoExample:
-      "如果 WR 是 100.00 秒，而一条记录是 125.00 秒，那么多出的 25% 会变成 log2(0.25) = -2.00。",
-    wrGapInfoWrRow: "WR 那一行会显示 '-'，因为这个公式对 WR 本身没有定义。",
+      "例如 WR 为 100.00 秒，成绩为 102.56 秒，比值为 1.0256，显示为 1.02x。",
+    wrGapInfoWrRow:
+      "与 WR 用时相同的记录显示 1.00x；缺少 WR 用时则显示短横线。",
     findMeNotRankedTitle: "你在这里还没有可排名的完成记录",
     findMeNotRankedDescription:
       "试试其他范围、筛选条件，或切换 NUB / PRO 视图。",

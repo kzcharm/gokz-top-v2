@@ -15,6 +15,7 @@ import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { getRecordModeLabelById } from "@/components/Records/mode"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
+import { formatWrGap } from "@/components/Records/wr-gap"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
@@ -196,10 +197,7 @@ export function MapCard({
       : sortField === "firstMedWrGap"
         ? firstMedWrGap === null
           ? "—"
-          : formatNumber(firstMedWrGap, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })
+          : formatWrGap(firstMedWrGap)
         : leaderboardMetric
   const metricLabel = isMapMetric(sortField)
     ? t(`maps.sortOptions.${sortField}`)
@@ -226,9 +224,9 @@ export function MapCard({
         ? formatDateTime(personalBest?.record?.created_on ?? "", {
             dateOnly: true,
           })
-        : formatNumber(personalValue, {
-            maximumFractionDigits: sortField === "pbWrGap" ? 2 : 3,
-          })
+        : sortField === "pbWrGap"
+          ? formatWrGap(personalValue)
+          : formatNumber(personalValue, { maximumFractionDigits: 3 })
   const cardMetric =
     adjustedRating === undefined
       ? metricValue
