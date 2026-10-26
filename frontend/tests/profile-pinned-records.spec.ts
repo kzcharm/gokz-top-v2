@@ -510,9 +510,7 @@ test("Own profile can hide and restore maps from the records tab", async ({
   await expect(page.getByText("kz_beta")).toBeVisible()
 
   await page.getByRole("button", { name: "Record page settings" }).click()
-  await page
-    .getByRole("menuitemcheckbox", { name: "Show hidden records" })
-    .click()
+  await page.getByRole("menuitemcheckbox", { name: "Hidden records" }).click()
   await expect(page.getByText("kz_alpha")).toBeVisible()
   await page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`).click({
     button: "right",
@@ -528,12 +526,12 @@ test("Own profile can show and filter WR time and WR gap columns", async ({
   await page.goto(`/profile/${steamid64}/runs`)
 
   await page.getByRole("button", { name: "Record page settings" }).click()
-  await page.getByRole("menuitemcheckbox", { name: "Show WR time" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "WR time" }).click()
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Show WR time" }),
+    page.getByRole("menuitemcheckbox", { name: "WR time" }),
   ).toHaveCount(0)
   await page.getByRole("button", { name: "Record page settings" }).click()
-  await page.getByRole("menuitemcheckbox", { name: "Show WR gap" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "WR gap" }).click()
 
   await expect
     .poll(async () => {
@@ -587,9 +585,9 @@ test("WR time and gap preset filters stay active while their columns are hidden"
   await page.goto(`/profile/${steamid64}/runs`)
 
   await page.getByRole("button", { name: "Record page settings" }).click()
-  await page.getByRole("menuitemcheckbox", { name: "Show WR time" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "WR time" }).click()
   await page.getByRole("button", { name: "Record page settings" }).click()
-  await page.getByRole("menuitemcheckbox", { name: "Show WR gap" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "WR gap" }).click()
 
   await page.getByLabel("Filter by wr time range").click()
   await page.getByRole("textbox", { name: "Maximum wr time" }).fill("0:40")
@@ -606,9 +604,9 @@ test("WR time and gap preset filters stay active while their columns are hidden"
   await page.getByRole("button", { name: "Presets" }).click()
   await page.getByText("Reset view").click()
   await page.getByRole("button", { name: "Record page settings" }).click()
-  await page.getByRole("menuitemcheckbox", { name: "Show WR time" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "WR time" }).click()
   await page.getByRole("button", { name: "Record page settings" }).click()
-  await page.getByRole("menuitemcheckbox", { name: "Show WR gap" }).click()
+  await page.getByRole("menuitemcheckbox", { name: "WR gap" }).click()
 
   await expect(
     page.getByRole("columnheader", { name: "WR", exact: true }),
@@ -642,13 +640,13 @@ test("Other profiles expose WR column options without hidden records", async ({
 
   await page.getByRole("button", { name: "Record page settings" }).click()
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Show WR time" }),
+    page.getByRole("menuitemcheckbox", { name: "WR time" }),
   ).toBeVisible()
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Show WR gap" }),
+    page.getByRole("menuitemcheckbox", { name: "WR gap" }),
   ).toBeVisible()
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Show hidden records" }),
+    page.getByRole("menuitemcheckbox", { name: "Hidden records" }),
   ).toHaveCount(0)
 })
 
@@ -676,7 +674,7 @@ for (const ownProfile of [true, false]) {
     await expect(row).toBeVisible()
     const initialCellCount = await row.getByRole("cell").count()
 
-    for (const label of ["Show server", "Show date"]) {
+    for (const label of ["Server", "Date"]) {
       await page.getByRole("button", { name: "Record page settings" }).click()
       const option = page.getByRole("menuitemcheckbox", { name: label })
       await expect(option).toBeChecked()
@@ -694,7 +692,7 @@ for (const ownProfile of [true, false]) {
     await expect(serverHeader).toHaveCount(0)
     await expect(dateHeader).toHaveCount(0)
 
-    for (const label of ["Show server", "Show date"]) {
+    for (const label of ["Server", "Date"]) {
       await page.getByRole("button", { name: "Record page settings" }).click()
       const option = page.getByRole("menuitemcheckbox", { name: label })
       await expect(option).not.toBeChecked()
@@ -702,7 +700,7 @@ for (const ownProfile of [true, false]) {
     }
     await page.getByRole("button", { name: "Record page settings" }).click()
     await page
-      .getByRole("menuitemcheckbox", { name: "Show time", exact: true })
+      .getByRole("menuitemcheckbox", { name: "Time", exact: true })
       .click()
     await page.reload()
     await expect(serverHeader).toBeVisible()
@@ -732,24 +730,24 @@ test("Run time requires date and both preferences survive reloads", async ({
       .getByRole("menuitemcheckbox", { name: label, exact: true })
       .click()
   }
-  await toggle("Show time")
+  await toggle("Time")
   await page.reload()
   await expect(
     page.getByRole("columnheader", { name: "Date", exact: true }),
   ).toBeVisible()
   await expect(row.getByText("2026-03-31", { exact: true })).toBeVisible()
 
-  await toggle("Show date")
+  await toggle("Date")
   await page.reload()
   await expect(
     page.getByRole("columnheader", { name: "Date", exact: true }),
   ).toHaveCount(0)
   await page.getByRole("button", { name: "Record page settings" }).click()
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Show time", exact: true }),
+    page.getByRole("menuitemcheckbox", { name: "Time", exact: true }),
   ).not.toBeChecked()
   await page
-    .getByRole("menuitemcheckbox", { name: "Show time", exact: true })
+    .getByRole("menuitemcheckbox", { name: "Time", exact: true })
     .click()
   await page.reload()
   await expect(
@@ -757,10 +755,10 @@ test("Run time requires date and both preferences survive reloads", async ({
   ).toBeVisible()
   await page.getByRole("button", { name: "Record page settings" }).click()
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Show date", exact: true }),
+    page.getByRole("menuitemcheckbox", { name: "Date", exact: true }),
   ).toBeChecked()
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Show time", exact: true }),
+    page.getByRole("menuitemcheckbox", { name: "Time", exact: true }),
   ).toBeChecked()
 })
 
@@ -777,9 +775,9 @@ test("Run milliseconds option also formats WR times and survives reloads", async
       .getByRole("menuitemcheckbox", { name: label, exact: true })
       .click()
   }
-  await toggle("Show WR time")
+  await toggle("WR time")
   await expect(row.getByText("0:40.000", { exact: true })).toBeVisible()
-  await toggle("Show milliseconds")
+  await toggle("Milliseconds")
   await expect(row.getByText("0:42", { exact: true })).toBeVisible()
   await expect(row.getByText("0:40", { exact: true })).toBeVisible()
   await page.reload()
@@ -787,7 +785,7 @@ test("Run milliseconds option also formats WR times and survives reloads", async
   await expect(row.getByText("0:40", { exact: true })).toBeVisible()
   await page.getByRole("button", { name: "Record page settings" }).click()
   const option = page.getByRole("menuitemcheckbox", {
-    name: "Show milliseconds",
+    name: "Milliseconds",
   })
   await expect(option).not.toBeChecked()
   await option.click()
@@ -802,7 +800,7 @@ test("Points and rating headings, filters, and badges share column centers", asy
   await page.setViewportSize({ width: 1920, height: 1080 })
   await installPinnedRecordRoutes(page)
   await page.goto(`/profile/${steamid64}/runs`)
-  for (const label of ["Show server", "Show date", "Show WR time"]) {
+  for (const label of ["Server", "Date", "WR time"]) {
     await page.getByRole("button", { name: "Record page settings" }).click()
     await page
       .getByRole("menuitemcheckbox", { name: label, exact: true })

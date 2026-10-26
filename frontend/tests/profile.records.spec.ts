@@ -361,8 +361,12 @@ test("Profile runs remember mode and rating column visibility", async ({
   await expect(mode).toBeVisible()
   await expect(rating).toBeVisible()
 
-  for (const label of ["Show mode", "Show rating"]) {
+  for (const label of ["Mode", "Rating"]) {
     await page.getByRole("button", { name: "Record page settings" }).click()
+    await expect(page.getByText("Display", { exact: true })).toBeVisible()
+    await expect(
+      page.getByRole("menuitemcheckbox", { name: /^Show / }),
+    ).toHaveCount(0)
     const toggle = page.getByRole("menuitemcheckbox", {
       name: label,
       exact: true,
@@ -382,7 +386,7 @@ test("Profile runs remember mode and rating column visibility", async ({
   await expect(mode).toHaveCount(0)
   await expect(rating).toHaveCount(0)
 
-  for (const label of ["Show mode", "Show rating"]) {
+  for (const label of ["Mode", "Rating"]) {
     await page.getByRole("button", { name: "Record page settings" }).click()
     const toggle = page.getByRole("menuitemcheckbox", {
       name: label,
@@ -452,7 +456,7 @@ test("First completion times sort the full collection and keep missing dates las
   await page.getByRole("button", { name: "Record page settings" }).click()
   await page
     .getByRole("menuitemcheckbox", {
-      name: "Show first completion time",
+      name: "First completion time",
       exact: true,
     })
     .click()
@@ -505,7 +509,7 @@ test("First completion times sort the full collection and keep missing dates las
   await page.getByRole("button", { name: "Record page settings" }).click()
   await page
     .getByRole("menuitemcheckbox", {
-      name: "Show first completion time",
+      name: "First completion time",
       exact: true,
     })
     .click()
@@ -549,7 +553,7 @@ test("First completion respects date and clock preferences when PB dates are hid
   await page.getByRole("button", { name: "Record page settings" }).click()
   await page
     .getByRole("menuitemcheckbox", {
-      name: "Show first completion time",
+      name: "First completion time",
       exact: true,
     })
     .click()
@@ -597,7 +601,7 @@ test("First completion loading and retry leave normal records available", async 
   await page.getByRole("button", { name: "Record page settings" }).click()
   await page
     .getByRole("menuitemcheckbox", {
-      name: "Show first completion time",
+      name: "First completion time",
       exact: true,
     })
     .click()
@@ -666,7 +670,7 @@ test("First completion is temporary and saved sorts cannot enable its query", as
     await page.getByRole("button", { name: "Record page settings" }).click()
     await page
       .getByRole("menuitemcheckbox", {
-        name: "Show first completion time",
+        name: "First completion time",
         exact: true,
       })
       .click()
@@ -734,7 +738,7 @@ test("Profile PB ranks are opt-in, scoped, sortable, and remembered", async ({
 
   await page.getByRole("button", { name: "Record page settings" }).click()
   const toggle = page.getByRole("menuitemcheckbox", {
-    name: "Show ranks",
+    name: "Ranks",
     exact: true,
   })
   await expect(toggle).not.toBeChecked()
@@ -762,7 +766,7 @@ test("Profile PB ranks are opt-in, scoped, sortable, and remembered", async ({
 
   await page.getByRole("button", { name: "Record page settings" }).click()
   await page
-    .getByRole("menuitemcheckbox", { name: "Show ranks", exact: true })
+    .getByRole("menuitemcheckbox", { name: "Ranks", exact: true })
     .click()
   await expect(page.getByTestId("pb-record-rank")).toHaveCount(0)
   const requestCount = rankedRequests.length

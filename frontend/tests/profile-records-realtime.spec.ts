@@ -304,7 +304,7 @@ test("first completion dates refresh on live events and scope changes only while
   await page.getByRole("button", { name: "Record page settings" }).click()
   await page
     .getByRole("menuitemcheckbox", {
-      name: "Show first completion time",
+      name: "First completion time",
       exact: true,
     })
     .click()
@@ -327,7 +327,7 @@ test("first completion dates refresh on live events and scope changes only while
   await page.getByRole("button", { name: "Record page settings" }).click()
   await page
     .getByRole("menuitemcheckbox", {
-      name: "Show first completion time",
+      name: "First completion time",
       exact: true,
     })
     .click()

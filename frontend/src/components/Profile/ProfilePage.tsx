@@ -832,6 +832,9 @@ export function ProfilePage({
               </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
             <DropdownMenuSeparator />
+            <DropdownMenuLabel>
+              {t("profile.records.display")}
+            </DropdownMenuLabel>
             {isOwnProfile ? (
               <DropdownMenuCheckboxItem
                 checked={showHiddenRecords}
