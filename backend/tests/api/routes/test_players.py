@@ -3776,6 +3776,23 @@ async def test_profile_visitors_are_root_only_and_paginated(
         str(first_id),
         str(first_id),
     ]
+    unique = await client.get(url, headers=headers, params={"mode": "unique"})
+    assert unique.status_code == 200
+    assert unique.json()["count"] == 2
+    assert [row["player"]["steamid64"] for row in unique.json()["data"]] == [
+        str(second_id), str(first_id)
+    ]
+    assert unique.json()["data"][1]["view_date"] == "2026-10-02"
+    unique_page = await client.get(
+        url, headers=headers, params={"mode": "unique", "offset": 1, "limit": 1}
+    )
+    assert unique_page.json() == {"data": [unique.json()["data"][1]], "count": 2}
+    assert (await client.get(
+        url, headers=headers, params={"mode": "unique", "offset": 2}
+    )).json() == {"data": [], "count": 2}
+    assert (await client.get(
+        url, headers=headers, params={"mode": "invalid"}
+    )).status_code == 422
     assert (
         await client.get(url, headers=headers, params={"offset": -1})
     ).status_code == 422

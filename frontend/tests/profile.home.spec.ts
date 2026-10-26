@@ -1098,9 +1098,9 @@ for (const roles of [[], ["admin"], ["superuser"]]) {
       /\/v1\/players\/[^/]+\/views\/players\?/,
       async (route) => {
         calls++
-        const offset = Number(
-          new URL(route.request().url()).searchParams.get("offset"),
-        )
+        const params = new URL(route.request().url()).searchParams
+        const offset = Number(params.get("offset"))
+        const unique = params.get("mode") === "unique"
         await route.fulfill({
           json: {
             data: [
@@ -1110,10 +1110,10 @@ for (const roles of [[], ["admin"], ["superuser"]]) {
                 view_date: "2026-10-25",
               },
             ],
-            count: 21,
+            count: unique ? 1 : 21,
           },
         })
-        expect(offset).toBe(calls === 1 ? 0 : 20)
+        expect(offset).toBe(calls === 2 ? 20 : 0)
       },
     )
     await page.goto(`/profile/${steamid64}`)
@@ -1132,6 +1132,22 @@ for (const roles of [[], ["admin"], ["superuser"]]) {
         .getByRole("button", { name: "Go to next page", exact: true })
         .click()
       await expect.poll(() => calls).toBe(2)
+      await dialog
+        .getByRole("tab", { name: "Unique visitors", exact: true })
+        .click()
+      await expect(
+        dialog.getByRole("tab", { name: "Unique visitors", exact: true }),
+      ).toHaveAttribute("data-state", "active")
+      await expect.poll(() => calls).toBe(3)
+      await expect(dialog.getByTestId("profile-visitor-row")).toHaveCount(1)
+      await expect(
+        dialog.getByRole("button", { name: "Go to next page", exact: true }),
+      ).toBeDisabled()
+      await dialog.getByRole("tab", { name: "Views", exact: true }).click()
+      await expect.poll(() => calls).toBe(4)
+      await expect(
+        dialog.getByRole("button", { name: "Go to next page", exact: true }),
+      ).toBeEnabled()
       await page.screenshot({
         path: testInfo.outputPath("profile-visitors.png"),
       })

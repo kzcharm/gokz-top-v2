@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 
 type VisitorsPage = {
@@ -33,18 +34,19 @@ export function ProfileVisitorsDialog({
   onOpenChange: (open: boolean) => void
 }) {
   const { t } = useTranslation()
+  const [mode, setMode] = useState<"views" | "unique">("views")
   const [pageIndex, setPageIndex] = useState(0)
   const [pageSize, setPageSize] = usePersistedPageSize({
     storageKey: "profile-visitors-page-size",
   })
   const query = useQuery({
-    queryKey: ["profile-visitors", identifier, pageIndex, pageSize],
+    queryKey: ["profile-visitors", identifier, mode, pageIndex, pageSize],
     enabled: open,
     retry: false,
     queryFn: async ({ signal }): Promise<VisitorsPage> => {
       const accessToken = localStorage.getItem("access_token")
       const response = await fetch(
-        `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/views/players?offset=${pageIndex * pageSize}&limit=${pageSize}`,
+        `${OpenAPI.BASE}/v1/players/${encodeURIComponent(identifier)}/views/players?offset=${pageIndex * pageSize}&limit=${pageSize}&mode=${mode}`,
         {
           signal,
           credentials: OpenAPI.CREDENTIALS,
@@ -72,47 +74,71 @@ export function ProfileVisitorsDialog({
         <DialogHeader>
           <DialogTitle>{t("profile.visitors.title")}</DialogTitle>
         </DialogHeader>
-        {query.isLoading ? (
-          <output>{t("common.loading")}</output>
-        ) : query.isError ? (
-          <p role="alert">{t("profile.visitors.loadFailed")}</p>
-        ) : query.data?.data.length ? (
-          <div className="space-y-2">
-            {query.data.data.map((entry) => (
-              <div
-                key={`${entry.player.steamid64}-${entry.view_date}`}
-                className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 p-3"
-                data-testid="profile-visitor-row"
-              >
-                <PlayerDisplay player={entry.player} />
-                <span className="text-xs text-muted-foreground">
-                  <FormattedDateTime
-                    value={entry.viewed_at ?? `${entry.view_date}T12:00:00`}
-                    dateOnly={!entry.viewed_at}
-                    display="relative"
-                    tickerMs={60_000}
-                  />
-                </span>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p>{t("profile.visitors.empty")}</p>
-        )}
-        {query.data ? (
-          <TablePaginationFooter
-            totalLabel={t("profile.summary.profileViews")}
-            totalCount={query.data.count}
-            pageIndex={pageIndex}
-            pageCount={pageCount}
-            pageSize={pageSize}
-            onPageIndexChange={setPageIndex}
-            onPageSizeChange={(size) => {
-              setPageSize(size)
+        <Tabs
+          value={mode}
+          onValueChange={(value) => {
+            if (value === "views" || value === "unique") {
+              setMode(value)
               setPageIndex(0)
-            }}
-          />
-        ) : null}
+            }
+          }}
+        >
+          <TabsList aria-label={t("profile.visitors.mode")}>
+            <TabsTrigger value="views">
+              {t("profile.visitors.views")}
+            </TabsTrigger>
+            <TabsTrigger value="unique">
+              {t("profile.visitors.unique")}
+            </TabsTrigger>
+          </TabsList>
+          <TabsContent value={mode} className="space-y-4">
+            {query.isLoading ? (
+              <output>{t("common.loading")}</output>
+            ) : query.isError ? (
+              <p role="alert">{t("profile.visitors.loadFailed")}</p>
+            ) : query.data?.data.length ? (
+              <div className="space-y-2">
+                {query.data.data.map((entry) => (
+                  <div
+                    key={`${entry.player.steamid64}-${entry.view_date}`}
+                    className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-border/70 p-3"
+                    data-testid="profile-visitor-row"
+                  >
+                    <PlayerDisplay player={entry.player} />
+                    <span className="text-xs text-muted-foreground">
+                      <FormattedDateTime
+                        value={entry.viewed_at ?? `${entry.view_date}T12:00:00`}
+                        dateOnly={!entry.viewed_at}
+                        display="relative"
+                        tickerMs={60_000}
+                      />
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p>{t("profile.visitors.empty")}</p>
+            )}
+            {query.data ? (
+              <TablePaginationFooter
+                totalLabel={t(
+                  mode === "unique"
+                    ? "profile.visitors.unique"
+                    : "profile.visitors.views",
+                )}
+                totalCount={query.data.count}
+                pageIndex={pageIndex}
+                pageCount={pageCount}
+                pageSize={pageSize}
+                onPageIndexChange={setPageIndex}
+                onPageSizeChange={(size) => {
+                  setPageSize(size)
+                  setPageIndex(0)
+                }}
+              />
+            ) : null}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   )

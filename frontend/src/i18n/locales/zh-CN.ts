@@ -665,6 +665,10 @@ export const zhCN = {
       slide: "滑坡",
     },
     visitors: {
+      mode: "显示模式",
+      views: "访问记录",
+      unique: "独立访客",
+
       title: "资料访客",
       description:
         "按时间倒序显示已登录访客，每位访客每天（UTC）记录一次。本人和根管理员的访问不会记录。",

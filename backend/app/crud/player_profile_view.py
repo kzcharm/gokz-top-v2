@@ -1,4 +1,5 @@
 from datetime import UTC, date, datetime
+from typing import Literal
 
 from sqlalchemy.dialects.postgresql import insert
 from sqlmodel import col, func, select
@@ -89,10 +90,18 @@ async def read_player_profile_visitors(
     target_steamid64: int,
     offset: int = 0,
     limit: int = 20,
+    mode: Literal["views", "unique"] = "views",
 ) -> tuple[list[tuple[PlayerProfileView, Player]], int]:
-    count = await count_player_profile_views(
-        session=session, target_steamid64=target_steamid64
+    count_statement = (
+        select(
+            func.count(func.distinct(PlayerProfileView.viewer_steamid64))
+            if mode == "unique"
+            else func.count()
+        )
+        .select_from(PlayerProfileView)
+        .where(PlayerProfileView.target_steamid64 == target_steamid64)
     )
+    count = int((await session.exec(count_statement)).one())
     statement = (
         select(PlayerProfileView, Player)
         .join(Player, col(Player.steamid64) == col(PlayerProfileView.viewer_steamid64))
@@ -105,4 +114,22 @@ async def read_player_profile_visitors(
         .offset(offset)
         .limit(limit)
     )
+    if mode == "unique":
+        latest_visits = (
+            select(
+                col(PlayerProfileView.viewer_steamid64),
+                func.max(PlayerProfileView.view_date).label("latest_date"),
+            )
+            .where(PlayerProfileView.target_steamid64 == target_steamid64)
+            .group_by(col(PlayerProfileView.viewer_steamid64))
+            .subquery()
+        )
+        statement = statement.join(
+            latest_visits,
+            (
+                col(PlayerProfileView.viewer_steamid64)
+                == latest_visits.c.viewer_steamid64
+            )
+            & (col(PlayerProfileView.view_date) == latest_visits.c.latest_date),
+        )
     return list((await session.exec(statement)).all()), count

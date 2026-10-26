@@ -1,6 +1,6 @@
 import uuid
 from datetime import UTC, datetime
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Response
 from fastapi.responses import JSONResponse
@@ -239,10 +239,15 @@ async def read_player_visitors(
     _current_user: CurrentSuperuser,
     offset: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    mode: Literal["views", "unique"] = "views",
 ) -> PlayerProfileVisitorsPublic:
     player = await get_player_or_404(session=session, identifier=identifier)
     rows, count = await read_player_profile_visitors(
-        session=session, target_steamid64=player.steamid64, offset=offset, limit=limit
+        session=session,
+        target_steamid64=player.steamid64,
+        offset=offset,
+        limit=limit,
+        mode=mode,
     )
     return PlayerProfileVisitorsPublic(
         data=[

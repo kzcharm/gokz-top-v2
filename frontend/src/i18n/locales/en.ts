@@ -682,6 +682,10 @@ export const en = {
       slide: "Slide",
     },
     visitors: {
+      mode: "Display mode",
+      views: "Views",
+      unique: "Unique visitors",
+
       title: "Profile visitors",
       description:
         "Signed-in visits, newest first. One entry per visitor per UTC day. Self-visits and root-admin visits are not recorded.",
