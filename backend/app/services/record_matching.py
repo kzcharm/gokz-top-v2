@@ -93,6 +93,8 @@ async def unique_compatible_pair(
             .limit(3)
         )
     ).all()
+    if len(mirrors) >= 3:
+        return False
     for other in mirrors:
         if other.id != upstream.id and await same_owner(session, native, other):
             return False

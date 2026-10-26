@@ -253,3 +253,25 @@ async def test_short_finishes_require_explicit_identity(db):
         session=db, payload={**upstream, "time": "2.000"}
     )
     assert canonical != payload.record_uuid
+
+
+@pytest.mark.asyncio
+async def test_pool_timeout_returns_retryable_status_without_holding_transaction(
+    db, monkeypatch
+):
+    from unittest.mock import AsyncMock
+
+    from fastapi import HTTPException
+    from sqlalchemy.exc import TimeoutError as PoolTimeout
+
+    from app.services import record_ingestion
+
+    group, _, payload = await setup_finish(db)
+    await db.commit()
+    operation = AsyncMock(side_effect=PoolTimeout("synthetic exhaustion"))
+    monkeypatch.setattr(record_ingestion, "_accept_record", operation)
+    with pytest.raises(HTTPException) as error:
+        await accept_record(db, group, payload, "pool-busy")
+    assert error.value.status_code == 503 and error.value.headers["Retry-After"] == "5"
+    assert not db.in_transaction()
+    assert operation.await_count == 1

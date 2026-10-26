@@ -5,12 +5,14 @@ import hashlib
 import json
 import uuid
 from datetime import timedelta
+from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
 from sqlalchemy import func, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError
+from sqlalchemy.exc import TimeoutError as PoolTimeout
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -266,7 +268,8 @@ async def _accept_record(
                 Record.map_id == map_obj.id,
                 Record.stage == payload.stage,
                 Record.mode == payload.mode,
-                Record.time == payload.time,
+                Record.time >= payload.time - Decimal("0.001"),
+                Record.time <= payload.time,
                 Record.teleports == payload.teleports,
                 col(Record.id).is_not(None),
                 col(Record.native_server_id).is_(None),
@@ -387,7 +390,11 @@ async def _accept_record(
                 record_uuid=canonical,
                 globalapi_id=candidate.id,
                 state="review",
-                detail="Equal statistics; explicit upstream identity required",
+                detail=(
+                    "Equal statistics; explicit upstream identity required"
+                    if candidate.time == payload.time
+                    else "Legacy precision candidate; explicit upstream identity required"
+                ),
             )
         )
     await notify_recent_record_updated(session=session, record_uuid=record.uuid)
@@ -403,6 +410,11 @@ async def accept_record(
     for attempt in range(3):
         try:
             return await _accept_record(session, group, payload, key)
+        except PoolTimeout as exc:
+            await session.rollback()
+            raise HTTPException(
+                503, "Records are busy; retry this finish", headers={"Retry-After": "5"}
+            ) from exc
         except DBAPIError as exc:
             if getattr(exc.orig, "sqlstate", None) not in {"40P01", "40001", "55P03"}:
                 raise
