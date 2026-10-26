@@ -49,6 +49,10 @@ export const en = {
     failed: "Could not delete faster records. Please try again.",
   },
   gear: {
+    monitorResolution: "Monitor Resolution",
+    customResolution: "Custom resolution",
+    resolutionWidth: "Width (pixels)",
+    resolutionHeight: "Height (pixels)",
     monitorSize: "Monitor Size (inches)",
     addDisk: "Add Disk",
     removeDisk: "Remove Disk {{number}}",

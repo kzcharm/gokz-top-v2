@@ -219,6 +219,8 @@ async def test_ranking_merge_and_stale_ids(
                         "category": "monitor",
                         "product_id": str(a.id if i < 2 else b.id),
                         "monitor_refresh_hz": "239.76",
+                        "monitor_resolution_width": 2560,
+                        "monitor_resolution_height": 1440,
                     }
                 ]
             },
@@ -342,6 +344,8 @@ async def test_multiple_disks_monitor_size_and_timestamps(
                 "product_id": str(monitor.id),
                 "monitor_size_inches": "27.5",
                 "monitor_refresh_hz": "239.76",
+                "monitor_resolution_width": 2560,
+                "monitor_resolution_height": 1440,
             },
             {"category": "storage", "storage_capacity_gb": 512},
         ]
@@ -359,6 +363,10 @@ async def test_multiple_disks_monitor_size_and_timestamps(
     stored = await db.get(PlayerHardware, owner)
     assert stored and stored.selections[1]["product_id"] == str(monitor.id)
     assert stored.selections[1]["monitor_size_inches"] == "27.5"
+    assert stored.selections[1]["monitor_resolution_width"] == 2560
+    assert stored.selections[1]["monitor_resolution_height"] == 1440
+    assert setup["hardware"][1]["monitor_resolution_width"] == 2560
+    assert setup["hardware"][1]["monitor_resolution_height"] == 1440
     created_at, updated_at = stored.created_at, stored.updated_at
     assert created_at and updated_at
     assert (await client.get(f"/v1/players/{owner}/setup")).json() == setup
@@ -459,4 +467,39 @@ def test_monitor_size_requires_monitor_category() -> None:
             category=ProductCategory.MOUSE,
             product_id=uuid.uuid7(),
             monitor_size_inches=Decimal("27"),
+        )
+
+
+@pytest.mark.parametrize(
+    "width,height",
+    [
+        (0, 1080),
+        (-1, 1080),
+        (1920, 0),
+        (32769, 1080),
+        (1920, 32769),
+        (1920, None),
+        (None, 1080),
+        (1920.5, 1080),
+    ],
+)
+def test_monitor_resolution_validation(width: float | None, height: int | None) -> None:
+    with pytest.raises(ValueError):
+        HardwareInput.model_validate(
+            {
+                "category": "monitor",
+                "product_id": str(uuid.uuid7()),
+                "monitor_resolution_width": width,
+                "monitor_resolution_height": height,
+            }
+        )
+
+
+def test_monitor_resolution_requires_monitor_category() -> None:
+    with pytest.raises(ValueError, match="Monitor configuration"):
+        HardwareInput(
+            category=ProductCategory.MOUSE,
+            product_id=uuid.uuid7(),
+            monitor_resolution_width=1920,
+            monitor_resolution_height=1080,
         )

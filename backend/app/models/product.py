@@ -139,6 +139,9 @@ class HardwareInput(BaseModel):
         default=None, gt=0, le=200, decimal_places=2, allow_inf_nan=False
     )
 
+    monitor_resolution_width: int | None = PydanticField(default=None, gt=0, le=32768)
+    monitor_resolution_height: int | None = PydanticField(default=None, gt=0, le=32768)
+
     @model_validator(mode="after")
     def validate_configuration(self) -> Self:
         memory = any(
@@ -147,9 +150,22 @@ class HardwareInput(BaseModel):
         )
         if memory and self.category != ProductCategory.MEMORY:
             raise ValueError("Memory configuration requires the memory category")
+        if (self.monitor_resolution_width is None) != (
+            self.monitor_resolution_height is None
+        ):
+            raise ValueError("Monitor resolution requires both width and height")
         if (
-            self.monitor_refresh_hz is not None or self.monitor_size_inches is not None
-        ) and self.category != ProductCategory.MONITOR:
+            any(
+                value is not None
+                for value in (
+                    self.monitor_refresh_hz,
+                    self.monitor_size_inches,
+                    self.monitor_resolution_width,
+                    self.monitor_resolution_height,
+                )
+            )
+            and self.category != ProductCategory.MONITOR
+        ):
             raise ValueError("Monitor configuration requires the monitor category")
         if (
             self.storage_capacity_gb is not None

@@ -485,6 +485,15 @@ test("setup retains multiple disks and monitor dimensions and removes only the c
   await page
     .getByLabel("Monitor Refresh Rate (Hz)", { exact: true })
     .fill("360")
+  const resolution = page.getByRole("combobox", {
+    name: "Monitor Resolution",
+    exact: true,
+  })
+  await resolution.click()
+  expect(
+    (await page.getByRole("option").allTextContents()).slice(0, 3),
+  ).toEqual(["1920 × 1080", "2560 × 1440", "3840 × 2160"])
+  await page.getByRole("option", { name: "1920 × 1080", exact: true }).click()
   const disks = page.locator("[data-disk]")
   await disks
     .first()
@@ -499,7 +508,12 @@ test("setup retains multiple disks and monitor dimensions and removes only the c
   await expect(page.getByText("Setup saved.")).toBeVisible()
   expect(
     saved.hardware.find((item: any) => item.category === "monitor"),
-  ).toMatchObject({ monitor_size_inches: "24.5", monitor_refresh_hz: "360" })
+  ).toMatchObject({
+    monitor_size_inches: "24.5",
+    monitor_refresh_hz: "360",
+    monitor_resolution_width: 1920,
+    monitor_resolution_height: 1080,
+  })
   expect(
     saved.hardware.find((item: any) => item.category === "monitor"),
   ).not.toHaveProperty("memory_capacity_gb")
@@ -513,6 +527,33 @@ test("setup retains multiple disks and monitor dimensions and removes only the c
   await expect(page.getByLabel("Monitor Size (inches)")).toHaveValue("24.5")
   await expect(disks.first().getByLabel("Storage Capacity")).toHaveValue("2")
   await expect(disks.nth(1).getByLabel("Storage Capacity")).toHaveValue("512")
+  await expect(resolution).toHaveText("1920 × 1080")
+  await resolution.click()
+  await page
+    .getByRole("option", { name: "Custom resolution", exact: true })
+    .click()
+  await page.getByLabel("Width (pixels)", { exact: true }).fill("2304")
+  await page.getByLabel("Height (pixels)", { exact: true }).fill("1440")
+  await page.getByRole("button", { name: "Save", exact: true }).first().click()
+  await expect
+    .poll(
+      () =>
+        saved.hardware.find((item: any) => item.category === "monitor")
+          .monitor_resolution_width,
+    )
+    .toBe(2304)
+  await page.reload()
+  await expect(resolution).toHaveText("Custom resolution")
+  await expect(page.getByLabel("Width (pixels)", { exact: true })).toHaveValue(
+    "2304",
+  )
+  await expect(page.getByLabel("Height (pixels)", { exact: true })).toHaveValue(
+    "1440",
+  )
+  await page.screenshot({
+    path: "../.temp/screenshots/monitor-resolution-desktop.png",
+    fullPage: true,
+  })
   await page.setViewportSize({ width: 390, height: 844 })
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
@@ -521,6 +562,8 @@ test("setup retains multiple disks and monitor dimensions and removes only the c
     path: "../.temp/screenshots/hardware-editor-mobile.png",
     fullPage: true,
   })
+  await resolution.click()
+  await page.getByRole("option", { name: "None", exact: true }).click()
   await page.getByRole("button", { name: "Remove Disk 1", exact: true }).click()
   await page.getByRole("button", { name: "Save", exact: true }).last().click()
   await expect
@@ -530,6 +573,12 @@ test("setup retains multiple disks and monitor dimensions and removes only the c
           .length,
     )
     .toBe(1)
+  expect(
+    saved.hardware.find((item: any) => item.category === "monitor"),
+  ).toMatchObject({
+    monitor_resolution_width: null,
+    monitor_resolution_height: null,
+  })
   expect(
     saved.hardware.find((item: any) => item.category === "storage")
       .storage_capacity_gb,

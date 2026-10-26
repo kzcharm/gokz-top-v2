@@ -33,6 +33,31 @@ import {
 } from "./gear-utils"
 import { ProductSelector } from "./ProductSelector"
 
+// Curated display order; these are shortcuts, not measured player usage.
+const MONITOR_RESOLUTIONS = [
+  "1920x1080",
+  "2560x1440",
+  "3840x2160",
+  "1280x960",
+  "1280x1024",
+  "1024x768",
+  "1280x720",
+  "1600x900",
+  "1366x768",
+  "1920x1200",
+  "1680x1050",
+  "1440x1080",
+  "1600x1200",
+  "2560x1080",
+  "3440x1440",
+  "2560x1600",
+  "3840x1600",
+  "5120x1440",
+  "5120x2160",
+  "5120x2880",
+  "7680x4320",
+]
+
 function SetupForm({ initial }: { initial: SetupPublic }) {
   const { t } = useTranslation()
   const client = useQueryClient()
@@ -83,6 +108,19 @@ function SetupForm({ initial }: { initial: SetupPublic }) {
   const [refreshRate, setRefreshRate] = useState(
     monitor?.monitor_refresh_hz ?? "",
   )
+  const [resolutionWidth, setResolutionWidth] = useState(
+    String(monitor?.monitor_resolution_width ?? ""),
+  )
+  const [resolutionHeight, setResolutionHeight] = useState(
+    String(monitor?.monitor_resolution_height ?? ""),
+  )
+  const resolution = `${resolutionWidth}x${resolutionHeight}`
+  const [customResolution, setCustomResolution] = useState(
+    Boolean(
+      monitor?.monitor_resolution_width &&
+        !MONITOR_RESOLUTIONS.includes(resolution),
+    ),
+  )
   const [dpi, setDpi] = useState(String(initial.game_settings.mouse_dpi ?? ""))
   const [sensitivity, setSensitivity] = useState(
     initial.game_settings.sensitivity
@@ -130,6 +168,12 @@ function SetupForm({ initial }: { initial: SetupPublic }) {
               ? {
                   monitor_refresh_hz: refreshRate || null,
                   monitor_size_inches: monitorSize || null,
+                  monitor_resolution_width: resolutionWidth
+                    ? Number(resolutionWidth)
+                    : null,
+                  monitor_resolution_height: resolutionHeight
+                    ? Number(resolutionHeight)
+                    : null,
                 }
               : {}),
           },
@@ -380,6 +424,98 @@ function SetupForm({ initial }: { initial: SetupPublic }) {
                             />
                           </Field>
                         </>
+                      ) : null}
+                      {category === "monitor" ? (
+                        <FieldGroup className="sm:col-span-3 sm:grid sm:grid-cols-3 sm:gap-4">
+                          <Field>
+                            <FieldLabel htmlFor="monitor-resolution">
+                              {t("gear.monitorResolution")}
+                            </FieldLabel>
+                            <Select
+                              disabled={!selected.monitor}
+                              value={
+                                customResolution
+                                  ? "custom"
+                                  : resolutionWidth
+                                    ? resolution
+                                    : "none"
+                              }
+                              onValueChange={(value) => {
+                                setCustomResolution(value === "custom")
+                                if (value !== "custom") {
+                                  const [width, height] =
+                                    value === "none"
+                                      ? ["", ""]
+                                      : value.split("x")
+                                  setResolutionWidth(width)
+                                  setResolutionHeight(height)
+                                }
+                              }}
+                            >
+                              <SelectTrigger
+                                id="monitor-resolution"
+                                className="w-full"
+                              >
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectGroup>
+                                  {MONITOR_RESOLUTIONS.map((value) => (
+                                    <SelectItem key={value} value={value}>
+                                      {value.replace("x", " × ")}
+                                    </SelectItem>
+                                  ))}
+                                  <SelectItem value="custom">
+                                    {t("gear.customResolution")}
+                                  </SelectItem>
+                                  <SelectItem value="none">
+                                    {t("common.none")}
+                                  </SelectItem>
+                                </SelectGroup>
+                              </SelectContent>
+                            </Select>
+                          </Field>
+                          {customResolution ? (
+                            <>
+                              <Field>
+                                <FieldLabel htmlFor="monitor-width">
+                                  {t("gear.resolutionWidth")}
+                                </FieldLabel>
+                                <Input
+                                  id="monitor-width"
+                                  type="number"
+                                  min={1}
+                                  max={32768}
+                                  step={1}
+                                  required
+                                  disabled={!selected.monitor}
+                                  value={resolutionWidth}
+                                  onChange={(event) =>
+                                    setResolutionWidth(event.target.value)
+                                  }
+                                />
+                              </Field>
+                              <Field>
+                                <FieldLabel htmlFor="monitor-height">
+                                  {t("gear.resolutionHeight")}
+                                </FieldLabel>
+                                <Input
+                                  id="monitor-height"
+                                  type="number"
+                                  min={1}
+                                  max={32768}
+                                  step={1}
+                                  required
+                                  disabled={!selected.monitor}
+                                  value={resolutionHeight}
+                                  onChange={(event) =>
+                                    setResolutionHeight(event.target.value)
+                                  }
+                                />
+                              </Field>
+                            </>
+                          ) : null}
+                        </FieldGroup>
                       ) : null}
                       {category === "memory" ? (
                         <>

@@ -24,6 +24,9 @@ function HardwareDetails({ item }: { item: HardwarePublic }) {
           item.monitor_size_inches
             ? `${Number(item.monitor_size_inches)}″`
             : null,
+          item.monitor_resolution_width && item.monitor_resolution_height
+            ? `${item.monitor_resolution_width} × ${item.monitor_resolution_height}`
+            : null,
           item.monitor_refresh_hz
             ? `${Number(item.monitor_refresh_hz)} Hz`
             : null,

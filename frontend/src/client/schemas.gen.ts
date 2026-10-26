@@ -2163,6 +2163,32 @@ export const HardwareInputSchema = {
                 }
             ],
             title: 'Monitor Size Inches'
+        },
+        monitor_resolution_width: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 32768,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Monitor Resolution Width'
+        },
+        monitor_resolution_height: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 32768,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Monitor Resolution Height'
         }
     },
     additionalProperties: false,
@@ -2268,6 +2294,32 @@ export const HardwarePublicSchema = {
                 }
             ],
             title: 'Monitor Size Inches'
+        },
+        monitor_resolution_width: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 32768,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Monitor Resolution Width'
+        },
+        monitor_resolution_height: {
+            anyOf: [
+                {
+                    type: 'integer',
+                    maximum: 32768,
+                    exclusiveMinimum: 0
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Monitor Resolution Height'
         },
         product: {
             anyOf: [

@@ -46,6 +46,10 @@ export const zhCN = {
     failed: "无法删除更快的记录，请重试。",
   },
   gear: {
+    monitorResolution: "显示器分辨率",
+    customResolution: "自定义分辨率",
+    resolutionWidth: "宽度（像素）",
+    resolutionHeight: "高度（像素）",
     monitorSize: "显示器尺寸（英寸）",
     addDisk: "添加硬盘",
     removeDisk: "移除硬盘 {{number}}",
