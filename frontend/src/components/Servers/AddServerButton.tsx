@@ -1,8 +1,10 @@
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation } from "@tanstack/react-query"
+import type { TFunction } from "i18next"
 import { Plus } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useForm } from "react-hook-form"
+import { useTranslation } from "react-i18next"
 import { z } from "zod"
 
 import { type ApiError, type ServerPublic, ServersService } from "@/client"
@@ -29,25 +31,25 @@ import { Input } from "@/components/ui/input"
 import { LoadingButton } from "@/components/ui/loading-button"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import useCustomToast from "@/hooks/useCustomToast"
-import { extractErrorMessage } from "@/utils"
 
-const formSchema = z.object({
-  address: z
-    .string()
-    .trim()
-    .min(1, { message: "Server address is required" })
-    .refine((value) => {
-      const separatorIndex = value.lastIndexOf(":")
-      if (separatorIndex <= 0 || separatorIndex === value.length - 1) {
-        return false
-      }
+const createFormSchema = (t: TFunction) =>
+  z.object({
+    address: z
+      .string()
+      .trim()
+      .min(1, { message: t("serverBrowser.addressRequired") })
+      .refine((value) => {
+        const separatorIndex = value.lastIndexOf(":")
+        if (separatorIndex <= 0 || separatorIndex === value.length - 1) {
+          return false
+        }
 
-      const port = Number(value.slice(separatorIndex + 1))
-      return Number.isInteger(port) && port >= 1 && port <= 65535
-    }, "Use the server address format IP:port"),
-})
+        const port = Number(value.slice(separatorIndex + 1))
+        return Number.isInteger(port) && port >= 1 && port <= 65535
+      }, t("serverBrowser.addressFormat")),
+  })
 
-type FormData = z.infer<typeof formSchema>
+type FormData = z.infer<ReturnType<typeof createFormSchema>>
 
 function splitServerAddress(address: string) {
   const trimmedAddress = address.trim()
@@ -64,12 +66,14 @@ interface AddServerButtonProps {
 }
 
 export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
   const { loginWithSteam } = useAuth()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const authenticated = isLoggedIn()
 
+  const formSchema = useMemo(() => createFormSchema(t), [t])
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     mode: "onBlur",
@@ -78,6 +82,12 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
       address: "",
     },
   })
+
+  const hasAddressError = Boolean(form.formState.errors.address)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Revalidate visible errors when the translation function changes with the locale.
+  useEffect(() => {
+    if (hasAddressError) void form.trigger("address")
+  }, [form, hasAddressError, t])
 
   const mutation = useMutation({
     mutationFn: async ({ address }: FormData) => {
@@ -92,15 +102,31 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
     },
     onSuccess: (server) => {
       onServerAdded(server)
-      showSuccessToast("Server added to the public browser.")
+      showSuccessToast(t("serverBrowser.added"))
       setSubmitError(null)
       form.reset()
       setOpen(false)
     },
     onError: (error: ApiError) => {
-      const message = extractErrorMessage(error)
-      setSubmitError(message)
-      showErrorToast(message)
+      const errorKey =
+        (
+          {
+            401: "serverBrowser.loginDescription",
+            404: "serverBrowser.groupNotFound",
+            409: "serverBrowser.alreadyExists",
+            422: "serverBrowser.queryError",
+          } as Record<number, string>
+        )[error.status] ?? "serverBrowser.addError"
+      const resolvedErrorKey =
+        error.status === 403 &&
+        typeof error.body === "object" &&
+        error.body !== null &&
+        "detail" in error.body &&
+        error.body.detail === "Server is disabled"
+          ? "serverBrowser.disabled"
+          : errorKey
+      setSubmitError(resolvedErrorKey)
+      showErrorToast(t(resolvedErrorKey))
     },
   })
 
@@ -124,8 +150,12 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
           type="button"
           variant="outline"
           size="icon-sm"
-          aria-label="Add server"
-          title={authenticated ? "Add server" : "Login to add a server"}
+          aria-label={t("serverBrowser.addServer")}
+          title={
+            authenticated
+              ? t("serverBrowser.addServer")
+              : t("serverBrowser.loginToAdd")
+          }
           data-testid="add-server-button"
         >
           <Plus className="h-4 w-4" />
@@ -133,11 +163,11 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
       </DialogTrigger>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Server</DialogTitle>
+          <DialogTitle>{t("serverBrowser.addTitle")}</DialogTitle>
           <DialogDescription>
             {authenticated
-              ? "You can only add GOKZ server"
-              : "Log in with Steam to add a public server. You can only add GOKZ server."}
+              ? t("serverBrowser.addDescription")
+              : t("serverBrowser.addLoginDescription")}
           </DialogDescription>
         </DialogHeader>
 
@@ -153,7 +183,8 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>
-                      Server address <span className="text-destructive">*</span>
+                      {t("serverBrowser.address")}
+                      <span className="text-destructive">*</span>
                     </FormLabel>
                     <FormControl>
                       <Input
@@ -170,8 +201,8 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
 
               {submitError ? (
                 <Alert variant="destructive">
-                  <AlertTitle>Add failed</AlertTitle>
-                  <AlertDescription>{submitError}</AlertDescription>
+                  <AlertTitle>{t("serverBrowser.addFailed")}</AlertTitle>
+                  <AlertDescription>{t(submitError)}</AlertDescription>
                 </Alert>
               ) : null}
 
@@ -182,10 +213,10 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
                   onClick={() => handleOpenChange(false)}
                   disabled={mutation.isPending}
                 >
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
                 <LoadingButton type="submit" loading={mutation.isPending}>
-                  Add
+                  {t("common.add")}
                 </LoadingButton>
               </DialogFooter>
             </form>
@@ -193,9 +224,9 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
         ) : (
           <>
             <Alert>
-              <AlertTitle>Login required</AlertTitle>
+              <AlertTitle>{t("serverBrowser.loginRequired")}</AlertTitle>
               <AlertDescription>
-                You need to log in with Steam before adding a server.
+                {t("serverBrowser.loginDescription")}
               </AlertDescription>
             </Alert>
             <DialogFooter>
@@ -204,10 +235,10 @@ export function AddServerButton({ onServerAdded }: AddServerButtonProps) {
                 variant="outline"
                 onClick={() => setOpen(false)}
               >
-                Cancel
+                {t("common.cancel")}
               </Button>
               <Button type="button" onClick={loginWithSteam}>
-                Continue with Steam
+                {t("serverBrowser.continueSteam")}
               </Button>
             </DialogFooter>
           </>

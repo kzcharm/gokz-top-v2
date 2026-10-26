@@ -20,6 +20,7 @@ import {
   useRef,
   useState,
 } from "react"
+import { Trans, useTranslation } from "react-i18next"
 
 import { MapsService, type ServerPublic, ServersService } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
@@ -175,6 +176,7 @@ function SortControl({
 }
 
 export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const pathname = useRouterState({
     select: (state) => state.location.pathname,
@@ -560,11 +562,11 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
 
     if (copied) {
       playCopySuccessSound()
-      showSuccessToast("Copied the server connect command.")
+      showSuccessToast(t("serverBrowser.copiedCommand"))
       return
     }
 
-    showErrorToast("Unable to copy the server connect command.")
+    showErrorToast(t("serverBrowser.copyCommandFailed"))
   }
 
   const handleSteamConnect = (server: ServerPublic) => {
@@ -637,9 +639,9 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
       }
 
       playCopySuccessSound()
-      showSuccessToast("Copied the shareable servers link.")
+      showSuccessToast(t("serverBrowser.copiedLink"))
     } catch {
-      showErrorToast("Unable to copy the shareable servers link.")
+      showErrorToast(t("serverBrowser.copyLinkFailed"))
     }
   }
 
@@ -658,11 +660,11 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
       URL.revokeObjectURL(url)
 
       showSuccessToast(
-        `Downloaded config for ${sortedServers.length} visible server${sortedServers.length === 1 ? "" : "s"}.`,
+        t("serverBrowser.downloaded", { count: sortedServers.length }),
       )
       setConfigDialogOpen(true)
     } catch {
-      showErrorToast("Unable to download the server config right now.")
+      showErrorToast(t("serverBrowser.downloadFailed"))
     }
   }
 
@@ -690,9 +692,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   if (serversQuery.isError && servers.length === 0) {
     return (
       <Alert variant="destructive">
-        <AlertDescription>
-          Unable to load the public server browser right now. Try again later.
-        </AlertDescription>
+        <AlertDescription>{t("serverBrowser.loadFailed")}</AlertDescription>
       </Alert>
     )
   }
@@ -706,8 +706,8 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
             <Input
               value={searchInput}
               onChange={(event) => setSearchInput(event.target.value)}
-              placeholder="Search servers..."
-              aria-label="Search servers"
+              placeholder={t("serverBrowser.searchPlaceholder")}
+              aria-label={t("serverBrowser.search")}
               className="h-9 bg-[#f5f5f4] pl-8 text-sm dark:bg-input/30"
             />
           </div>
@@ -724,23 +724,23 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
               )}
             >
               {connectionState === "live"
-                ? "Live"
+                ? t("serverBrowser.live")
                 : connectionState === "connecting"
-                  ? "Reconnecting"
-                  : "Disconnected"}
+                  ? t("serverBrowser.connecting")
+                  : t("serverBrowser.disconnected")}
             </Badge>
             <Badge className="bg-orange-500 text-white">
-              {filteredPlayerCount} Players
+              {t("serverBrowser.playersCount", { count: filteredPlayerCount })}
             </Badge>
             <Badge className="bg-blue-600 text-white hover:bg-blue-600/90">
-              {filteredServerCount} Servers
+              {t("serverBrowser.serversCount", { count: filteredServerCount })}
             </Badge>
             <div className="flex gap-1">
               <Button
                 variant={activeSearch.view === "table" ? "default" : "outline"}
                 size="icon"
                 onClick={() => handleSearchPatch({ view: "table" })}
-                aria-label="Table view"
+                aria-label={t("serverBrowser.tableView")}
               >
                 <List className="h-4 w-4" />
               </Button>
@@ -748,7 +748,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                 variant={activeSearch.view === "grid" ? "default" : "outline"}
                 size="icon"
                 onClick={() => handleSearchPatch({ view: "grid" })}
-                aria-label="Grid view"
+                aria-label={t("serverBrowser.gridView")}
               >
                 <Grid className="h-4 w-4" />
               </Button>
@@ -773,11 +773,20 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                         onClick={() => handleGroupChange(groupId)}
                         title={
                           activeSearch.group === groupId
-                            ? "Show all server groups"
-                            : `Filter by ${group.name}`
+                            ? t("serverBrowser.allGroups")
+                            : t("serverBrowser.filterGroup", {
+                                group:
+                                  groupId === UNASSIGNED_SERVER_GROUP_ID
+                                    ? t("serverBrowser.others")
+                                    : group.name,
+                              })
                         }
                       >
-                        <span className="max-w-40 truncate">{group.name}</span>
+                        <span className="max-w-40 truncate">
+                          {groupId === UNASSIGNED_SERVER_GROUP_ID
+                            ? t("serverBrowser.others")
+                            : group.name}
+                        </span>
                         <span className="text-xs opacity-80">
                           ({group.playerCount})
                         </span>
@@ -845,7 +854,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                             : "online",
                       })
                     }
-                    title="Click to switch between online and offline servers"
+                    title={t("serverBrowser.switchStatus")}
                   >
                     <Switch
                       aria-hidden="true"
@@ -860,7 +869,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                           "text-green-700 dark:text-green-400",
                       )}
                     >
-                      Online
+                      {t("serverBrowser.online")}
                     </span>
                   </button>
                   <Button
@@ -874,9 +883,9 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                         hide_occupied: false,
                       })
                     }
-                    title="Hide servers with no players"
+                    title={t("serverBrowser.hideEmptyTooltip")}
                   >
-                    Hide empty
+                    {t("serverBrowser.hideEmpty")}
                   </Button>
                   <Button
                     type="button"
@@ -889,9 +898,9 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                         hide_empty: false,
                       })
                     }
-                    title="Hide servers with one or more players"
+                    title={t("serverBrowser.hideOccupiedTooltip")}
                   >
-                    Hide occupied
+                    {t("serverBrowser.hideOccupied")}
                   </Button>
                 </div>
                 <div className="flex flex-wrap items-center justify-end gap-2">
@@ -902,8 +911,8 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                     size="icon-sm"
                     onClick={() => setMapDialogOpen(true)}
                     disabled={servers.length === 0}
-                    aria-label="Open server map"
-                    title="Open server map"
+                    aria-label={t("serverBrowser.openMap")}
+                    title={t("serverBrowser.openMap")}
                     data-testid="open-servers-map-button"
                   >
                     <MapIcon className="h-3.5 w-3.5" />
@@ -914,8 +923,8 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                     size="icon-sm"
                     onClick={handleDownloadConfig}
                     disabled={sortedServers.length === 0}
-                    aria-label="Download server config"
-                    title="Download server config"
+                    aria-label={t("serverBrowser.downloadConfig")}
+                    title={t("serverBrowser.downloadConfig")}
                     data-testid="download-servers-config-button"
                   >
                     <Download className="h-3.5 w-3.5" />
@@ -925,8 +934,8 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                     variant="outline"
                     size="icon-sm"
                     onClick={handleCopyShareLink}
-                    aria-label="Copy share link"
-                    title="Copy share link"
+                    aria-label={t("serverBrowser.share")}
+                    title={t("serverBrowser.share")}
                     data-testid="share-servers-button"
                   >
                     <Share2 className="h-3.5 w-3.5" />
@@ -940,7 +949,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         {sortedServers.length === 0 ? (
           <Card className={SERVER_BROWSER_CARD_CLASS_NAME}>
             <CardContent className="px-6 py-16 text-center text-muted-foreground">
-              No servers match the current filters.
+              {t("serverBrowser.empty")}
             </CardContent>
           </Card>
         ) : activeSearch.view === "table" ? (
@@ -972,25 +981,25 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                 <SortControl
                   active={activeSearch.sort === "hostname"}
                   direction={activeSearch.dir}
-                  label="Server"
+                  label={t("serverBrowser.server")}
                   onClick={() => handleSortChange("hostname")}
                 />
                 <SortControl
                   active={activeSearch.sort === "map"}
                   direction={activeSearch.dir}
-                  label="Map"
+                  label={t("serverBrowser.map")}
                   onClick={() => handleSortChange("map")}
                 />
                 <SortControl
                   active={activeSearch.sort === "tier"}
                   direction={activeSearch.dir}
-                  label="Tier"
+                  label={t("serverBrowser.tier")}
                   onClick={() => handleSortChange("tier")}
                 />
                 <SortControl
                   active={activeSearch.sort === "players"}
                   direction={activeSearch.dir}
-                  label="Players"
+                  label={t("serverBrowser.players")}
                   onClick={() => handleSortChange("players")}
                 />
               </div>
@@ -1048,25 +1057,35 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Server config downloaded</DialogTitle>
+            <DialogTitle>{t("serverBrowser.configTitle")}</DialogTitle>
             <DialogDescription>
-              The file includes the servers currently visible in this browser,
-              sorted by hostname.
+              {t("serverBrowser.configDescription")}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 text-sm text-muted-foreground">
             <p>
-              Place <code>{SERVER_CONFIG_FILENAME}</code> in your game{" "}
-              <code>cfg</code> folder.
+              <Trans
+                i18nKey="serverBrowser.configPlace"
+                values={{ filename: SERVER_CONFIG_FILENAME }}
+                components={{ file: <code />, folder: <code /> }}
+              />
             </p>
             <p>
-              Run <code>exec {SERVER_CONFIG_FILENAME}</code> in the console, or
-              add it to your <code>autoexec.cfg</code>.
+              <Trans
+                i18nKey="serverBrowser.configRun"
+                values={{ filename: SERVER_CONFIG_FILENAME }}
+                components={{ command: <code />, autoexec: <code /> }}
+              />
             </p>
             <p>
-              Executing the file prints the numbered hostnames to the console.
-              Use <code>s1</code>, <code>s2</code>, <code>s3</code>, and so on
-              to connect.
+              <Trans
+                i18nKey="serverBrowser.configConnect"
+                components={{
+                  first: <code />,
+                  second: <code />,
+                  third: <code />,
+                }}
+              />
             </p>
           </div>
         </DialogContent>

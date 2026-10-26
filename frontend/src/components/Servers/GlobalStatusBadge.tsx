@@ -12,13 +12,14 @@ import { cn } from "@/lib/utils"
 const GLOBAL_MODES = ["KZT", "SKZ", "VNL"] as const
 
 function CheckItem({ label, value }: { label: string; value: boolean }) {
+  const { t } = useTranslation()
   const Icon = value ? Check : X
   return (
     <span className="inline-flex items-center gap-0.5 whitespace-nowrap">
       <span>{label}</span>
       <Icon
         className={cn("h-3 w-3", value ? "text-emerald-400" : "text-red-400")}
-        aria-label={value ? "passed" : "failed"}
+        aria-label={t(value ? "serverBrowser.passed" : "serverBrowser.failed")}
       />
     </span>
   )

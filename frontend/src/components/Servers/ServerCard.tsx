@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { Link } from "@tanstack/react-router"
 import { Copy, LoaderCircle, Pause, Play } from "lucide-react"
 import { memo, useEffect, useMemo, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
@@ -42,8 +43,11 @@ function ServerCardPlayerChip({
   player: ServerPlayer
   index: number
 }) {
+  const { t } = useTranslation()
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
-  const name = getPlayerStringValue(player, "name") || `Player ${index + 1}`
+  const name =
+    getPlayerStringValue(player, "name") ||
+    t("serverBrowser.playerFallback", { number: index + 1 })
   const steamid64 = getPlayerStringValue(player, "steamid64")
   const clanTag = getPlayerStringValue(player, "clan_tag")
   const mode = getPlayerStringValue(player, "mode")
@@ -165,6 +169,7 @@ export const ServerCard = memo(function ServerCard({
   onCopyAddress,
   onSteamConnect,
 }: ServerCardProps) {
+  const { t } = useTranslation()
   const mapName = getServerMapName(server)
   const mapImageUrls = useMapImageUrls(
     mapName,
@@ -199,8 +204,8 @@ export const ServerCard = memo(function ServerCard({
             onCopyAddress(server)
           }}
           className="h-6 w-6 bg-transparent text-white hover:bg-white/10"
-          aria-label="Copy server address"
-          title="Copy server address"
+          aria-label={t("serverBrowser.copyAddress")}
+          title={t("serverBrowser.copyAddress")}
         >
           <Copy className="h-3 w-3" />
         </Button>
@@ -213,8 +218,8 @@ export const ServerCard = memo(function ServerCard({
           }}
           disabled={offline}
           className="h-6 w-6 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
-          aria-label="Connect via Steam"
-          title="Connect via Steam"
+          aria-label={t("serverBrowser.connect")}
+          title={t("serverBrowser.connect")}
         >
           <Play className="h-3 w-3" />
         </Button>
@@ -225,7 +230,9 @@ export const ServerCard = memo(function ServerCard({
           type="button"
           className="absolute inset-0 block w-full text-left"
           onClick={() => onSelect(server)}
-          aria-label={`Open details for ${getServerHostname(server)}`}
+          aria-label={t("serverBrowser.openDetails", {
+            server: getServerHostname(server),
+          })}
           data-testid={`server-card-map-image-${server.ip}:${server.port}`}
         >
           {mapImageUrls.length > 0 ? (
@@ -297,7 +304,7 @@ export const ServerCard = memo(function ServerCard({
           {isRefreshing ? (
             <span
               className="inline-flex shrink-0 items-center text-muted-foreground"
-              title="Refreshing server status"
+              title={t("serverBrowser.refreshing")}
             >
               <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
             </span>
@@ -322,7 +329,8 @@ export const ServerCard = memo(function ServerCard({
           <div className="mt-2 flex flex-wrap gap-2">
             {sortedPlayers.map((player, index) => {
               const name =
-                getPlayerStringValue(player, "name") || `Player ${index + 1}`
+                getPlayerStringValue(player, "name") ||
+                t("serverBrowser.playerFallback", { number: index + 1 })
 
               return (
                 <ServerCardPlayerChip

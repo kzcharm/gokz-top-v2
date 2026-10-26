@@ -1,6 +1,8 @@
 import type { EChartsOption, EChartsType } from "echarts"
 import * as echarts from "echarts"
+import type { TFunction } from "i18next"
 import { useEffect, useMemo, useRef, useState } from "react"
+import { useTranslation } from "react-i18next"
 
 import type { ServerPublic } from "@/client"
 import { getCountryName } from "@/components/Common/CountryFlag"
@@ -66,10 +68,6 @@ function escapeHtml(value: string) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;")
-}
-
-function formatCount(value: number, singular: string, plural: string) {
-  return `${value} ${value === 1 ? singular : plural}`
 }
 
 function getLocationLabel(aggregate: ServerLocationAggregate) {
@@ -155,8 +153,9 @@ function getMarkerSize(serverCount: number) {
   return Math.min(36, Math.max(12, 10 + Math.sqrt(serverCount) * 8))
 }
 
-function buildTooltip(aggregate: ServerLocationAggregate) {
-  const location = getLocationLabel(aggregate) || "Unknown location"
+function buildTooltip(aggregate: ServerLocationAggregate, t: TFunction) {
+  const location =
+    getLocationLabel(aggregate) || t("serverBrowser.unknownLocation")
   const serverLines = aggregate.servers
     .slice()
     .sort(
@@ -176,18 +175,20 @@ function buildTooltip(aggregate: ServerLocationAggregate) {
   return [
     `<div class="space-y-1">`,
     `<div class="font-semibold">${escapeHtml(location)}</div>`,
-    `<div>${escapeHtml(formatCount(aggregate.serverCount, "server", "servers"))}</div>`,
+    `<div>${escapeHtml(t("serverBrowser.serversCount", { count: aggregate.serverCount }))}</div>`,
     `<div class="pt-1 text-xs">${serverLines}</div>`,
     `</div>`,
   ].join("")
 }
 
 function buildChartOption({
+  t,
   includeDefaultView = true,
   mapView,
   pointData,
   resolvedTheme,
 }: {
+  t: TFunction
   includeDefaultView?: boolean
   mapView?: ServerMapView
   pointData: ServerMapPoint[]
@@ -215,7 +216,7 @@ function buildChartOption({
       },
       formatter: (params) => {
         const point = (params as { data?: ServerMapPoint }).data
-        return point ? buildTooltip(point.aggregate) : ""
+        return point ? buildTooltip(point.aggregate, t) : ""
       },
     },
     geo: {
@@ -298,6 +299,8 @@ export function ServerWorldMapDialog({
   onOpenChange,
   onSelectServer,
 }: ServerWorldMapDialogProps) {
+  const { t } = useTranslation()
+  const translationRef = useRef(t)
   const [chartElement, setChartElement] = useState<HTMLDivElement | null>(null)
   const chartInstanceRef = useRef<EChartsType | null>(null)
   const mapViewRef = useRef<ServerMapView>({})
@@ -309,11 +312,11 @@ export function ServerWorldMapDialog({
   const pointData: ServerMapPoint[] = useMemo(
     () =>
       aggregateResult.aggregates.map((aggregate) => ({
-        name: getLocationLabel(aggregate) || "Unknown location",
+        name: getLocationLabel(aggregate) || t("serverBrowser.unknownLocation"),
         value: [aggregate.longitude, aggregate.latitude, aggregate.serverCount],
         aggregate,
       })),
-    [aggregateResult.aggregates],
+    [aggregateResult.aggregates, t],
   )
   const hasMapPoints = pointData.length > 0
 
@@ -322,9 +325,10 @@ export function ServerWorldMapDialog({
   }, [onSelectServer])
 
   useEffect(() => {
+    translationRef.current = t
     pointDataRef.current = pointData
     resolvedThemeRef.current = resolvedTheme
-  }, [pointData, resolvedTheme])
+  }, [pointData, resolvedTheme, t])
 
   useEffect(() => {
     if (!open || !hasMapPoints || !chartElement) {
@@ -337,6 +341,7 @@ export function ServerWorldMapDialog({
     chartInstanceRef.current = chart
     chart.setOption(
       buildChartOption({
+        t: translationRef.current,
         mapView: mapViewRef.current,
         pointData: pointDataRef.current,
         resolvedTheme: resolvedThemeRef.current,
@@ -377,19 +382,20 @@ export function ServerWorldMapDialog({
     mapViewRef.current = mapView
     chart.setOption(
       buildChartOption({
+        t,
         includeDefaultView: false,
         mapView,
         pointData,
         resolvedTheme,
       }),
     )
-  }, [open, pointData, resolvedTheme])
+  }, [open, pointData, resolvedTheme, t])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="w-[calc(100vw-2rem)] max-h-[calc(100svh-2rem)] gap-4 overflow-hidden p-0 sm:max-w-7xl xl:max-w-[90rem]">
         <DialogHeader className="px-6 pt-6 pr-12">
-          <DialogTitle>Server map</DialogTitle>
+          <DialogTitle>{t("serverBrowser.worldMapTitle")}</DialogTitle>
         </DialogHeader>
         <div className="min-h-0 px-6 pb-6">
           <div className="self-start">
@@ -399,11 +405,11 @@ export function ServerWorldMapDialog({
                 className="h-[24rem] w-full overflow-hidden rounded-md border bg-muted/30 md:aspect-[1.94/1] md:h-auto"
                 data-testid="server-world-map-chart"
                 role="img"
-                aria-label="World map of public servers"
+                aria-label={t("serverBrowser.worldMapAria")}
               />
             ) : (
               <div className="flex h-[24rem] w-full items-center justify-center overflow-hidden rounded-md border bg-muted/30 px-6 text-center text-sm text-muted-foreground md:aspect-[1.94/1] md:h-auto">
-                No loaded servers have map coordinates.
+                {t("serverBrowser.noCoordinates")}
               </div>
             )}
           </div>

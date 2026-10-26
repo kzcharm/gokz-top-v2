@@ -1,4 +1,5 @@
 import { Copy, LoaderCircle, Play } from "lucide-react"
+import { Trans, useTranslation } from "react-i18next"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
@@ -46,6 +47,7 @@ export function ServerDetailSheet({
   onCopyAddress,
   onSteamConnect,
 }: ServerDetailSheetProps) {
+  const { t } = useTranslation()
   const mapName = server ? getServerMapName(server) : null
   const mapImageUrls = useMapImageUrls(
     mapName,
@@ -84,12 +86,14 @@ export function ServerDetailSheet({
                       : "bg-gray-500 text-white",
                   )}
                 >
-                  {isServerOnline(server) ? "Online" : "Offline"}
+                  {isServerOnline(server)
+                    ? t("serverBrowser.online")
+                    : t("serverBrowser.offline")}
                 </Badge>
                 {isRefreshing ? (
                   <span
                     className="inline-flex items-center text-muted-foreground"
-                    title="Refreshing server status"
+                    title={t("serverBrowser.refreshing")}
                   >
                     <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                   </span>
@@ -99,10 +103,16 @@ export function ServerDetailSheet({
                 <span>{subtitleParts.join(" | ")}</span>
                 {lastSuccessfulQueryAt ? (
                   <span className="shrink-0 text-xs">
-                    Updated{" "}
-                    <FormattedDateTime
-                      value={lastSuccessfulQueryAt}
-                      display="relative"
+                    <Trans
+                      i18nKey="serverBrowser.updated"
+                      components={{
+                        date: (
+                          <FormattedDateTime
+                            value={lastSuccessfulQueryAt}
+                            display="relative"
+                          />
+                        ),
+                      }}
                     />
                   </span>
                 ) : null}
@@ -156,8 +166,8 @@ export function ServerDetailSheet({
                           variant="ghost"
                           onClick={() => onCopyAddress(server)}
                           className="h-8 w-8 bg-transparent text-white hover:bg-white/10"
-                          aria-label="Copy server address"
-                          title="Copy server address"
+                          aria-label={t("serverBrowser.copyAddress")}
+                          title={t("serverBrowser.copyAddress")}
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
@@ -168,8 +178,8 @@ export function ServerDetailSheet({
                           onClick={() => onSteamConnect(server)}
                           disabled={!isServerOnline(server)}
                           className="h-8 w-8 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
-                          aria-label="Connect via Steam"
-                          title="Connect via Steam"
+                          aria-label={t("serverBrowser.connect")}
+                          title={t("serverBrowser.connect")}
                         >
                           <Play className="h-4 w-4" />
                         </Button>
@@ -198,15 +208,15 @@ export function ServerDetailSheet({
         ) : (
           <>
             <DialogHeader>
-              <DialogTitle>Server not found</DialogTitle>
+              <DialogTitle>{t("serverBrowser.notFound")}</DialogTitle>
               <DialogDescription>
-                No server snapshot is available for{" "}
-                {serverAddress || "this route"}.
+                {t("serverBrowser.noSnapshot", {
+                  address: serverAddress || t("serverBrowser.currentRoute"),
+                })}
               </DialogDescription>
             </DialogHeader>
             <p className="text-sm text-muted-foreground">
-              The server may have gone offline or is not present in the latest
-              cache.
+              {t("serverBrowser.notFoundDescription")}
             </p>
           </>
         )}

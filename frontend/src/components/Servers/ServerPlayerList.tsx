@@ -1,4 +1,5 @@
 import { Pause } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { StageBadge } from "@/components/Records/StageBadge"
@@ -18,7 +19,6 @@ import {
   getPlayerBooleanValue,
   getPlayerNumberValue,
   getPlayerProgressPercent,
-  getPlayerStatusLabel,
   getPlayerStatusSurfaceClass,
   getPlayerStringValue,
   type ServerPlayer,
@@ -26,6 +26,7 @@ import {
 } from "./utils"
 
 export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
+  const { t } = useTranslation()
   const sortedPlayers = sortPlayersByProgress(players)
   const showTimerColumn = sortedPlayers.some(
     (player) => getPlayerNumberValue(player, "timer_time") !== null,
@@ -59,13 +60,23 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
         >
           <TableHeader>
             <TableRow>
-              <TableHead>Player</TableHead>
-              <TableHead>Duration</TableHead>
-              {showPingColumn ? <TableHead>Ping</TableHead> : null}
-              {showStageColumn ? <TableHead>Stage</TableHead> : null}
-              {showTimerColumn ? <TableHead>Timer</TableHead> : null}
-              {showProgressColumn ? <TableHead>Progress</TableHead> : null}
-              {showStatusColumn ? <TableHead>Status</TableHead> : null}
+              <TableHead>{t("serverBrowser.player")}</TableHead>
+              <TableHead>{t("serverBrowser.duration")}</TableHead>
+              {showPingColumn ? (
+                <TableHead>{t("serverBrowser.ping")}</TableHead>
+              ) : null}
+              {showStageColumn ? (
+                <TableHead>{t("serverBrowser.stage")}</TableHead>
+              ) : null}
+              {showTimerColumn ? (
+                <TableHead>{t("serverBrowser.timer")}</TableHead>
+              ) : null}
+              {showProgressColumn ? (
+                <TableHead>{t("serverBrowser.progress")}</TableHead>
+              ) : null}
+              {showStatusColumn ? (
+                <TableHead>{t("serverBrowser.status")}</TableHead>
+              ) : null}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -75,13 +86,14 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                   colSpan={visibleColumnCount}
                   className="h-24 text-center text-muted-foreground"
                 >
-                  No live players on this server.
+                  {t("serverBrowser.noPlayers")}
                 </TableCell>
               </TableRow>
             ) : (
               sortedPlayers.map((player, index) => {
                 const name =
-                  getPlayerStringValue(player, "name") || `Player ${index + 1}`
+                  getPlayerStringValue(player, "name") ||
+                  t("serverBrowser.playerFallback", { number: index + 1 })
                 const steamid64 = getPlayerStringValue(player, "steamid64")
                 const timerTime = getPlayerNumberValue(player, "timer_time")
                 const durationSeconds = getPlayerNumberValue(
@@ -126,7 +138,14 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                     {showStageColumn ? (
                       <TableCell>
                         {stage !== null ? (
-                          <StageBadge stage={stage} />
+                          <StageBadge
+                            stage={stage}
+                            label={
+                              stage === 0
+                                ? t("serverBrowser.main")
+                                : t("serverBrowser.bonus", { number: stage })
+                            }
+                          />
                         ) : (
                           <span className="text-muted-foreground">-</span>
                         )}
@@ -154,7 +173,17 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                     {showStatusColumn ? (
                       <TableCell>
                         <Badge className={cn(badgeClassName)}>
-                          {getPlayerStatusLabel(player)}
+                          {t(
+                            (
+                              {
+                                not_started: "serverBrowser.notStarted",
+                                in_progress: "serverBrowser.inProgress",
+                                finished: "serverBrowser.finished",
+                                aborted: "serverBrowser.aborted",
+                              } as Record<string, string>
+                            )[getPlayerStringValue(player, "status") ?? ""] ??
+                              "common.unknown",
+                          )}
                         </Badge>
                       </TableCell>
                     ) : null}

@@ -1560,3 +1560,199 @@ test("Server occupancy filters round-trip through share links", async ({
   await expect(hideOccupied).toHaveAttribute("aria-pressed", "false")
   await expect(page.getByTestId("server-card-10.0.0.1:27015")).toBeVisible()
 })
+
+for (const locale of ["zh-CN", "ru"] as const) {
+  test(`Server browser translates controls, tooltips, and dialogs in ${locale}`, async ({
+    page,
+  }) => {
+    const { resources } = await import("../src/i18n/resources")
+    const messages = resources[locale].translation
+    const copy = messages.serverBrowser
+    await page.addInitScript(
+      (language) => localStorage.setItem("gokz-language", language),
+      locale,
+    )
+    await page.routeWebSocket("**/v1/ws/servers**", () => {})
+    await stubMapImageGraphql(page)
+    await page.route(/\/v1\/servers\/?(\?.*)?$/, (route) =>
+      route.fulfill({
+        json: {
+          ...seedServers,
+          data: seedServers.data.map((server) => ({
+            ...server,
+            live_status: {
+              ...server.live_status,
+              players: [
+                {
+                  name: "Translation Runner",
+                  status: "in_progress",
+                  stage: 0,
+                  timer_time: 42,
+                  duration_seconds: 60,
+                },
+              ],
+            },
+          })),
+        },
+      }),
+    )
+    await page.goto("/servers")
+    await expect(page.getByPlaceholder(copy.searchPlaceholder)).toBeVisible()
+    await expect(
+      page.getByRole("button", { name: copy.hideEmpty, exact: true }),
+    ).toHaveAttribute("title", copy.hideEmptyTooltip)
+    await expect(
+      page.getByRole("button", { name: copy.hideOccupied, exact: true }),
+    ).toHaveAttribute("title", copy.hideOccupiedTooltip)
+    await expect(
+      page.getByText(locale === "ru" ? "5 игроков" : "5 玩家", {
+        exact: true,
+      }),
+    ).toBeVisible()
+    await expect(
+      page.getByText(locale === "ru" ? "1 сервер" : "1 服务器", {
+        exact: true,
+      }),
+    ).toBeVisible()
+    await page.screenshot({
+      path: `../.temp/screenshots/servers-${locale}-grid.png`,
+      fullPage: true,
+    })
+    const card = page.getByTestId("server-card-10.0.0.1:27015")
+    await expect(
+      card.getByRole("button", { name: copy.copyAddress }),
+    ).toHaveAttribute("title", copy.copyAddress)
+    await card
+      .getByRole("img", { name: messages.serverGlobalStatus.eligibleAria })
+      .hover()
+    await expect(
+      page
+        .getByRole("tooltip")
+        .getByText(messages.serverGlobalStatus.apiKey, { exact: true })
+        .first(),
+    ).toBeVisible()
+    await expect(
+      page.getByRole("tooltip").getByLabel(copy.passed).first(),
+    ).toBeVisible()
+    await page
+      .getByRole("button", { name: copy.tableView, exact: true })
+      .click()
+    for (const label of [copy.server, copy.map, copy.tier, copy.players]) {
+      await expect(
+        page
+          .getByRole("columnheader")
+          .getByRole("button", { name: label, exact: true }),
+      ).toBeVisible()
+    }
+    await page
+      .getByTestId("server-row-10.0.0.1:27015")
+      .getByText("Alpha Seed", { exact: true })
+      .click()
+    const dialog = page.getByRole("dialog")
+    await expect(
+      dialog.getByRole("columnheader", { name: copy.duration, exact: true }),
+    ).toBeVisible()
+    await expect(
+      dialog.getByText(copy.inProgress, { exact: true }),
+    ).toBeVisible()
+    await expect(dialog.getByText(copy.main, { exact: true })).toBeVisible()
+    await dialog
+      .getByRole("button", { name: messages.common.close, exact: true })
+      .click()
+    await page.getByTestId("add-server-button").click()
+    await expect(
+      dialog.getByRole("heading", { name: copy.addTitle, exact: true }),
+    ).toBeVisible()
+    await expect(
+      dialog.getByText(copy.addLoginDescription, { exact: true }),
+    ).toBeVisible()
+    await dialog
+      .getByRole("button", { name: messages.common.cancel, exact: true })
+      .click()
+    const download = page.waitForEvent("download")
+    await page.getByTestId("download-servers-config-button").click()
+    await download
+    await expect(
+      dialog.getByRole("heading", { name: copy.configTitle }),
+    ).toBeVisible()
+    await expect(
+      dialog.getByText(copy.configDescription, { exact: true }),
+    ).toBeVisible()
+    await expect(
+      dialog.locator("code").filter({ hasText: "autoexec.cfg" }),
+    ).toBeVisible()
+    await dialog
+      .getByRole("button", { name: messages.common.close, exact: true })
+      .click()
+    await page.getByTestId("open-servers-map-button").click()
+    await expect(
+      dialog.getByRole("heading", { name: copy.worldMapTitle }),
+    ).toBeVisible()
+    await expect(
+      dialog.getByText(copy.noCoordinates, { exact: true }),
+    ).toBeVisible()
+    await page.screenshot({
+      path: `../.temp/screenshots/servers-${locale}-dialog.png`,
+    })
+  })
+}
+
+test("Add-server validation and API errors are translated", async ({
+  page,
+}) => {
+  await page.route("**/v1/me/notifications/unread-count", (route) =>
+    route.fulfill({ json: { count: 0 } }),
+  )
+  await page.route("**/v1/admin/servers/access", (route) =>
+    route.fulfill({ json: { can_access: false } }),
+  )
+  await page.route("**/v1/players/76561198000000001*", (route) =>
+    route.fulfill({
+      json: { steamid64: "76561198000000001", name: "Translation Tester" },
+    }),
+  )
+
+  await page.addInitScript(() => {
+    localStorage.setItem("gokz-language", "ru")
+    localStorage.setItem("access_token", "translation-test-token")
+  })
+  await page.route("**/v1/users/me", (route) =>
+    route.fulfill({
+      json: {
+        id: "019d1111-1111-7111-8111-111111111111",
+        steamid64: "76561198000000001",
+        is_active: true,
+        is_superuser: false,
+        roles: [],
+      },
+    }),
+  )
+  await page.routeWebSocket("**/v1/ws/servers**", () => {})
+  await stubMapImageGraphql(page)
+  await page.route(/\/v1\/servers\/?(\?.*)?$/, (route) =>
+    route.request().method() === "POST"
+      ? route.fulfill({
+          status: 409,
+          json: { detail: "Server already exists" },
+        })
+      : route.fulfill({ json: seedServers }),
+  )
+  await page.goto("/servers")
+  await page.getByTestId("add-server-button").click()
+  const dialog = page.getByRole("dialog")
+  const add = dialog.getByRole("button", { name: "Добавить", exact: true })
+  await add.click()
+  await expect(
+    dialog.getByText("Укажите адрес сервера", { exact: true }),
+  ).toBeVisible()
+  await page.getByTestId("add-server-address-input").fill("invalid")
+  await add.click()
+  await expect(
+    dialog.getByText("Используйте формат IP:порт", { exact: true }),
+  ).toBeVisible()
+  await page.getByTestId("add-server-address-input").fill("10.0.0.1:27015")
+  await add.click()
+  await expect(
+    dialog.getByText("Этот сервер уже есть в списке.", { exact: true }),
+  ).toBeVisible()
+})

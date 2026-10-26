@@ -1,4 +1,5 @@
 import { ArrowDown, ArrowUp, Copy, LoaderCircle, Play } from "lucide-react"
+import { useTranslation } from "react-i18next"
 
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
@@ -80,6 +81,7 @@ export function ServerTable({
   onCopyAddress,
   onSteamConnect,
 }: ServerTableProps) {
+  const { t } = useTranslation()
   return (
     <div>
       <Table containerClassName="rounded-none border-0" className="table-fixed">
@@ -91,13 +93,13 @@ export function ServerTable({
                 headerSurfaceClassName,
               )}
             >
-              <span className="sr-only">Country</span>
+              <span className="sr-only">{t("serverBrowser.country")}</span>
             </TableHead>
             <TableHead className={cn("w-[28%]", headerSurfaceClassName)}>
               <SortButton
                 active={sortKey === "hostname"}
                 direction={sortDirection}
-                label="Server"
+                label={t("serverBrowser.server")}
                 onClick={() => onSortChange("hostname")}
               />
             </TableHead>
@@ -105,7 +107,7 @@ export function ServerTable({
               <SortButton
                 active={sortKey === "map"}
                 direction={sortDirection}
-                label="Map"
+                label={t("serverBrowser.map")}
                 onClick={() => onSortChange("map")}
               />
             </TableHead>
@@ -113,7 +115,7 @@ export function ServerTable({
               <SortButton
                 active={sortKey === "tier"}
                 direction={sortDirection}
-                label="Tier"
+                label={t("serverBrowser.tier")}
                 onClick={() => onSortChange("tier")}
               />
             </TableHead>
@@ -121,7 +123,7 @@ export function ServerTable({
               <SortButton
                 active={sortKey === "players"}
                 direction={sortDirection}
-                label="Players"
+                label={t("serverBrowser.players")}
                 onClick={() => onSortChange("players")}
               />
             </TableHead>
@@ -131,7 +133,7 @@ export function ServerTable({
                 headerSurfaceClassName,
               )}
             >
-              <span className="sr-only">Actions</span>
+              <span className="sr-only">{t("serverBrowser.actions")}</span>
             </TableHead>
           </TableRow>
         </TableHeader>
@@ -166,7 +168,7 @@ export function ServerTable({
                         {!isServerOnline(server) ? (
                           <div
                             className="h-2 w-2 shrink-0 rounded-full bg-gray-400"
-                            title="Offline"
+                            title={t("serverBrowser.offline")}
                           />
                         ) : null}
                         <span
@@ -181,7 +183,7 @@ export function ServerTable({
                         {isRefreshing ? (
                           <span
                             className="inline-flex shrink-0 items-center text-muted-foreground"
-                            title="Refreshing server status"
+                            title={t("serverBrowser.refreshing")}
                           >
                             <LoaderCircle className="h-3.5 w-3.5 animate-spin" />
                           </span>
@@ -226,8 +228,8 @@ export function ServerTable({
                           event.stopPropagation()
                           onCopyAddress(server)
                         }}
-                        title="Copy server address"
-                        aria-label="Copy server address"
+                        title={t("serverBrowser.copyAddress")}
+                        aria-label={t("serverBrowser.copyAddress")}
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
@@ -240,8 +242,8 @@ export function ServerTable({
                           onSteamConnect(server)
                         }}
                         disabled={!isServerOnline(server)}
-                        title="Connect via Steam"
-                        aria-label="Connect via Steam"
+                        title={t("serverBrowser.connect")}
+                        aria-label={t("serverBrowser.connect")}
                       >
                         <Play className="h-4 w-4" />
                       </Button>
@@ -256,7 +258,7 @@ export function ServerTable({
                 colSpan={6}
                 className="h-32 text-center text-muted-foreground"
               >
-                No servers match the current filters.
+                {t("serverBrowser.empty")}
               </TableCell>
             </TableRow>
           )}

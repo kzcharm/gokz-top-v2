@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 
@@ -14,6 +15,7 @@ export function TierBadge({
   className,
   hideWhenUnknown = false,
 }: TierBadgeProps) {
+  const { t } = useTranslation()
   const normalizedTier = normalizeTierValue(tier)
   const tierColor = getTierColor(tier)
 
@@ -32,7 +34,9 @@ export function TierBadge({
       )}
       style={tierColor ? { backgroundColor: tierColor } : undefined}
     >
-      {formatTierLabel(normalizedTier)}
+      {normalizedTier === null
+        ? t("common.unknown")
+        : formatTierLabel(normalizedTier)}
     </Badge>
   )
 }
