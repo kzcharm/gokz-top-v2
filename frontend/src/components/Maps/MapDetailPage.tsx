@@ -47,6 +47,7 @@ import {
   SelectItem,
   SelectTrigger,
 } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -70,6 +71,8 @@ import {
 import { useMapReviewAdminActions } from "../Reviews/admin-actions"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
+import { MapOverviewMetrics } from "./MapOverviewMetrics"
+import { MapReviewSummary, MapSkillBreakdown } from "./MapOverviewSections"
 import { MapPronunciationButton } from "./MapPronunciationButton"
 import { MapReviewsTable } from "./MapReviewsTable"
 import { MapStatsSection } from "./MapStatsSection"
@@ -264,10 +267,12 @@ async function fetchMapPbLeaderboardPage({
 
 function MapHero({
   map,
+  scope,
   tier,
   leaderboardSummary,
 }: {
   map: MapPublic
+  scope: AppScope
   tier: number | null
   leaderboardSummary?: ReactNode
 }) {
@@ -317,49 +322,54 @@ function MapHero({
   }
 
   return (
-    <section className="overflow-hidden rounded-[28px] border border-border/70 bg-card shadow-sm">
-      <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(280px,0.76fr)_minmax(380px,1.24fr)] lg:items-start">
-        <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted leading-none">
-          {imageUrl ? (
-            <Dialog>
-              <DialogTrigger asChild>
-                <button
-                  type="button"
-                  className="relative block aspect-video h-full w-full cursor-zoom-in overflow-hidden leading-none"
-                  aria-label={t("maps.zoomImage", { mapName: map.name })}
+    <section
+      aria-label={t("maps.overview.title")}
+      className="overflow-hidden rounded-[28px] border border-border/70 bg-card shadow-sm"
+    >
+      <div className="grid gap-6 p-6 sm:p-8 lg:grid-cols-[minmax(240px,0.85fr)_minmax(0,1.15fr)] lg:items-start">
+        <div className="flex min-w-0 flex-col gap-4">
+          <div className="overflow-hidden rounded-2xl border border-border/70 bg-muted leading-none">
+            {imageUrl ? (
+              <Dialog>
+                <DialogTrigger asChild>
+                  <button
+                    type="button"
+                    className="relative block aspect-video h-full w-full cursor-zoom-in overflow-hidden leading-none"
+                    aria-label={t("maps.zoomImage", { mapName: map.name })}
+                  >
+                    <img
+                      src={imageUrl}
+                      alt={t("maps.imageAlt", { mapName: map.name })}
+                      className="block h-full w-full scale-[1.002] object-cover transition-transform duration-300 hover:scale-[1.022]"
+                      onError={handleImageError}
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+                  </button>
+                </DialogTrigger>
+                <DialogContent
+                  className="max-w-[min(96vw,72rem)] border-0 bg-transparent p-0 shadow-none sm:max-w-[min(96vw,72rem)]"
+                  showCloseButton={false}
                 >
-                  <img
-                    src={imageUrl}
-                    alt={t("maps.imageAlt", { mapName: map.name })}
-                    className="block h-full w-full scale-[1.002] object-cover transition-transform duration-300 hover:scale-[1.022]"
-                    onError={handleImageError}
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
-                </button>
-              </DialogTrigger>
-              <DialogContent
-                className="max-w-[min(96vw,72rem)] border-0 bg-transparent p-0 shadow-none sm:max-w-[min(96vw,72rem)]"
-                showCloseButton={false}
-              >
-                <div className="flex justify-center overflow-hidden rounded-[24px] leading-none">
-                  <img
-                    src={imageUrl}
-                    alt={t("maps.imageAltEnlarged", { mapName: map.name })}
-                    className="block max-h-[85vh] max-w-full scale-[1.002] rounded-[24px] object-contain"
-                    onError={handleImageError}
-                  />
-                </div>
-              </DialogContent>
-            </Dialog>
-          ) : (
-            <div className="relative aspect-video">
-              <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950" />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
-            </div>
-          )}
+                  <div className="flex justify-center overflow-hidden rounded-[24px] leading-none">
+                    <img
+                      src={imageUrl}
+                      alt={t("maps.imageAltEnlarged", { mapName: map.name })}
+                      className="block max-h-[85vh] max-w-full scale-[1.002] rounded-[24px] object-contain"
+                      onError={handleImageError}
+                    />
+                  </div>
+                </DialogContent>
+              </Dialog>
+            ) : (
+              <div className="relative aspect-video">
+                <div className="absolute inset-0 bg-gradient-to-br from-slate-700 via-slate-800 to-slate-950" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/15 to-transparent" />
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="flex min-w-0 flex-col gap-5">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-3">
@@ -417,7 +427,7 @@ function MapHero({
             </div>
           </div>
 
-          <dl className="grid gap-4 sm:grid-cols-2">
+          <dl className="grid grid-cols-2 gap-4">
             <MapMetaItem
               label={t("maps.authors")}
               value={
@@ -470,13 +480,21 @@ function MapHero({
             />
           </dl>
 
-          {leaderboardSummary ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              {leaderboardSummary}
+          <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+            <div className="flex min-w-0 flex-col gap-4">
+              <MapReviewSummary map={map} />
+              <MapSkillBreakdown map={map} />
             </div>
-          ) : null}
+            {leaderboardSummary ? (
+              <div className="grid grid-cols-2 content-start gap-4 xl:grid-cols-1">
+                {leaderboardSummary}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
+      <Separator />
+      <MapOverviewMetrics map={map} scope={scope} />
     </section>
   )
 }
@@ -879,6 +897,7 @@ export function MapDetailPage({
       />
       <MapHero
         map={map}
+        scope={scope}
         tier={activeTier}
         leaderboardSummary={
           !leaderboardQuery.isError ? (

@@ -11,7 +11,6 @@ import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapNameContextMenu } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
-import { getMapSkillPortions } from "@/components/Maps/map-utils"
 import { getRecordModeLabelById } from "@/components/Records/mode"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
@@ -28,7 +27,6 @@ import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { formatNumber } from "@/i18n/locale"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { formatFlooredDecimal } from "@/lib/number-format"
-import { cn } from "@/lib/utils"
 import {
   DEFAULT_MAP_CARD_OPTIONS,
   getFirstMedianWrGap,
@@ -39,6 +37,7 @@ import {
 } from "./catalog-metrics"
 import { MapAuthorsDisplay } from "./MapAuthorsDisplay"
 import { MapMetricTooltip } from "./MapMetricTooltip"
+import { MapReviewSummary, MapSkillBreakdown } from "./MapOverviewSections"
 
 interface MapCardProps {
   activeTier: number | null
@@ -58,81 +57,11 @@ interface MapCardProps {
   }
 }
 
-function formatReviewAverage(value: number | null | undefined) {
-  if (value === null || value === undefined) {
-    return "0.0"
-  }
-
-  return formatFlooredDecimal(value, 1)
-}
-
 function formatAveragePlaytime(seconds: number) {
   const minutes = Math.round(seconds / 60)
   return minutes >= 60
     ? `${(minutes / 60).toFixed(1).replace(/\.0$/, "")} h`
     : `${minutes} min`
-}
-
-function ScoreStars({ value }: { value: number | null }) {
-  const filledStars = value ?? 0
-
-  return (
-    <div
-      className="flex min-w-[6.25rem] items-center gap-0.5"
-      role="img"
-      aria-label={
-        value === null
-          ? "No rating provided, 0 out of 5 stars"
-          : `${value} out of 5 stars`
-      }
-    >
-      {Array.from({ length: 5 }, (_, index) => (
-        <Star
-          key={index}
-          className={cn(
-            "size-3.5",
-            index < filledStars
-              ? "fill-amber-400 text-amber-400"
-              : "fill-transparent text-muted-foreground/35",
-          )}
-        />
-      ))}
-    </div>
-  )
-}
-
-function ReviewSummaryRow({
-  label,
-  value,
-  count,
-  suffix,
-}: {
-  label: string
-  value: number | null
-  count?: number
-  suffix?: string
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <span className="w-14 text-xs font-medium text-muted-foreground">
-        {label}
-      </span>
-      <ScoreStars value={value} />
-      <span className="text-sm font-medium tabular-nums text-foreground">
-        {formatReviewAverage(value)}
-      </span>
-      {count !== undefined ? (
-        <span className="text-xs font-medium text-muted-foreground">
-          ({count})
-        </span>
-      ) : null}
-      {suffix ? (
-        <span className="text-xs font-medium text-muted-foreground">
-          {suffix}
-        </span>
-      ) : null}
-    </div>
-  )
 }
 
 export function MapCard({
@@ -152,16 +81,6 @@ export function MapCard({
   const downloadUrl = getMapDownloadUrl(map)
   const reviewSummary = map.review_summary
   const bonusCount = map.bonus_count ?? 0
-  const reviewsCount = reviewSummary?.reviews_count ?? 0
-  const commentsCount = reviewSummary?.comments_count ?? 0
-  const allSkillPortions = getMapSkillPortions(map)
-  const nonZeroSkillPortions = allSkillPortions.filter(
-    (portion) => portion.percentage > 0,
-  )
-  const skillPortions =
-    nonZeroSkillPortions.length > 0 && nonZeroSkillPortions.length < 4
-      ? allSkillPortions.slice(0, 4)
-      : nonZeroSkillPortions.slice(0, 4)
   const leaderboardMetric = leaderboardEntry
     ? (
         {
@@ -417,67 +336,12 @@ export function MapCard({
             </section>
           ) : null}
           {displayOptions.reviews ? (
-            <section
-              className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3"
-              aria-label="Review summary"
-            >
-              <div className="flex flex-col gap-1 whitespace-normal">
-                <ReviewSummaryRow
-                  label="Overall"
-                  value={reviewSummary?.overall_avg ?? null}
-                  suffix={`(${commentsCount} / ${reviewsCount})`}
-                />
-                <ReviewSummaryRow
-                  label="Gameplay"
-                  value={reviewSummary?.gameplay_avg ?? null}
-                  count={reviewSummary?.gameplay_count ?? 0}
-                />
-                <ReviewSummaryRow
-                  label="Visuals"
-                  value={reviewSummary?.visuals_avg ?? null}
-                  count={reviewSummary?.visuals_count ?? 0}
-                />
-              </div>
-            </section>
+            <div className="rounded-2xl border border-border/70 bg-muted/40 px-4 py-3">
+              <MapReviewSummary map={map} />
+            </div>
           ) : null}
           {displayOptions.skills ? (
-            <section className="space-y-3" aria-label="Skill breakdown">
-              <div
-                className="flex h-2.5 overflow-hidden rounded-full bg-muted"
-                aria-hidden="true"
-              >
-                {skillPortions.map((portion) => (
-                  <div
-                    key={portion.label}
-                    className="h-full"
-                    style={{
-                      backgroundColor: portion.color,
-                      width: `${portion.percentage}%`,
-                    }}
-                  />
-                ))}
-              </div>
-
-              <ul className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {skillPortions.map((portion) => (
-                  <li
-                    key={portion.label}
-                    className="flex items-center justify-between gap-2 text-xs"
-                  >
-                    <span className="flex min-w-0 items-center gap-2 text-muted-foreground">
-                      <span
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: portion.color }}
-                      />
-                      <span className="truncate">{portion.label}</span>
-                    </span>
-                    <span className="font-medium tabular-nums text-foreground">
-                      {portion.percentage}%
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            <MapSkillBreakdown map={map} compact />
           ) : null}
           {displayOptions.dates ? (
             <dl className="grid grid-cols-2 gap-4">

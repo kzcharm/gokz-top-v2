@@ -1133,7 +1133,9 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await expect(page.getByText("#1", { exact: true })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Player" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Map" })).toHaveCount(0)
-  await expect(page.getByRole("button", { name: "Time" })).toHaveCount(0)
+  await expect(
+    page.getByRole("table").getByRole("button", { name: "Time" }),
+  ).toHaveCount(0)
   await expect(
     page.getByRole("link", { name: "Map Top Group" }),
   ).toHaveAttribute("href", "/servers/group/map-top-group")

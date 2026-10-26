@@ -1193,6 +1193,37 @@ export const en = {
     },
   },
   maps: {
+    overview: {
+      medianFirstFinishTime: "Med 1st Completion Time",
+      medianFirstFinishWrGap: "Med 1st Completion WR Gap",
+      avgFinishes: "Avg Finishes per Player",
+      avgPlaytime: "Avg Playtime per Player",
+      title: "Map overview",
+      reviewSummary: "Review summary",
+      noReviews: "No reviews yet",
+      reviewCounts: "{{reviews}} · {{comments}}",
+      ratingCount_one: "{{formatted}} rating",
+      ratingCount_other: "{{formatted}} ratings",
+      commentCount_one: "{{formatted}} comment",
+      commentCount_other: "{{formatted}} comments",
+      metrics: "Map metrics",
+      metricsUnavailable: "Metrics unavailable",
+      recordedRunTime: "Recorded Run Time",
+      hours: "{{value}} h",
+      proShare: "PRO Share",
+      medianPbTime: "Median PB Time",
+      medianPbWrGap: "Median PB WR Gap",
+      bonuses: "Bonuses",
+      skills: {
+        ladder: "Ladder",
+        bhop: "Bhop",
+        slide: "Slide",
+        climb: "Climb",
+        strafe: "Strafe",
+        boxtech: "Boxtech",
+        unknown: "Unknown",
+      },
+    },
     downloadMenu: "Downloads",
     metricExplanation: "Explain {{metric}}",
     options: {
@@ -1223,6 +1254,12 @@ export const en = {
       pbWrGap: "WR Gap",
     },
     metricHelp: {
+      firstFinishMed:
+        "Median run time of each player’s earliest valid main-course finish in the selected mode. Finish timestamp determines the first run; record UUID breaks timestamp ties.",
+      firstFinishMedWrGap:
+        "Median first-completion time divided by the selected mode’s NUB WR. Displayed as a multiplier, truncated to two decimal places up to 10x and one above 10x.",
+      avgFinishes:
+        "Average number of valid main-course finishes per player in the selected mode, including repeat finishes.",
       playtime:
         "Sum of valid main-course completion times in the selected scope. This counts recorded runs, not time spent on failed attempts.",
       avgPlaytime:

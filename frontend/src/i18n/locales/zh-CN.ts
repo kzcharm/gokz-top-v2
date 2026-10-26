@@ -1161,6 +1161,35 @@ export const zhCN = {
     },
   },
   maps: {
+    overview: {
+      medianFirstFinishTime: "首次完赛用时中位数",
+      medianFirstFinishWrGap: "首次完赛中位数 WR 差距",
+      avgFinishes: "人均完赛次数",
+      avgPlaytime: "人均完赛累计用时",
+      title: "地图概览",
+      reviewSummary: "评价汇总",
+      noReviews: "暂无评价",
+      reviewCounts: "{{reviews}} · {{comments}}",
+      ratingCount: "{{formatted}} 条评分",
+      commentCount: "{{formatted}} 条评论",
+      metrics: "地图指标",
+      metricsUnavailable: "指标暂不可用",
+      recordedRunTime: "完赛累计用时",
+      hours: "{{value}} 小时",
+      proShare: "PRO 玩家占比",
+      medianPbTime: "个人最佳用时中位数",
+      medianPbWrGap: "个人最佳中位数 WR 差距",
+      bonuses: "奖励路线",
+      skills: {
+        ladder: "梯子",
+        bhop: "连跳",
+        slide: "滑坡",
+        climb: "攀爬",
+        strafe: "旋转",
+        boxtech: "箱子技巧",
+        unknown: "未知",
+      },
+    },
     downloadMenu: "下载",
     metricExplanation: "解释{{metric}}",
     options: {
@@ -1191,6 +1220,11 @@ export const zhCN = {
       pbWrGap: "WR 差距",
     },
     metricHelp: {
+      firstFinishMed:
+        "所选模式下每位玩家最早有效主路线完赛记录的用时中位数。按完赛时间戳选取首条记录，时间戳相同时按记录 UUID 排序。",
+      firstFinishMedWrGap:
+        "首次完赛用时中位数除以所选模式的 NUB WR，显示为倍数。小于等于 10x 时截取两位小数，大于 10x 时截取一位小数，不向上舍入。",
+      avgFinishes: "所选模式下每位玩家的平均有效主路线完赛次数，包含重复完赛。",
       playtime:
         "当前模式范围内所有有效主线完赛用时的总和。仅统计已记录的完赛，不包含失败尝试的用时。",
       avgPlaytime:

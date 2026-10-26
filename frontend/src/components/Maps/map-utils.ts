@@ -17,6 +17,7 @@ export const MAP_SORTABLE_SKILLS = MAP_SKILLS.filter(
 )
 
 export interface MapSkillPortion {
+  key: MapSkillKey
   color: (typeof MAP_SKILLS)[number]["color"]
   label: (typeof MAP_SKILLS)[number]["label"]
   percentage: number

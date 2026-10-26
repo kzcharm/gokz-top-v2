@@ -1215,6 +1215,41 @@ export const ru = {
     },
   },
   maps: {
+    overview: {
+      medianFirstFinishTime: "Медиана первых прохождений",
+      medianFirstFinishWrGap: "Разрыв первых прохождений и WR",
+      avgFinishes: "Ср. финишей на игрока",
+      avgPlaytime: "Ср. время забегов на игрока",
+      title: "Обзор карты",
+      reviewSummary: "Сводка отзывов",
+      noReviews: "Отзывов пока нет",
+      reviewCounts: "{{reviews}} · {{comments}}",
+      ratingCount_one: "{{formatted}} оценка",
+      ratingCount_few: "{{formatted}} оценки",
+      ratingCount_many: "{{formatted}} оценок",
+      ratingCount_other: "{{formatted}} оценки",
+      commentCount_one: "{{formatted}} комментарий",
+      commentCount_few: "{{formatted}} комментария",
+      commentCount_many: "{{formatted}} комментариев",
+      commentCount_other: "{{formatted}} комментария",
+      metrics: "Показатели карты",
+      metricsUnavailable: "Показатели недоступны",
+      recordedRunTime: "Суммарное время забегов",
+      hours: "{{value}} ч",
+      proShare: "Доля PRO",
+      medianPbTime: "Медиана личных рекордов",
+      medianPbWrGap: "Разрыв медианы и WR",
+      bonuses: "Бонусы",
+      skills: {
+        ladder: "Лестницы",
+        bhop: "Bhop",
+        slide: "Скольжение",
+        climb: "Подъёмы",
+        strafe: "Стрейфы",
+        boxtech: "Boxtech",
+        unknown: "Неизвестно",
+      },
+    },
     downloadMenu: "Загрузки",
     metricExplanation: "Объяснение: {{metric}}",
     options: {
@@ -1245,6 +1280,12 @@ export const ru = {
       pbWrGap: "Отрыв от WR",
     },
     metricHelp: {
+      firstFinishMed:
+        "Медиана времени самого раннего допустимого прохождения основного маршрута каждого игрока в выбранном режиме. При равных датах первым считается меньший UUID записи.",
+      firstFinishMedWrGap:
+        "Медиана первых прохождений, делённая на NUB WR выбранного режима. Множитель усекается до двух знаков после запятой при значениях до 10x включительно и до одного знака выше 10x.",
+      avgFinishes:
+        "Среднее число успешных прохождений основного маршрута на игрока в выбранном режиме, включая повторные финиши.",
       playtime:
         "Сумма времени всех действительных прохождений основного маршрута в выбранном режиме. Неудачные попытки не учитываются.",
       avgPlaytime:
