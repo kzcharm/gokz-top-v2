@@ -28,7 +28,7 @@ from app.services.record_ingestion import accept_record
 from tests.services.test_record_ingestion import setup_finish
 
 
-def test_concurrent_receipts_and_conflicting_uuid():
+def test_concurrent_receipts_and_conflicting_uuid(monkeypatch):
     # Never touch an existing database: this test owns a randomly named database.
     assert settings.ENVIRONMENT == "local"
     assert settings.POSTGRES_SERVER in {"localhost", "127.0.0.1"}
@@ -151,6 +151,43 @@ def test_concurrent_receipts_and_conflicting_uuid():
                         )
                         assert authenticated.last_api_key_used_at is not None
                     await first.rollback()
+                # A contended reconciliation backs off without a pool slot,
+                # then verifies the same identity once the course is released.
+                from app.services import record_transactions
+                from app.services.record_ingestion import identity_lock
+                from app.services.record_reconciliation import submit_claim
+
+                async with AsyncSession(engine, expire_on_commit=False) as first:
+                    await identity_lock(first, "course:982345:0")
+                    async with AsyncSession(engine, expire_on_commit=False) as second:
+                        retrying = asyncio.Event()
+                        resume = asyncio.Event()
+                        original_sleep = record_transactions.asyncio.sleep
+
+                        async def backoff(_delay):
+                            assert not second.in_transaction()
+                            assert engine.pool.checkedout() == 1
+                            retrying.set()
+                            await resume.wait()
+
+                        monkeypatch.setattr(
+                            record_transactions.asyncio, "sleep", backoff
+                        )
+                        try:
+                            group = await second.get(ServerGroup, group_id)
+                            request = asyncio.create_task(
+                                submit_claim(second, group, payload.record_uuid, 998877)
+                            )
+                            await asyncio.wait_for(retrying.wait(), timeout=2)
+                            await first.rollback()
+                            resume.set()
+                            assert (await asyncio.wait_for(request, timeout=3))[
+                                "state"
+                            ] == "verified"
+                        finally:
+                            monkeypatch.setattr(
+                                record_transactions.asyncio, "sleep", original_sleep
+                            )
                 # Even an administrative group-row lock must not block auth.
                 async with AsyncSession(engine, expire_on_commit=False) as first:
                     await first.exec(

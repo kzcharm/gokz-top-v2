@@ -174,6 +174,52 @@ class _StubResponse:
         return self._payload
 
 
+@pytest.mark.parametrize("path", ["main", "probe", "backfill"])
+async def test_busy_record_defers_without_advancing_or_skipping_cursor(
+    db, monkeypatch, path
+):
+    from unittest.mock import AsyncMock
+
+    from app.services.record_transactions import RecordTransactionBusy
+
+    start = 997800
+    await _set_records_cursor(db, start)
+    monkeypatch.setattr(
+        record_sync.crud,
+        "get_max_record_globalapi_id",
+        AsyncMock(return_value=start + 2 if path == "backfill" else None),
+    )
+    if path == "backfill":
+        monkeypatch.setattr(record_sync, "MISSING_ID_ATTEMPT_LIMIT", 10)
+        monkeypatch.setattr(
+            record_sync,
+            "_find_due_missing_record_ids_in_db_range",
+            AsyncMock(return_value=([start], True)),
+        )
+
+    async def fetch(*, client, record_id):
+        del client
+        if path == "probe" and record_id == start:
+            return record_sync.RecordFetchResult(kind="null")
+        return record_sync.RecordFetchResult(kind="record", payload={"id": record_id})
+
+    async def hydrate(*, client, payload):
+        del client
+        return payload
+
+    async def busy(**_kwargs):
+        await db.rollback()
+        raise RecordTransactionBusy()
+
+    monkeypatch.setattr(record_sync, "_fetch_record_with_retry", fetch)
+    monkeypatch.setattr(record_sync, "_hydrate_main_stage_points_from_top", hydrate)
+    monkeypatch.setattr(record_sync, "_upsert_record", busy)
+    monkeypatch.setattr(record_sync.asyncio, "sleep", AsyncMock())
+    result = await record_sync.sync_records_from_globalapi(session=db)
+    assert result.processed == 0 and result.errors == 0 and result.warnings == 1
+    assert (await db.get(GlobalApiSyncState, "records")).cursor == start
+
+
 async def test_sync_records_from_globalapi_starts_from_largest_local_id_or_200(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,

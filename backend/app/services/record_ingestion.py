@@ -50,13 +50,24 @@ from app.services.record_submission_policy import (
 )
 
 
-async def identity_lock(session: AsyncSession, identity: str) -> None:
+async def identity_lock(
+    session: AsyncSession, identity: str, *, wait: bool = True
+) -> None:
     # Stable across processes; never use Python's randomized hash().
     key = int.from_bytes(
         hashlib.sha256(identity.encode()).digest()[:8], "big", signed=True
     )
     await session.execute(text("SET LOCAL lock_timeout = '5s'"))
-    await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+    if wait:
+        await session.execute(text("SELECT pg_advisory_xact_lock(:key)"), {"key": key})
+    else:
+        from app.services.record_transactions import RecordLockBusy
+
+        acquired = await session.execute(
+            text("SELECT pg_try_advisory_xact_lock(:key)"), {"key": key}
+        )
+        if not acquired.scalar_one():
+            raise RecordLockBusy(identity)
 
 
 async def resolve_upload_server(

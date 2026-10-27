@@ -21,6 +21,7 @@ from app.models import (
     ServerGroup,
 )
 from app.services.record_ingestion import identity_lock
+from app.services.record_transactions import run_record_transaction
 
 
 async def owned_record(
@@ -192,8 +193,23 @@ async def reconcile_claim(session: AsyncSession, claim: RecordSourceClaim) -> bo
 async def submit_claim(
     session: AsyncSession, group: ServerGroup, record_uuid: uuid.UUID, globalapi_id: int
 ) -> dict[str, Any]:
+    group_id = group.id
+
+    async def operation() -> dict[str, Any]:
+        # Rollbacks expire ORM objects. Reload ownership within every attempt.
+        current_group = await session.get(ServerGroup, group_id)
+        if current_group is None:
+            raise HTTPException(403, "Server group no longer exists")
+        return await _submit_claim(session, current_group, record_uuid, globalapi_id)
+
+    return await run_record_transaction(session, operation)
+
+
+async def _submit_claim(
+    session: AsyncSession, group: ServerGroup, record_uuid: uuid.UUID, globalapi_id: int
+) -> dict[str, Any]:
     record = await owned_record(session, group, record_uuid)
-    await identity_lock(session, f"course:{record.map_id}:{record.stage}")
+    await identity_lock(session, f"course:{record.map_id}:{record.stage}", wait=False)
     await identity_lock(session, f"globalapi:{globalapi_id}")
     claim = (
         await session.exec(
@@ -340,6 +356,9 @@ async def reconcile_compatible_receipt(
     if not native or native.id is not None:
         return False
     await identity_lock(session, f"course:{native.map_id}:{native.stage}")
+    await session.refresh(native)
+    if native.id is not None:
+        return False
     upstream = await upstream_match(session, native, receipt.created_at)
     if not upstream:
         return False

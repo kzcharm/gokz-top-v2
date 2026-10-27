@@ -23,6 +23,10 @@ from app.models import (
     ServerGlobalapi,
     get_datetime_utc,
 )
+from app.services.record_transactions import (
+    RecordTransactionBusy,
+    run_record_transaction,
+)
 
 DEFAULT_RECORD_START_ID = 200
 NULL_PROBE_WINDOW = 4
@@ -573,6 +577,22 @@ async def _upsert_record(
     payload: dict[str, Any],
     emit_wr_notifications: bool = False,
 ) -> tuple[uuid.UUID, bool, bool]:
+    async def operation() -> tuple[uuid.UUID, bool, bool]:
+        return await _upsert_record_once(
+            session=session,
+            payload=payload,
+            emit_wr_notifications=emit_wr_notifications,
+        )
+
+    return await run_record_transaction(session, operation)
+
+
+async def _upsert_record_once(
+    *,
+    session: AsyncSession,
+    payload: dict[str, Any],
+    emit_wr_notifications: bool = False,
+) -> tuple[uuid.UUID, bool, bool]:
     record_id = _parse_int(payload.get("id"), field_name="id")
     steamid64 = _parse_int(payload.get("steamid64"), field_name="steamid64")
     server_id = _parse_int(payload.get("server_id"), field_name="server_id")
@@ -605,7 +625,7 @@ async def _upsert_record(
 
     # Every record writer takes course before player rows and upstream identity.
     # The inverse order deadlocked against direct finishes updating Last Played.
-    await identity_lock(session, f"course:{map_id}:{stage}")
+    await identity_lock(session, f"course:{map_id}:{stage}", wait=False)
     await identity_lock(session, f"globalapi:{record_id}")
 
     await _ensure_player(
@@ -762,6 +782,19 @@ async def _backfill_missing_records_in_db_range(
                     session=session,
                     payload=hydrated_payload,
                 )
+            except RecordTransactionBusy:
+                logger.info("Deferring busy GlobalAPI backfill record_id=%s", record_id)
+                return (
+                    GlobalApiSyncResult(
+                        processed=processed,
+                        created=created,
+                        updated=updated,
+                        errors=errors,
+                        warnings=warnings + 1,
+                    ),
+                    record_id,
+                    False,
+                )
             except ValueError as exc:
                 logger.warning(
                     "Skipping malformed missing GlobalAPI record record_id=%s: %s",
@@ -905,6 +938,15 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                         payload=hydrated_payload,
                         emit_wr_notifications=True,
                     )
+                except RecordTransactionBusy:
+                    logger.info("Deferring busy GlobalAPI record_id=%s", cursor)
+                    return GlobalApiSyncResult(
+                        processed=processed,
+                        created=created,
+                        updated=updated,
+                        errors=errors,
+                        warnings=warnings + 1,
+                    )
                 except ValueError as exc:
                     logger.warning(
                         "Skipping malformed GlobalAPI record record_id=%s: %s",
@@ -970,6 +1012,15 @@ async def sync_records_from_globalapi(*, session: AsyncSession) -> GlobalApiSync
                         session=session,
                         payload=hydrated_payload,
                         emit_wr_notifications=True,
+                    )
+                except RecordTransactionBusy:
+                    logger.info("Deferring busy GlobalAPI probe record_id=%s", probe_id)
+                    return GlobalApiSyncResult(
+                        processed=processed,
+                        created=created,
+                        updated=updated,
+                        errors=errors,
+                        warnings=warnings + 1,
                     )
                 except ValueError as exc:
                     logger.warning(
