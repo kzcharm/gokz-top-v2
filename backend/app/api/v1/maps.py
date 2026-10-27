@@ -1,10 +1,20 @@
 import logging
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
+from email.utils import parsedate_to_datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Path, Query, Response
-from fastapi.responses import RedirectResponse
+from fastapi import (
+    APIRouter,
+    Depends,
+    Header,
+    HTTPException,
+    Path,
+    Query,
+    Request,
+    Response,
+)
+from fastapi.responses import FileResponse, RedirectResponse
 
 from app import crud
 from app.api.deps import (
@@ -47,6 +57,7 @@ from app.services.map_file_distribution import (
     MapFileDistributionError,
     sync_map_files,
 )
+from app.services.map_images import CACHE_CONTROL, image_path
 from app.services.map_pronunciation import (
     is_configured,
     read_public_pronunciation,
@@ -145,6 +156,47 @@ async def read_maps(
         updated_since=_parse_datetime(updated_since),
     )
     return await crud.to_map_publics(session=session, maps=maps)
+
+
+@router.api_route(
+    "/images/{map_name:path}.webp", methods=["GET", "HEAD"], response_model=None
+)
+def read_local_map_image(request: Request, map_name: str) -> Response:
+    path = image_path(map_name)
+    if path is None:
+        return Response(status_code=404, headers={"Cache-Control": "no-store"})
+    try:
+        stat = path.stat()
+    except OSError:
+        return Response(status_code=404, headers={"Cache-Control": "no-store"})
+    response = FileResponse(
+        path,
+        media_type="image/webp",
+        stat_result=stat,
+        headers={"Cache-Control": CACHE_CONTROL, "X-Content-Type-Options": "nosniff"},
+    )
+    if_none_match = request.headers.get("if-none-match")
+    not_modified = False
+    if if_none_match is not None:
+        tags = [tag.strip().removeprefix("W/") for tag in if_none_match.split(",")]
+        not_modified = "*" in tags or response.headers["etag"] in tags
+    elif modified_since := request.headers.get("if-modified-since"):
+        try:
+            since = parsedate_to_datetime(modified_since)
+            if since.tzinfo is None:
+                since = since.replace(tzinfo=UTC)
+            not_modified = int(stat.st_mtime) <= since.timestamp()
+        except (ValueError, TypeError, OverflowError):
+            pass
+    if not_modified:
+        return Response(
+            status_code=304,
+            headers={
+                key: response.headers[key]
+                for key in ("cache-control", "etag", "last-modified")
+            },
+        )
+    return response
 
 
 @router.get("/workshop/{workshop_id}/preview-image", response_model=None)

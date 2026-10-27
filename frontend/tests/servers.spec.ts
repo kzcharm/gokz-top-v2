@@ -1,6 +1,7 @@
 import { readFile } from "node:fs/promises"
 import type { Page } from "@playwright/test"
 import { expect, test } from "@playwright/test"
+import { stubMapImageAssets } from "./utils/mapImages"
 import { randomSteamid64 } from "./utils/random"
 import { logInUser } from "./utils/user"
 
@@ -12,6 +13,7 @@ async function stubMapImageGraphql(
     inputs: Array<{ mapName: string; workshopId: string | null }>,
   ) => void,
 ) {
+  await stubMapImageAssets(page)
   await page.route("**/v1/graphql", async (route) => {
     const body = route.request().postDataJSON() as {
       query?: string
@@ -36,9 +38,10 @@ async function stubMapImageGraphql(
         data: {
           mapImages: inputs.map((input) => ({
             ...input,
-            previewUrl: input.workshopId
-              ? `https://steam.example/${input.workshopId}.jpg`
-              : null,
+            previewUrl:
+              input.mapName === "kz_seed" && input.workshopId
+                ? `https://steam.example/${input.workshopId}.jpg`
+                : `${new URL(route.request().url()).origin}/v1/maps/images/${encodeURIComponent(input.mapName)}.webp`,
           })),
         },
       }),
@@ -696,30 +699,12 @@ test("Public servers page supports live updates, filters, and route-bound detail
         ),
     )
     .toContain("https://steam.example/123456789.jpg")
-  await expect
-    .poll(async () =>
-      page
-        .getByTestId("server-card-10.0.0.1:27015")
-        .locator(".bg-cover")
-        .first()
-        .evaluate(
-          (element) => window.getComputedStyle(element).backgroundImage,
-        ),
-    )
-    .toContain(
-      "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_seed.webp",
-    )
   const seedCardBackground = await page
     .getByTestId("server-card-10.0.0.1:27015")
     .locator(".bg-cover")
     .first()
     .evaluate((element) => window.getComputedStyle(element).backgroundImage)
-  const staticSeedImageUrl =
-    "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_seed.webp"
-  const workshopSeedImagePath = "https://steam.example/123456789.jpg"
-  expect(seedCardBackground.indexOf(staticSeedImageUrl)).toBeLessThan(
-    seedCardBackground.indexOf(workshopSeedImagePath),
-  )
+  expect(seedCardBackground).toBe('url("https://steam.example/123456789.jpg")')
   await expect.poll(() => mapImageBatches.length).toBe(1)
   expect(mapImageBatches[0]).toEqual([
     { mapName: "kz_seed", workshopId: "123456789" },
@@ -767,7 +752,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
     })
   }, snapshotServers.servers[2])
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toHaveCount(0)
-  await expect(page.getByText("1 Servers")).toBeVisible()
+  await expect(page.getByText("1 Server", { exact: true })).toBeVisible()
   await hideOccupied.click()
   await expect(hideEmpty).toHaveAttribute("aria-pressed", "false")
   await expect(hideOccupied).toHaveAttribute("aria-pressed", "true")
@@ -800,9 +785,7 @@ test("Public servers page supports live updates, filters, and route-bound detail
           (element) => window.getComputedStyle(element).backgroundImage,
         ),
     )
-    .toBe(
-      'url("https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_gamma.webp")',
-    )
+    .toMatch(/url\("https?:\/\/[^" ]+\/v1\/maps\/images\/kz_gamma\.webp"\)/)
 
   await page.evaluate((server) => {
     ;(window as any).__dispatchServerMessage({

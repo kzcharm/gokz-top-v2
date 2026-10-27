@@ -1,4 +1,5 @@
 import { expect, type Page, test } from "@playwright/test"
+import { mapImagePixel, stubMapImageAssets } from "./utils/mapImages"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -34,6 +35,24 @@ async function installProfileShellRoutes(
     { raw_rating: number; rating: number | null }
   > = defaultSkillRatings,
 ) {
+  await stubMapImageAssets(page)
+  await page.route("**/v1/graphql", async (route) => {
+    const body = route.request().postDataJSON()
+    if (!body.query?.includes("query MapImages")) return route.fallback()
+    await route.fulfill({
+      json: {
+        data: {
+          mapImages: body.variables.inputs.map(
+            (input: { mapName: string; workshopId?: string }) => ({
+              ...input,
+              workshopId: input.workshopId ?? null,
+              previewUrl: `${new URL(route.request().url()).origin}/v1/maps/images/${encodeURIComponent(input.mapName)}.webp`,
+            }),
+          ),
+        },
+      },
+    })
+  })
   await page.route(/\/v1\/users\/me$/, async (route) => {
     await route.fulfill({
       status: 401,
@@ -1007,7 +1026,7 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
     .first()
   await expect(alphaMapTile).toHaveAttribute(
     "style",
-    /github\.com\/KZGlobalTeam\/map-images\/raw\/public\/webp\/kz_seed_alpha\.webp/,
+    /\/v1\/maps\/images\/kz_seed_alpha\.webp/,
   )
   await expect(
     page.getByRole("link", { name: "Seed Server Group" }),
@@ -1487,10 +1506,14 @@ test("Profile records page shows grouped server links and filters by group name"
   await expect(page.locator('[data-testid^="pb-record-row-"]')).toHaveCount(1)
 })
 
-test("Profile records map tiles include API preview fallback URLs", async ({
+test("Profile records map tiles use the API preview when local images fail", async ({
   page,
 }) => {
   await installProfileShellRoutes(page)
+  await page.route("**/v1/maps/images/*.webp", (route) => route.abort())
+  await page.route("**/v1/maps/preview-image?*", (route) =>
+    route.fulfill({ contentType: "image/png", body: mapImagePixel }),
+  )
   await page.route("**/v1/graphql", async (route) => {
     const body = route.request().postDataJSON() as { query?: string }
     if (body.query?.includes("query MapImages")) {
@@ -1534,10 +1557,6 @@ test("Profile records map tiles include API preview fallback URLs", async ({
     .getByRole("link", { name: "kz_seed_alpha" })
     .locator("div")
     .first()
-  await expect(alphaMapTile).toHaveAttribute(
-    "style",
-    /github\.com\/KZGlobalTeam\/map-images\/raw\/public\/webp\/kz_seed_alpha\.webp/,
-  )
   await expect(alphaMapTile).toHaveAttribute(
     "style",
     /\/v1\/maps\/preview-image\?map_name=kz_seed_alpha/,

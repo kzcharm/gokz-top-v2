@@ -17,6 +17,7 @@ from app.crud.leaderboard_player import load_player_ratings_by_scope
 from app.crud.player_profile_view import count_player_profile_views_batch
 from app.models import Map, ModeScope, Player, UserRole
 from app.models.leaderboard_player import scale_public_rating
+from app.services.map_images import local_image_url
 from app.services.player_steam_profile import sync_player_steam_profiles_if_due
 from app.services.steam_workshop import get_cached_workshop_preview_urls
 
@@ -144,6 +145,10 @@ class Query:
         info: strawberry.Info[dict[str, AsyncSession], None],
         inputs: list[MapImageInputGQL],
     ) -> list[MapImageGQL]:
+        local_urls = {
+            image_input.map_name.strip(): local_image_url(image_input.map_name.strip())
+            for image_input in inputs
+        }
         normalized_inputs: list[tuple[str, str | None]] = []
         map_names_to_resolve: list[str] = []
         for image_input in inputs:
@@ -153,7 +158,7 @@ class Query:
                 str(int(raw_workshop_id)) if raw_workshop_id.isdigit() else None
             )
             normalized_inputs.append((map_name, workshop_id))
-            if workshop_id is None and map_name:
+            if workshop_id is None and map_name and local_urls.get(map_name) is None:
                 map_names_to_resolve.append(map_name)
 
         maps_by_name: dict[str, Map] = {}
@@ -174,8 +179,8 @@ class Query:
             session=_get_session(info),
             workshop_ids=[
                 workshop_id
-                for _map_name, workshop_id in resolved_inputs
-                if workshop_id is not None
+                for map_name, workshop_id in resolved_inputs
+                if workshop_id is not None and local_urls.get(map_name) is None
             ],
         )
         return [
@@ -185,7 +190,12 @@ class Query:
                     strawberry.ID(workshop_id) if workshop_id is not None else None
                 ),
                 preview_url=(
-                    preview_urls.get(workshop_id) if workshop_id is not None else None
+                    local_urls.get(map_name)
+                    or (
+                        preview_urls.get(workshop_id)
+                        if workshop_id is not None
+                        else None
+                    )
                 ),
             )
             for map_name, workshop_id in resolved_inputs

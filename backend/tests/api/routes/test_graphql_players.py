@@ -1,5 +1,7 @@
 import asyncio
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import AsyncClient
@@ -575,3 +577,39 @@ async def test_graphql_search_players_returns_expected_count_and_display_name(
             "customId": None,
         }
     ]
+
+
+async def test_graphql_map_images_prefers_local_and_only_fetches_missing_workshop(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "MAP_IMAGE_STORAGE_DIR", tmp_path)
+    (tmp_path / "kz_local.webp").write_bytes(b"local image")
+    previews = AsyncMock(return_value={"222": "https://steam.example/222.jpg"})
+    monkeypatch.setattr(graphql_api, "get_cached_workshop_preview_urls", previews)
+    payload = await _post_graphql(
+        client,
+        query="""
+        query MapImages($inputs: [MapImageInput!]!) {
+          mapImages(inputs: $inputs) { mapName workshopId previewUrl }
+        }
+    """,
+        variables={
+            "inputs": [
+                {"mapName": "kz_local", "workshopId": "111"},
+                {"mapName": "kz_missing", "workshopId": "222"},
+                {"mapName": "kz_local", "workshopId": "111"},
+                {"mapName": "kz_unknown"},
+            ]
+        },
+    )
+    assert not payload.get("errors")
+    images = payload["data"]["mapImages"]
+    assert images[0]["previewUrl"].endswith("/v1/maps/images/kz_local.webp")
+    assert images[1]["previewUrl"] == "https://steam.example/222.jpg"
+    assert images[0] == images[2]
+    assert images[3]["previewUrl"] is None
+    assert previews.await_args.kwargs["workshop_ids"] == ["222"]

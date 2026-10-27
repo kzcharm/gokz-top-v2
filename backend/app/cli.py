@@ -18,6 +18,7 @@ from app.services.map_authors import (
 )
 from app.services.map_file_distribution import seed_map_package, sync_map_files
 from app.services.map_file_distribution_worker import run_map_file_distribution_runner
+from app.services.map_images import sync_map_images
 from app.services.media_classifier import MediaMatchReason
 from app.services.media_reclassification import (
     MediaReclassificationResult,
@@ -1152,6 +1153,16 @@ def regenerate_player_pronunciation(steamid64: int) -> None:
         console.print(f"Queued pronunciation for player {steamid64}")
 
     _run_async(regenerate())
+
+
+@sync_app.command("map-images")
+def sync_map_images_command() -> None:
+    """Mirror all upstream map WebPs now, regardless of the daily schedule."""
+    result = _run_async(sync_map_images(force=True))
+    if result is None:
+        console.print("Map image synchronization is already running.")
+    else:
+        console.print(result.model_dump())
 
 
 if __name__ == "__main__":

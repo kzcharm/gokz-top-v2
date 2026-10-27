@@ -5,7 +5,9 @@ export function getMapImageUrl(mapName: string | null | undefined) {
     return null
   }
 
-  return `https://github.com/KZGlobalTeam/map-images/raw/public/webp/${mapName}.webp`
+  return buildApiUrl(
+    `/v1/maps/images/${encodeURIComponent(mapName.trim())}.webp`,
+  )
 }
 
 function buildApiUrl(path: string) {
@@ -51,4 +53,27 @@ export function getLegacyMapImageUrls(
   return [getMapImageUrl(mapName), workshopPreviewUrl].filter(
     (url): url is string => Boolean(url),
   )
+}
+
+// Resolve one source at a time so CSS backgrounds never fetch a hidden fallback.
+export async function loadFirstMapImage(
+  urls: string[],
+): Promise<string | null> {
+  for (const url of [...new Set(urls)]) {
+    const loaded = await new Promise<boolean>((resolve) => {
+      const image = new Image()
+      const timer = window.setTimeout(() => finish(false), 15000)
+      const finish = (success: boolean) => {
+        window.clearTimeout(timer)
+        image.onload = null
+        image.onerror = null
+        resolve(success)
+      }
+      image.onload = () => finish(true)
+      image.onerror = () => finish(false)
+      image.src = url
+    })
+    if (loaded) return url
+  }
+  return null
 }

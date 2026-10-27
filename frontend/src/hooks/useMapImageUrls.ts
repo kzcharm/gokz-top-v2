@@ -1,7 +1,12 @@
 import { useQuery } from "@tanstack/react-query"
 
 import { loadMapImage } from "@/lib/map-image-graphql"
-import { getLegacyMapImageUrls, getMapImageUrl } from "@/lib/map-images"
+import {
+  getLegacyMapImageUrls,
+  getMapPreviewImageUrl,
+  getWorkshopPreviewImageUrl,
+  loadFirstMapImage,
+} from "@/lib/map-images"
 
 export function useMapImageUrls(
   mapName: string | null | undefined,
@@ -12,27 +17,40 @@ export function useMapImageUrls(
   const normalizedWorkshopId = String(workshopId ?? "").trim() || null
   const imageQuery = useQuery({
     queryKey: [
-      "graphql",
-      "map-image",
+      "map-image-source",
       normalizedMapName,
       normalizedWorkshopId ?? "MAP",
     ],
-    queryFn: () => loadMapImage(normalizedMapName, normalizedWorkshopId),
+    queryFn: async () => {
+      let urls: string[]
+      try {
+        const image = await loadMapImage(
+          normalizedMapName,
+          normalizedWorkshopId,
+        )
+        const primary = image.previewUrl
+        urls = primary ? [primary] : []
+        if (
+          primary &&
+          new URL(primary, window.location.origin).pathname.includes(
+            "/maps/images/",
+          )
+        ) {
+          const fallback =
+            getWorkshopPreviewImageUrl(image.workshopId) ??
+            getMapPreviewImageUrl(normalizedMapName)
+          if (fallback) urls.push(fallback)
+        }
+      } catch {
+        urls = getLegacyMapImageUrls(normalizedMapName, normalizedWorkshopId)
+      }
+      return loadFirstMapImage(urls)
+    },
     enabled: enabled && normalizedMapName.length > 0,
     staleTime: 60 * 60 * 1000,
     refetchOnWindowFocus: false,
-    retry: 1,
+    retry: false,
   })
 
-  if (!enabled) {
-    return []
-  }
-  if (imageQuery.isError) {
-    return getLegacyMapImageUrls(normalizedMapName, normalizedWorkshopId)
-  }
-
-  return [
-    getMapImageUrl(normalizedMapName),
-    imageQuery.data?.previewUrl,
-  ].filter((url): url is string => Boolean(url))
+  return enabled && imageQuery.data ? [imageQuery.data] : []
 }

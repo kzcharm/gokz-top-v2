@@ -1,9 +1,10 @@
 # Tech Stack - GOKZ.TOP v2
 
-- Last Updated: 2026-10-24
+- Last Updated: 2026-10-27
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
 ## Architecture
+- Map preview WebPs are mirrored daily from KZGlobalTeam/map-images into a stack-specific persistent `map-image-data` volume; the advisory-locked backend runner and `kztop sync map-images` share incremental blob-hash validation. Public `/v1/maps/images/{map_name}.webp` reads use seven-day browser/Cloudflare cache headers and conditional validators. GraphQL selects local images first; the frontend loads sources sequentially and retains direct Steam Workshop fallback. Cache Rules inspection requires permissions beyond the current DNS token.
 - Public `/cards/player/:identifier` is a static portrait capture surface with explicit loading/ready/error states. The official QQ bot captures it with its existing Chromium at 480 CSS pixels and 2× resolution; two concurrent workers, request deduplication, and a 15-minute cache keep rendering bounded. `GOKZ_TOP_WEBSITE_URL` selects the website environment. Card identity reads use the existing player endpoint with `refresh_steam_profile=false` to include favorite-server details without scheduling Steam synchronization; ordinary reads default to refreshing.
 - Monorepo with:
   - FastAPI backend in `backend/`

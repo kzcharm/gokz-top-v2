@@ -321,3 +321,9 @@ After changing these limits or the formula, run `kztop build rating` across all 
 - Frozen replay-policy alternatives for late upstream claims use each candidate’s canonical runtime and the symmetric ±1 ms candidate range, preserving strict PB/WR rules across either rounding direction.
 
 - PB bucket winner selection and map leaderboard refreshes use the same literal `is_valid = true` partial-index predicate as replay qualification. A database-plan regression exercises both write refresh paths and requires partial course indexes.
+
+## Map preview delivery
+
+- Serve the complete upstream WebP collection from persistent local storage, syncing at startup when due and every 24 hours after success. Retry failures after one hour without removing existing images.
+- Cache successful image responses in browsers and Cloudflare for seven days; keep stable URLs and do not purge automatically. Missing images are not cached.
+- Prefer local previews across map, profile, record, and server surfaces. Use direct Steam Workshop previews for missing or failed local images, loading only one source at a time; retain placeholders when no image is available.

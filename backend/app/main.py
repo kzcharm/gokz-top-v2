@@ -38,6 +38,7 @@ from app.services.map_file_distribution_worker import (
     run_map_file_distribution_runner,
     stop_map_file_distribution_runner,
 )
+from app.services.map_images import run_map_image_runner, stop_map_image_runner
 from app.services.map_pronunciation_worker import (
     run_map_pronunciation_runner,
     stop_map_pronunciation_runner,
@@ -98,6 +99,9 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     media_sync_task: asyncio.Task[None] | None = None
     jump_replay_cleanup_task: asyncio.Task[None] | None = None
     map_file_distribution_task: asyncio.Task[None] | None = None
+    map_image_task: asyncio.Task[None] | None = None
+    if settings.RUN_MAP_IMAGE_RUNNER_IN_APP:
+        map_image_task = asyncio.create_task(run_map_image_runner())
     map_pronunciation_task: asyncio.Task[None] | None = None
     if settings.RUN_MAP_PRONUNCIATION_RUNNER_IN_APP:
         map_pronunciation_task = asyncio.create_task(run_map_pronunciation_runner())
@@ -140,6 +144,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         await stop_jump_replay_cleanup_runner(jump_replay_cleanup_task)
         await stop_map_file_distribution_runner(map_file_distribution_task)
         await stop_map_pronunciation_runner(map_pronunciation_task)
+        await stop_map_image_runner(map_image_task)
 
 
 class VersionedOpenAPIFastAPI(FastAPI):

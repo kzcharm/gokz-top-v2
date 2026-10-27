@@ -6,6 +6,7 @@ from typing import Annotated, Any, Literal, Self
 from pydantic import (
     AnyUrl,
     BeforeValidator,
+    Field,
     HttpUrl,
     PostgresDsn,
     computed_field,
@@ -157,6 +158,9 @@ class Settings(BaseSettings):
     VIDEO_PLATFORM_FOLLOWER_REFRESH_LIMIT: int = 10
     JUMP_REPLAY_CLEANUP_POLL_SECONDS: int = 3600
     JUMP_REPLAY_CLEANUP_GRACE_DAYS: int = 7
+    MAP_IMAGE_STORAGE_DIR: Path = Path("../.map-images")
+    RUN_MAP_IMAGE_RUNNER_IN_APP: bool = True
+    MAP_IMAGE_SYNC_INTERVAL_SECONDS: Annotated[int, Field(gt=0)] = 86_400
     MAP_FILE_STORAGE_DIR: Path = Path("../.maps")
     MAP_DISTRIBUTION_STEAM_APP_ID: int = 730
     MAP_DISTRIBUTION_BZ2_MAX_BYTES: int = 150_000_000

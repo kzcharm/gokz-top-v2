@@ -1,5 +1,6 @@
 import { expect, type Page, test } from "@playwright/test"
 import { stubBackgroundApi } from "./utils/backgroundApi"
+import { stubMapImageAssets } from "./utils/mapImages"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -9,6 +10,7 @@ async function stubMapImageGraphql(
     inputs: Array<{ mapName: string; workshopId: string | null }>,
   ) => void,
 ) {
+  await stubMapImageAssets(page)
   await page.route("**/v1/graphql", async (route) => {
     const body = route.request().postDataJSON() as {
       query?: string
@@ -43,9 +45,10 @@ async function stubMapImageGraphql(
         data: {
           mapImages: inputs.map((input) => ({
             ...input,
-            previewUrl: input.workshopId
-              ? `https://steam.example/${input.workshopId}.jpg`
-              : null,
+            previewUrl:
+              input.mapName === "kz_alpha" && input.workshopId
+                ? `https://steam.example/${input.workshopId}.jpg`
+                : `${new URL(route.request().url()).origin}/v1/maps/images/${encodeURIComponent(input.mapName)}.webp`,
           })),
         },
       }),
@@ -972,29 +975,28 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
     })
   })
 
-  await page.route(
-    "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_alpha.webp",
-    async (route) => {
-      await route.abort()
-    },
-  )
-
   await page.goto("/maps")
 
   await expect(page).toHaveURL(/\/maps$/)
   await expect(page.getByTestId("map-card-kz_alpha")).toBeVisible()
+  await expect
+    .poll(() =>
+      page
+        .getByTestId("map-card-kz_alpha")
+        .locator(".bg-cover")
+        .first()
+        .evaluate(
+          (element) => window.getComputedStyle(element).backgroundImage,
+        ),
+    )
+    .toContain("https://steam.example/1986459001.jpg")
   const alphaCardBackground = await page
     .getByTestId("map-card-kz_alpha")
     .locator(".bg-cover")
     .first()
     .evaluate((element) => window.getComputedStyle(element).backgroundImage)
-  const staticAlphaImageUrl =
-    "https://github.com/KZGlobalTeam/map-images/raw/public/webp/kz_alpha.webp"
-  const workshopAlphaImagePath = "https://steam.example/1986459001.jpg"
-  expect(alphaCardBackground).toContain(staticAlphaImageUrl)
-  expect(alphaCardBackground).toContain(workshopAlphaImagePath)
-  expect(alphaCardBackground.indexOf(staticAlphaImageUrl)).toBeLessThan(
-    alphaCardBackground.indexOf(workshopAlphaImagePath),
+  expect(alphaCardBackground).toBe(
+    'url("https://steam.example/1986459001.jpg")',
   )
   await expect.poll(() => mapImageBatches.length).toBe(1)
   expect(mapImageBatches[0].length).toBeGreaterThan(1)

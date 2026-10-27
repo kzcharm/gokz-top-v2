@@ -88,6 +88,9 @@ services:
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
       - R2_PUBLIC_BASE_URL=${R2_PUBLIC_BASE_URL}
+      - MAP_IMAGE_STORAGE_DIR=/app/.map-images
+      - RUN_MAP_IMAGE_RUNNER_IN_APP=${RUN_MAP_IMAGE_RUNNER_IN_APP:-true}
+      - MAP_IMAGE_SYNC_INTERVAL_SECONDS=${MAP_IMAGE_SYNC_INTERVAL_SECONDS:-86400}
       - MAP_FILE_STORAGE_DIR=${MAP_FILE_STORAGE_DIR:-../.maps}
       - MAP_DISTRIBUTION_HOUR_UTC=${MAP_DISTRIBUTION_HOUR_UTC:-3}
       - STEAMCMD_PATH=${STEAMCMD_PATH:-steamcmd}
@@ -139,6 +142,9 @@ services:
       - SENTRY_DSN=${SENTRY_DSN}
       - GEOIP_CITY_DB_PATH=${GEOIP_CITY_DB_PATH:-../.geoip/GeoLite2-City.mmdb}
       - REPLAY_STORAGE_DIR=${REPLAY_STORAGE_DIR:-../.replays}
+      - MAP_IMAGE_STORAGE_DIR=/app/.map-images
+      - RUN_MAP_IMAGE_RUNNER_IN_APP=${RUN_MAP_IMAGE_RUNNER_IN_APP:-true}
+      - MAP_IMAGE_SYNC_INTERVAL_SECONDS=${MAP_IMAGE_SYNC_INTERVAL_SECONDS:-86400}
       - MAP_FILE_STORAGE_DIR=${MAP_FILE_STORAGE_DIR:-../.maps}
       - MAP_DISTRIBUTION_HOUR_UTC=${MAP_DISTRIBUTION_HOUR_UTC:-3}
       - STEAMCMD_PATH=${STEAMCMD_PATH:-steamcmd}
@@ -155,6 +161,7 @@ services:
       dockerfile: backend/Dockerfile
     volumes:
       - ${GEOIP_DATA_DIR:-./.geoip}:/app/.geoip:ro
+      - map-image-data:/app/.map-images
       - ${REPLAY_DATA_DIR:-./.replays}:/app/.replays
       - ${MAP_FILE_DATA_DIR:-./.maps}:/app/.maps
     labels:
@@ -318,6 +325,7 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-replayviewer-redirect-https.tls.certresolver=le
       - traefik.http.routers.${STACK_NAME?Variable not set}-replayviewer-redirect-https.middlewares=${STACK_NAME?Variable not set}-replayviewer-redirect
 volumes:
+  map-image-data:
   app-db-data:
 
 networks:
