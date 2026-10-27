@@ -280,7 +280,7 @@ async def _accept_record(
                 Record.stage == payload.stage,
                 Record.mode == payload.mode,
                 Record.time >= payload.time - Decimal("0.001"),
-                Record.time <= payload.time,
+                Record.time <= payload.time + Decimal("0.001"),
                 Record.teleports == payload.teleports,
                 col(Record.id).is_not(None),
                 col(Record.native_server_id).is_(None),
@@ -289,12 +289,15 @@ async def _accept_record(
         )
     ).all()
     for candidate in candidates:
-        alternative = await replay_buckets(session, payload, map_obj.id, candidate.uuid)
+        candidate_payload = payload.model_copy(update={"time": candidate.time})
+        alternative = await replay_buckets(
+            session, candidate_payload, map_obj.id, candidate.uuid
+        )
         alternatives[str(candidate.id)] = qualifies_for_run_replay(
             mode=payload.mode,
             stage=payload.stage,
             teleports=payload.teleports,
-            time=payload.time,
+            time=candidate.time,
             buckets=alternative,
         )
     if alternatives:

@@ -424,6 +424,41 @@ async def test_precision_difference_beyond_one_millisecond_is_rejected(db):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "native_time,prior_time,expected",
+    [("35.287", "35.288", False), ("35.289", "35.289", True)],
+)
+async def test_late_identity_uses_canonical_precision_for_frozen_replay_policy(
+    db, native_time, prior_time, expected
+):
+    from app.services.record_reconciliation import submit_claim
+
+    group, _, payload, upstream = await fixture(db)
+    await _upsert_record(
+        session=db,
+        payload={
+            **upstream,
+            "id": 993320,
+            "time": prior_time,
+            "created_on": (payload.finished_at - timedelta(days=1)).isoformat(),
+        },
+    )
+    await _upsert_record(session=db, payload=upstream)
+    payload = payload.model_copy(
+        update={
+            "time": Decimal(native_time),
+            "finished_at": payload.finished_at - timedelta(seconds=87),
+        }
+    )
+    await accept_record(db, group, payload, "canonical-policy")
+    assert (await db.get(Record, payload.record_uuid)).id is None
+    result = await submit_claim(db, group, payload.record_uuid, upstream["id"])
+    assert result["state"] == "verified" and result["replay_eligible"] is expected
+    receipt = (await db.exec(select(RecordUploadReceipt))).one()
+    assert receipt.replay_eligible is expected
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("sync_first", [False, True])
 @pytest.mark.parametrize("delay", [11, 30])
 @pytest.mark.parametrize("native_time", ["35.287", "35.289"])

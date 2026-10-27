@@ -317,3 +317,5 @@ After changing these limits or the formula, run `kztop build rating` across all 
 - Identity attachment and GlobalAPI sync use non-blocking initial course locks and retry whole transactions after releasing pooled connections. Exhausted attachment retries and pool exhaustion return 503 with Retry-After; busy upstream records defer without advancing their cursor. Compatibility accepts ±1 ms in either direction, checks each direction’s full candidate range, and preserves ambiguity guards, supplied UUIDs, aliases, receipts, moderation, replay metadata, and PB precision.
 
 - Replay eligibility predicates use `Record.is_valid == true()` to match the record table’s partial indexes; `IS true` prevents those indexes from satisfying the query and causes long full-table scans while holding the course lock.
+
+- Frozen replay-policy alternatives for late upstream claims use each candidate’s canonical runtime and the symmetric ±1 ms candidate range, preserving strict PB/WR rules across either rounding direction.
