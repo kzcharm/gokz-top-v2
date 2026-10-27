@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 
-from sqlalchemy import and_, case, delete, func
+from sqlalchemy import and_, case, delete, func, true
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -92,7 +92,7 @@ async def _build_map_leaderboard_values_for_scope(
     now = get_datetime_utc()
     record_filters = [
         col(Record.stage) == 0,
-        col(Record.is_valid).is_(True),
+        col(Record.is_valid) == true(),
         col(Record.mode).in_(list(mode_scope_modes(scope))),
         not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
     ]

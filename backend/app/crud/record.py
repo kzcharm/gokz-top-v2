@@ -553,7 +553,7 @@ async def _load_bucket_winner_entries(
         col(Record.created_at).label("created_at"),
         col(Record.id).label("record_id"),
     ).where(
-        col(Record.is_valid).is_(True),
+        col(Record.is_valid) == true(),
         col(Record.map_id) == course.map_id,
         col(Record.stage) == course.stage,
         col(Record.mode).in_(list(mode_scope_modes(mode_scope_from_id(scope_id)))),

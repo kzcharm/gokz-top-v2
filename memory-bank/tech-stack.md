@@ -297,3 +297,5 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 - Replay eligibility predicates use `Record.is_valid == true()` to match the record table’s partial indexes; `IS true` prevents those indexes from satisfying the query and causes long full-table scans while holding the course lock.
 
 - Frozen replay-policy alternatives for late upstream claims use each candidate’s canonical runtime and the symmetric ±1 ms candidate range, preserving strict PB/WR rules across either rounding direction.
+
+- PB bucket winner selection and map leaderboard refreshes use the same literal `is_valid = true` partial-index predicate as replay qualification. A database-plan regression exercises both write refresh paths and requires partial course indexes.
