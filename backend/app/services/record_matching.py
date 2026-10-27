@@ -46,10 +46,10 @@ def statistics_match(native: Record, upstream: Record, *, legacy: bool = False) 
         for field in ("steamid64", "map_id", "stage", "mode", "teleports")
     ):
         return False
-    # Old records clients formatted to three decimals before uploading, whereas
-    # GlobalAPI serializes the full float then truncates to milliseconds.
+    # Client float serialization and upstream millisecond conversion can differ
+    # by one millisecond in either direction. All other statistics remain exact.
     return native.time == upstream.time or (
-        legacy and Decimal(0) <= native.time - upstream.time <= LEGACY_PRECISION
+        legacy and abs(native.time - upstream.time) <= LEGACY_PRECISION
     )
 
 
@@ -85,14 +85,14 @@ async def unique_compatible_pair(
         Record.stage == upstream.stage,
         Record.mode == upstream.mode,
         Record.teleports == upstream.teleports,
-        Record.time >= upstream.time,
-        Record.time <= upstream.time + LEGACY_PRECISION,
     )
     mirrors = (
         await session.exec(
             select(Record)
             .where(
                 *base,
+                Record.time >= native.time - LEGACY_PRECISION,
+                Record.time <= native.time + LEGACY_PRECISION,
                 col(Record.id).is_not(None),
                 Record.created_at >= start,
                 Record.created_at <= end,
@@ -115,6 +115,8 @@ async def unique_compatible_pair(
             )
             .where(
                 *base,
+                Record.time >= upstream.time - LEGACY_PRECISION,
+                Record.time <= upstream.time + LEGACY_PRECISION,
                 func.least(Record.created_at, RecordUploadReceipt.created_at)
                 >= upstream.created_at - MATCH_WINDOW,
                 func.least(Record.created_at, RecordUploadReceipt.created_at)
@@ -148,7 +150,7 @@ async def upstream_match(
                 Record.mode == native.mode,
                 Record.teleports == native.teleports,
                 Record.time >= native.time - LEGACY_PRECISION,
-                Record.time <= native.time,
+                Record.time <= native.time + LEGACY_PRECISION,
                 col(Record.id).is_not(None),
                 col(Record.native_server_id).is_(None),
                 Record.created_at >= start,
@@ -157,6 +159,8 @@ async def upstream_match(
             .limit(100)
         )
     ).all()
+    if len(candidates) >= 100:
+        return None
     matches = [
         candidate
         for candidate in candidates
@@ -179,7 +183,7 @@ async def native_match(session: AsyncSession, upstream: Record) -> Record | None
                 Record.stage == upstream.stage,
                 Record.mode == upstream.mode,
                 Record.teleports == upstream.teleports,
-                Record.time >= upstream.time,
+                Record.time >= upstream.time - LEGACY_PRECISION,
                 Record.time <= upstream.time + LEGACY_PRECISION,
                 col(Record.id).is_(None),
                 func.least(Record.created_at, RecordUploadReceipt.created_at)

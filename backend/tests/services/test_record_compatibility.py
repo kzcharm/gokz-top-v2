@@ -53,10 +53,12 @@ async def fixture(db):
 @pytest.mark.asyncio
 @pytest.mark.parametrize("sync_first", [False, True])
 @pytest.mark.parametrize("fast_clock", [False, True])
-async def test_legacy_client_merge_both_orders(db, sync_first, fast_clock):
+@pytest.mark.parametrize("native_time", ["35.287", "35.288", "35.289"])
+async def test_legacy_client_merge_both_orders(db, sync_first, fast_clock, native_time):
     from app.models import RecentWrEventCache, RecordPb, RecordReplay
 
     group, _, payload, upstream = await fixture(db)
+    payload = payload.model_copy(update={"time": Decimal(native_time)})
     if fast_clock:
         payload = payload.model_copy(
             update={"finished_at": payload.finished_at + timedelta(seconds=87)}
@@ -154,11 +156,13 @@ async def test_two_upstream_finishes_are_not_merged(db):
 
 
 @pytest.mark.asyncio
-async def test_historical_compatibility_backfill_dry_run_and_apply(db):
+@pytest.mark.parametrize("native_time", ["35.287", "35.289"])
+async def test_historical_compatibility_backfill_dry_run_and_apply(db, native_time):
     from app.crud.record import upsert_record
     from app.models import RecordPb
 
     group, _, payload, upstream = await fixture(db)
+    payload = payload.model_copy(update={"time": Decimal(native_time)})
     await accept_record(db, group, payload, "before-upgrade")
     mirror, _, _ = await upsert_record(
         session=db,
@@ -336,12 +340,18 @@ async def test_second_upstream_claim_preserves_verified_identity_even_with_stale
 
 
 @pytest.mark.asyncio
-async def test_explicit_identity_supports_legacy_precision_outside_clock_window(db):
+@pytest.mark.parametrize("native_time", ["35.287", "35.289"])
+async def test_explicit_identity_supports_legacy_precision_outside_clock_window(
+    db, native_time
+):
     from app.services.record_reconciliation import submit_claim
 
     group, _, payload, upstream = await fixture(db)
     payload = payload.model_copy(
-        update={"finished_at": payload.finished_at - timedelta(seconds=87)}
+        update={
+            "finished_at": payload.finished_at - timedelta(seconds=87),
+            "time": Decimal(native_time),
+        }
     )
     await accept_record(db, group, payload, "legacy-explicit")
     mirror, _, _ = await _upsert_record(session=db, payload=upstream)
@@ -353,10 +363,72 @@ async def test_explicit_identity_supports_legacy_precision_outside_clock_window(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("direction", [-1, 1])
+async def test_precision_window_does_not_choose_between_competing_mirrors(
+    db, direction
+):
+    from app.services.record_matching import native_match
+
+    group, _, payload, upstream = await fixture(db)
+    payload = payload.model_copy(update={"time": Decimal("35.288")})
+    await accept_record(db, group, payload, "precision-ambiguity")
+    values = {
+        "steamid64": payload.steamid64,
+        "server_id": upstream["server_id"],
+        "map_id": 982345,
+        "stage": 0,
+        "mode": KZMode.KZT,
+        "teleports": 0,
+        "created_at": payload.finished_at,
+        "updated_at": payload.finished_at,
+    }
+    db.add(Record(id=993322, time=payload.time + Decimal(direction) / 1000, **values))
+    await db.flush()
+    incoming = Record(
+        id=993323, time=payload.time - Decimal(direction) / 1000, **values
+    )
+    # Both mirrors are within 1ms of native, but 2ms apart from one another.
+    assert await native_match(db, incoming) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("direction", [-1, 1])
+async def test_precision_window_does_not_choose_between_competing_natives(
+    db, direction
+):
+    group, _, payload, upstream = await fixture(db)
+    center = Decimal(upstream["time"])
+    first = payload.model_copy(update={"time": center + Decimal(direction) / 1000})
+    second = payload.model_copy(
+        update={
+            "time": center - Decimal(direction) / 1000,
+            "record_uuid": generate_uuid7(),
+        }
+    )
+    await accept_record(db, group, first, "precision-first")
+    await accept_record(db, group, second, "precision-second")
+    canonical, _, _ = await _upsert_record(session=db, payload=upstream)
+    assert canonical not in {first.record_uuid, second.record_uuid}
+
+
+@pytest.mark.asyncio
+async def test_precision_difference_beyond_one_millisecond_is_rejected(db):
+    from app.services.record_reconciliation import submit_claim
+
+    group, _, payload, upstream = await fixture(db)
+    payload = payload.model_copy(update={"time": Decimal("35.286")})
+    await accept_record(db, group, payload, "too-precise")
+    await _upsert_record(session=db, payload=upstream)
+    result = await submit_claim(db, group, payload.record_uuid, upstream["id"])
+    assert result["state"] == "review"
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("sync_first", [False, True])
 @pytest.mark.parametrize("delay", [11, 30])
+@pytest.mark.parametrize("native_time", ["35.287", "35.289"])
 async def test_fast_clock_with_queued_delivery_merges_both_orders(
-    db, monkeypatch, sync_first, delay
+    db, monkeypatch, sync_first, delay, native_time
 ):
     from app.services import record_ingestion
 
@@ -367,10 +439,9 @@ async def test_fast_clock_with_queued_delivery_merges_both_orders(
     payload = payload.model_copy(
         update={
             "finished_at": finished + timedelta(seconds=87),
-            "time": Decimal("82.320"),
+            "time": Decimal(native_time),
         }
     )
-    upstream["time"] = "82.320"
     old = None
     if sync_first:
         old, _, _ = await _upsert_record(session=db, payload=upstream)
