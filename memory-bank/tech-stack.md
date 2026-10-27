@@ -293,3 +293,5 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 - The uploader and PB announcement core share `GOKZTop_FormatRecordTime`; upgrade them together to align accepted-time acknowledgements, new-PB detection and fresh point gains with GlobalAPI millisecond truncation.
 
 - Identity attachment and GlobalAPI sync use non-blocking initial course locks and retry whole transactions after releasing pooled connections. Exhausted attachment retries and pool exhaustion return 503 with Retry-After; busy upstream records defer without advancing their cursor. Compatibility accepts ±1 ms in either direction, checks each direction’s full candidate range, and preserves ambiguity guards, supplied UUIDs, aliases, receipts, moderation, replay metadata, and PB precision.
+
+- Replay eligibility predicates use `Record.is_valid == true()` to match the record table’s partial indexes; `IS true` prevents those indexes from satisfying the query and causes long full-table scans while holding the course lock.

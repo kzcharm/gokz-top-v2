@@ -9,7 +9,7 @@ from decimal import Decimal
 from typing import Any
 
 from fastapi import HTTPException
-from sqlalchemy import func, text
+from sqlalchemy import func, text, true
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.exc import TimeoutError as PoolTimeout
@@ -169,7 +169,7 @@ async def replay_buckets(
                 Record.map_id == map_id,
                 Record.stage == payload.stage,
                 col(Record.mode).in_(mode_scope_modes(scope)),
-                col(Record.is_valid).is_(True),
+                col(Record.is_valid) == true(),
                 not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
             )
             if exclude_uuid is not None:
