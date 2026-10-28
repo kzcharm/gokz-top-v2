@@ -7,6 +7,7 @@ from fastapi import HTTPException
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
+from app.crud.player_stats import DAILY_ACTIVITY_CACHE_VERSION
 from app.models import (
     KZMode,
     Map,
@@ -687,7 +688,14 @@ async def test_direct_finish_refreshes_metadata_and_cached_stats(db: AsyncSessio
     db.add(player)
     await db.flush()
     for stat_type in PlayerStatType:
-        db.add(PlayerStatCache(steamid64=player.steamid64, type=stat_type, content={}))
+        content = (
+            {"version": DAILY_ACTIVITY_CACHE_VERSION, "days": []}
+            if stat_type == PlayerStatType.DAILY_ACTIVITY
+            else {}
+        )
+        db.add(
+            PlayerStatCache(steamid64=player.steamid64, type=stat_type, content=content)
+        )
     await db.flush()
     await accept_record(db, group, payload, "metadata")
     await db.refresh(player)
