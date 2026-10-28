@@ -1128,7 +1128,8 @@ export function formatHours(hours: number) {
 }
 
 export function formatSecondsAsHours(totalSeconds: number) {
-  return `${(totalSeconds / 3600).toFixed(1)} hours`
+  const hours = totalSeconds / 3600
+  return `${hours.toFixed(hours > 100 ? 0 : 1)} hours`
 }
 
 export function formatCompactPercent(value: number) {
