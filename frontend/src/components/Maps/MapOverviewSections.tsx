@@ -79,29 +79,23 @@ export function MapReviewSummary({ map }: { map: MapPublic }) {
       className="flex min-w-0 flex-col items-center gap-2"
       aria-label={t("maps.overview.reviewSummary")}
     >
-      {summary && summary.reviews_count > 0 ? (
-        <div className="flex flex-col gap-1">
-          <ReviewSummaryRow
-            label={t("maps.sortOptions.overall")}
-            value={summary.overall_avg}
-            count={summary.reviews_count}
-          />
-          <ReviewSummaryRow
-            label={t("maps.sortOptions.gameplay")}
-            value={summary.gameplay_avg ?? null}
-            count={summary.gameplay_count}
-          />
-          <ReviewSummaryRow
-            label={t("maps.sortOptions.visuals")}
-            value={summary.visuals_avg ?? null}
-            count={summary.visuals_count}
-          />
-        </div>
-      ) : (
-        <p className="text-center text-sm text-muted-foreground">
-          {t("maps.overview.noReviews")}
-        </p>
-      )}
+      <div className="flex flex-col gap-1">
+        <ReviewSummaryRow
+          label={t("maps.sortOptions.overall")}
+          value={summary?.overall_avg ?? null}
+          count={summary?.reviews_count ?? 0}
+        />
+        <ReviewSummaryRow
+          label={t("maps.sortOptions.gameplay")}
+          value={summary?.gameplay_avg ?? null}
+          count={summary?.gameplay_count ?? 0}
+        />
+        <ReviewSummaryRow
+          label={t("maps.sortOptions.visuals")}
+          value={summary?.visuals_avg ?? null}
+          count={summary?.visuals_count ?? 0}
+        />
+      </div>
       <p className="text-center text-xs text-muted-foreground">
         {t("maps.overview.reviewCounts", {
           reviews: t("maps.overview.ratingCount", {

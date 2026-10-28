@@ -757,3 +757,53 @@ test("maps default view overrides session state until cleared", async ({
     page.getByRole("menuitem", { name: "Clear default view", exact: true }),
   ).toHaveCount(0)
 })
+
+test("unrated maps keep three star rows and match rated review heights", async ({
+  page,
+}) => {
+  await install(page, { guest: true })
+  await page.route(/\/v1\/maps(\?.*)?$/, (route) =>
+    route.fulfill({
+      json: maps.map((map, index) =>
+        index === 0
+          ? {
+              ...map,
+              review_summary: {
+                overall_avg: 4.5,
+                overall_adjusted: 4.5,
+                gameplay_avg: 4,
+                visuals_avg: 5,
+                reviews_count: 2,
+                gameplay_count: 2,
+                visuals_count: 1,
+                comments_count: 1,
+              },
+            }
+          : map,
+      ),
+    }),
+  )
+  await page.goto("/maps")
+  const rated = page
+    .getByTestId("map-card-kz_pick_00")
+    .getByRole("region", { name: "Review summary" })
+  const unrated = page
+    .getByTestId("map-card-kz_pick_01")
+    .getByRole("region", { name: "Review summary" })
+  await expect(rated.getByRole("img")).toHaveCount(3)
+  await expect(
+    unrated.getByRole("img", {
+      name: "No rating provided, 0 out of 5 stars",
+      exact: true,
+    }),
+  ).toHaveCount(3)
+  await expect(unrated.getByText("(0)", { exact: true })).toHaveCount(3)
+  await expect(unrated).toContainText("0 ratings · 0 comments")
+  await expect(
+    unrated.getByText("No reviews yet", { exact: true }),
+  ).toHaveCount(0)
+  expect((await unrated.boundingBox())?.height).toBe(
+    (await rated.boundingBox())?.height,
+  )
+  await page.screenshot({ path: "../.temp/screenshots/maps-unrated-stars.png" })
+})
