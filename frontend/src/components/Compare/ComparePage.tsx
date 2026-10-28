@@ -3,47 +3,41 @@ import { useNavigate } from "@tanstack/react-router"
 import type { EChartsOption, EChartsType } from "echarts"
 import * as echarts from "echarts"
 import { ArrowLeftRight, LoaderCircle } from "lucide-react"
-import { startTransition, useEffect, useMemo, useRef, useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import type { PlayerComparisonPublic } from "@/client"
 
-import type { PlayerCompareRunPublic, PlayerComparisonPublic } from "@/client"
 import { PlayersService } from "@/client"
-import { CountryFlag } from "@/components/Common/CountryFlag"
-import { MapDisplay } from "@/components/Common/MapDisplay"
+import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
-import { formatRating } from "@/components/Profile/profile-utils"
-import { ModeBadge } from "@/components/Records/ModeBadge"
-import { PointsBadge } from "@/components/Records/PointsBadge"
-import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
-import { formatRecordTime } from "@/components/Records/utils"
-import { TierBadge } from "@/components/Servers/TierBadge"
+import {
+  formatRating,
+  getProfilePointsStandingQueryOptions,
+  type ProfileSkillKey,
+  type ProfileSkillRatings,
+} from "@/components/Profile/profile-utils"
 import { useScope } from "@/components/scope-provider"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
-import {
   fetchPlayerByIdentifier,
   type GraphqlPlayer,
 } from "@/lib/player-graphql"
-import {
-  getHighestPlayerPermission,
-  PLAYER_PERMISSION_RING_CLASS_NAMES,
-} from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
-import { getInitials } from "@/utils"
+import { CompareCompletion } from "./CompareCompletion"
+import { CompareRunsTable } from "./CompareRunsTable"
 
-const PAGE_SIZE = 50
+const SKILLS: ProfileSkillKey[] = [
+  "boxtech",
+  "strafe",
+  "bhop",
+  "climb",
+  "ladder",
+  "slide",
+]
 
 async function fetchComparison({
   player1,
@@ -65,19 +59,14 @@ function formatMetric(value: number | null | undefined) {
   return value == null ? "-" : new Intl.NumberFormat("en-US").format(value)
 }
 
-function formatDelta(value: number | null | undefined) {
-  if (value == null) {
-    return "-"
-  }
-  return `${value < 0 ? "-" : "+"}${formatRecordTime(Math.abs(value))}`
-}
-
 function ComparisonRadar({
-  comparison,
+  ratings1,
+  ratings2,
   player1Name,
   player2Name,
 }: {
-  comparison: PlayerComparisonPublic
+  ratings1: ProfileSkillRatings | null
+  ratings2: ProfileSkillRatings | null
   player1Name: string
   player2Name: string
 }) {
@@ -106,16 +95,17 @@ function ComparisonRadar({
     if (!chart) {
       return
     }
-    const values = comparison.progression
+    const values = SKILLS
     const option: EChartsOption = {
       color: ["#0f9d8b", "#e8792f"],
       legend: { bottom: 0, data: [player1Name, player2Name] },
       radar: {
-        // With eight evenly-spaced indicators, this places Tier 8 at 6 o'clock.
-        startAngle: 315,
-        indicator: values.map((tier) => ({
-          name: `${t("compare.tier")} ${tier.tier}`,
-          max: 100,
+        startAngle: 90,
+        radius: "62%",
+        center: ["50%", "46%"],
+        indicator: values.map((skill) => ({
+          name: t(`profile.skillRadar.${skill}`),
+          max: 11,
         })),
         splitNumber: 4,
         axisName: { color: "#737373" },
@@ -128,25 +118,21 @@ function ComparisonRadar({
           type: "radar",
           symbol: "none",
           data: [
-            {
-              name: player1Name,
-              value: values.map((tier) =>
-                tier.total_maps === 0
-                  ? 0
-                  : (tier.player1_finished / tier.total_maps) * 100,
-              ),
+            { name: player1Name, ratings: ratings1, color: "#0f9d8b" },
+            { name: player2Name, ratings: ratings2, color: "#e8792f" },
+          ]
+            .filter(
+              ({ ratings }) =>
+                ratings &&
+                SKILLS.every((skill) => ratings[skill]?.rating != null),
+            )
+            .map(({ name, ratings, color }) => ({
+              itemStyle: { color },
+              lineStyle: { color },
+              name,
+              value: SKILLS.map((skill) => ratings?.[skill]?.rating ?? 0),
               areaStyle: { opacity: 0.14 },
-            },
-            {
-              name: player2Name,
-              value: values.map((tier) =>
-                tier.total_maps === 0
-                  ? 0
-                  : (tier.player2_finished / tier.total_maps) * 100,
-              ),
-              areaStyle: { opacity: 0.14 },
-            },
-          ],
+            })),
         },
       ],
       tooltip: {
@@ -156,285 +142,25 @@ function ComparisonRadar({
           return values
             .map(
               (value, index) =>
-                `${t("compare.tier")} ${index + 1}: ${Number(value).toFixed(1)}%`,
+                `${t(`profile.skillRadar.${SKILLS[index]}`)}: ${formatRating(Number(value))}`,
             )
             .join("<br />")
         },
       },
     }
     chart.setOption(option, true)
-  }, [comparison.progression, player1Name, player2Name, t])
+  }, [ratings1, ratings2, player1Name, player2Name, t])
 
   return (
     <div
       ref={chartElementRef}
-      className="aspect-square min-h-72 w-full max-h-[34rem]"
+      className="h-64 w-full"
       role="img"
-      aria-label={t("compare.progressionAria", {
+      aria-label={t("compare.skillsAria", {
         player1: player1Name,
         player2: player2Name,
       })}
     />
-  )
-}
-
-function EmptyRunCell() {
-  return <span className="text-muted-foreground">-</span>
-}
-
-function TimeDelta({ value }: { value: number | null | undefined }) {
-  if (value == null) {
-    return <EmptyRunCell />
-  }
-
-  return (
-    <span
-      className={cn(
-        "block text-right font-mono font-medium tabular-nums",
-        value < 0
-          ? "text-emerald-600 dark:text-emerald-400"
-          : value > 0
-            ? "text-red-600 dark:text-red-400"
-            : "text-muted-foreground",
-      )}
-    >
-      {formatDelta(value)}
-    </span>
-  )
-}
-
-function PointsDelta({ value }: { value: number | null | undefined }) {
-  if (value == null) {
-    return <EmptyRunCell />
-  }
-
-  return (
-    <span
-      className={cn(
-        "block text-center font-mono font-medium tabular-nums",
-        value < 0
-          ? "text-emerald-600 dark:text-emerald-400"
-          : value > 0
-            ? "text-red-600 dark:text-red-400"
-            : "text-muted-foreground",
-      )}
-    >
-      {`${value < 0 ? "-" : "+"}${formatMetric(Math.abs(value))}`}
-    </span>
-  )
-}
-
-function CompareRunsTable({
-  rows,
-  player1Name,
-  player2Name,
-  onlyBoth,
-}: {
-  rows: PlayerCompareRunPublic[]
-  player1Name: string
-  player2Name: string
-  onlyBoth: boolean
-}) {
-  const { t } = useTranslation()
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
-  const loadMoreRef = useRef<HTMLDivElement | null>(null)
-  const sortedRows = useMemo(() => {
-    const filtered = onlyBoth
-      ? rows.filter((row) => row.player1 != null && row.player2 != null)
-      : rows
-    return [...filtered].sort((left, right) => {
-      const leftPoints = left.player1?.points ?? -1
-      const rightPoints = right.player1?.points ?? -1
-      if (leftPoints !== rightPoints) {
-        return rightPoints - leftPoints
-      }
-      return left.map_name.localeCompare(right.map_name, undefined, {
-        numeric: true,
-        sensitivity: "base",
-      })
-    })
-  }, [onlyBoth, rows])
-  const visibleRows = sortedRows.slice(0, visibleCount)
-
-  useEffect(() => {
-    if (visibleCount > sortedRows.length) {
-      setVisibleCount(PAGE_SIZE)
-    }
-  }, [sortedRows.length, visibleCount])
-
-  useEffect(() => {
-    const target = loadMoreRef.current
-    if (!target || visibleCount >= sortedRows.length) {
-      return
-    }
-    const observer = new IntersectionObserver(
-      ([entry]) => {
-        if (!entry?.isIntersecting) {
-          return
-        }
-        startTransition(() => {
-          setVisibleCount((current) =>
-            Math.min(current + PAGE_SIZE, sortedRows.length),
-          )
-        })
-      },
-      { rootMargin: "320px 0px" },
-    )
-    observer.observe(target)
-    return () => observer.disconnect()
-  }, [sortedRows.length, visibleCount])
-
-  return (
-    <section className="space-y-3">
-      {sortedRows.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">
-          {t("compare.noRuns")}
-        </p>
-      ) : (
-        <>
-          <div className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm">
-            <div className="overflow-x-auto">
-              <Table className="min-w-[1220px]">
-                <TableHeader>
-                  <TableRow className="hover:bg-transparent">
-                    <TableHead className="min-w-60 normal-case tracking-normal text-foreground/80">
-                      {t("labels.map")}
-                    </TableHead>
-                    <TableHead className="min-w-14 normal-case tracking-normal text-foreground/80">
-                      {t("labels.tier")}
-                    </TableHead>
-                    <TableHead className="min-w-14 normal-case tracking-normal text-foreground/80">
-                      {t("labels.mode")}
-                    </TableHead>
-                    <TableHead className="min-w-14 normal-case tracking-normal text-foreground/80">
-                      {t("labels.tps")}
-                    </TableHead>
-                    <TableHead className="min-w-24 text-right normal-case tracking-normal text-foreground/80">
-                      {player1Name}
-                    </TableHead>
-                    <TableHead className="min-w-24 text-right normal-case tracking-normal text-foreground/80">
-                      {t("compare.timeDelta")}
-                    </TableHead>
-                    <TableHead className="min-w-24 normal-case tracking-normal text-foreground/80">
-                      {t("labels.points")}
-                    </TableHead>
-                    <TableHead className="min-w-24 text-center normal-case tracking-normal text-foreground/80">
-                      {t("compare.pointsDelta")}
-                    </TableHead>
-                    <TableHead className="min-w-14 normal-case tracking-normal text-foreground/80">
-                      {t("labels.mode")}
-                    </TableHead>
-                    <TableHead className="min-w-14 normal-case tracking-normal text-foreground/80">
-                      {t("labels.tps")}
-                    </TableHead>
-                    <TableHead className="min-w-24 text-right normal-case tracking-normal text-foreground/80">
-                      {player2Name}
-                    </TableHead>
-                    <TableHead className="min-w-24 normal-case tracking-normal text-foreground/80">
-                      {t("labels.points")}
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {visibleRows.map((row) => {
-                    const player1Record = row.player1 ?? null
-                    const player2Record = row.player2 ?? null
-
-                    return (
-                      <TableRow key={row.map_id}>
-                        <TableCell>
-                          <MapDisplay
-                            mapName={row.map_name}
-                            mapId={row.map_id}
-                          />
-                        </TableCell>
-                        <TableCell>
-                          <TierBadge tier={row.map_tier} hideWhenUnknown />
-                        </TableCell>
-                        <TableCell>
-                          {player1Record ? (
-                            <ModeBadge mode={player1Record.mode} />
-                          ) : (
-                            <EmptyRunCell />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {player1Record ? (
-                            <TeleportsBadge
-                              teleports={player1Record.teleports}
-                            />
-                          ) : (
-                            <EmptyRunCell />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium tabular-nums">
-                          {player1Record ? (
-                            formatRecordTime(player1Record.time)
-                          ) : (
-                            <EmptyRunCell />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <TimeDelta value={row.time_delta} />
-                        </TableCell>
-                        <TableCell>
-                          {player1Record ? (
-                            <PointsBadge points={player1Record.points} />
-                          ) : (
-                            <EmptyRunCell />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-center">
-                          <PointsDelta value={row.points_delta} />
-                        </TableCell>
-                        <TableCell>
-                          {player2Record ? (
-                            <ModeBadge mode={player2Record.mode} />
-                          ) : (
-                            <EmptyRunCell />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {player2Record ? (
-                            <TeleportsBadge
-                              teleports={player2Record.teleports}
-                            />
-                          ) : (
-                            <EmptyRunCell />
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-mono font-medium tabular-nums">
-                          {player2Record ? (
-                            formatRecordTime(player2Record.time)
-                          ) : (
-                            <EmptyRunCell />
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {player2Record ? (
-                            <PointsBadge points={player2Record.points} />
-                          ) : (
-                            <EmptyRunCell />
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </div>
-          {visibleCount < sortedRows.length ? (
-            <div
-              ref={loadMoreRef}
-              className="flex h-12 items-center justify-center"
-            >
-              <LoaderCircle className="size-4 animate-spin text-muted-foreground" />
-            </div>
-          ) : null}
-        </>
-      )}
-    </section>
   )
 }
 
@@ -486,7 +212,7 @@ function MetricRow({
       : false
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 py-3">
+    <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-muted/30 px-2 py-2">
       <div className="flex min-w-0 items-center justify-end gap-1.5">
         {player1HasLargerValue && difference != null ? (
           <MetricDifferenceBadge
@@ -498,7 +224,7 @@ function MetricRow({
           {player1Value == null ? "-" : formatValue(player1Value)}
         </span>
       </div>
-      <span className="min-w-28 text-center text-xs font-medium text-muted-foreground">
+      <span className="min-w-16 text-center text-xs font-medium text-muted-foreground">
         {label}
       </span>
       <div className="flex min-w-0 items-center gap-1.5">
@@ -511,64 +237,6 @@ function MetricRow({
             higherIsBetter={higherIsBetter}
           />
         ) : null}
-      </div>
-    </div>
-  )
-}
-
-function ComparePlayerIdentity({
-  player,
-  name,
-  align,
-}: {
-  player: GraphqlPlayer | null
-  name: string
-  align: "left" | "right"
-}) {
-  const avatarSrc = player?.avatarHash
-    ? `https://avatars.steamstatic.com/${player.avatarHash}_full.jpg`
-    : undefined
-  const highestPermission = getHighestPlayerPermission(player?.roles)
-  const showRoleRing = highestPermission !== null
-
-  return (
-    <div
-      className={cn(
-        "flex min-w-0 items-center gap-3 p-3 sm:p-4",
-        align === "right" ? "flex-row-reverse text-right" : "text-left",
-      )}
-    >
-      <Avatar
-        className={cn(
-          "size-16 shrink-0 rounded-2xl border border-border/60 sm:size-20 sm:rounded-[22px]",
-          showRoleRing && "ring-4 ring-offset-4 ring-offset-card",
-          highestPermission &&
-            PLAYER_PERMISSION_RING_CLASS_NAMES[highestPermission],
-        )}
-      >
-        <AvatarImage
-          className="object-cover"
-          src={avatarSrc}
-          alt={`${name} avatar`}
-        />
-        <AvatarFallback className="rounded-2xl bg-primary text-lg font-semibold text-primary-foreground sm:rounded-[22px]">
-          {getInitials(name)}
-        </AvatarFallback>
-      </Avatar>
-      <div className={cn("min-w-0", align === "right" && "items-end")}>
-        <div
-          className={cn(
-            "flex min-w-0 items-center gap-2",
-            align === "right" && "justify-end",
-          )}
-        >
-          <CountryFlag
-            countryCode={player?.country}
-            className="h-5 w-7 rounded-[4px]"
-            fallbackClassName="h-5 w-7 rounded-[4px]"
-          />
-          <h2 className="truncate text-lg font-semibold sm:text-xl">{name}</h2>
-        </div>
       </div>
     </div>
   )
@@ -610,6 +278,18 @@ export function ComparePage({
     enabled: Boolean(initialPlayer1 && initialPlayer2),
     retry: false,
   })
+  const skills1 = useQuery(
+    getProfilePointsStandingQueryOptions({
+      identifier: initialPlayer1 ?? null,
+      scope,
+    }),
+  )
+  const skills2 = useQuery(
+    getProfilePointsStandingQueryOptions({
+      identifier: initialPlayer2 ?? null,
+      scope,
+    }),
+  )
   const player1 = player1Query.data ?? null
   const player2 = player2Query.data ?? null
   const comparison = comparisonQuery.data
@@ -785,48 +465,78 @@ export function ComparePage({
         </>
       ) : (
         <>
-          <section className="grid gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
+          <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
             <Card className="min-w-0 border-border/70 bg-card/95 py-0">
               <CardContent className="space-y-6 p-5 sm:p-6">
                 {playerSelection}
                 {selectionError ? (
                   <p className="text-sm text-destructive">{selectionError}</p>
                 ) : null}
-                <section className="pt-5">
-                  <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3 pb-3">
-                    <ComparePlayerIdentity
-                      player={player1}
-                      name={player1Name}
-                      align="right"
-                    />
-                    <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                      VS
-                    </span>
-                    <ComparePlayerIdentity
-                      player={player2}
-                      name={player2Name}
-                      align="left"
-                    />
+                <section className="space-y-4">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {(["player1", "player2"] as const).map((slot, index) => (
+                      <div key={slot} className="min-w-0 space-y-4">
+                        <div
+                          className={cn(
+                            "border-l-4 pl-3",
+                            index === 0
+                              ? "border-[#0f9d8b]"
+                              : "border-[#e8792f]",
+                          )}
+                        >
+                          <PlayerDisplay
+                            player={
+                              (index === 0 ? player1 : player2) ??
+                              comparison[slot].player
+                            }
+                          />
+                        </div>
+                        <CompareCompletion
+                          comparison={comparison}
+                          slot={slot}
+                        />
+                      </div>
+                    ))}
                   </div>
-                  <span className="block py-1 text-center text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                    {scope}
-                  </span>
-                  {metrics.map((metric) => (
-                    <MetricRow key={metric.label} {...metric} />
-                  ))}
                 </section>
               </CardContent>
             </Card>
             <Card className="min-w-0 border-border/70 bg-card/95 py-0">
               <CardContent className="space-y-4 p-5 sm:p-6">
                 <h2 className="text-lg font-semibold">
-                  {t("compare.progression")}
+                  {t("profile.skillRadar.title")}
                 </h2>
+                <p className="text-xs text-muted-foreground">
+                  {t("profile.skillRadar.globalHint")}
+                </p>
                 <ComparisonRadar
-                  comparison={comparison}
+                  ratings1={skills1.data?.skillRatings ?? null}
+                  ratings2={skills2.data?.skillRatings ?? null}
                   player1Name={player1Name}
                   player2Name={player2Name}
                 />
+                {skills1.isError ||
+                skills2.isError ||
+                skills1.isLoading ||
+                skills2.isLoading ||
+                !skills1.data?.skillRatings ||
+                !skills2.data?.skillRatings ? (
+                  <p className="text-xs text-muted-foreground">
+                    {skills1.isError || skills2.isError
+                      ? t("compare.loadFailed")
+                      : skills1.isLoading || skills2.isLoading
+                        ? t("compare.loading")
+                        : t("compare.skillsMissing")}
+                  </p>
+                ) : null}
+                <p className="text-center text-xs text-muted-foreground">
+                  {scope}
+                </p>
+                <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-1">
+                  {metrics.map((metric) => (
+                    <MetricRow key={metric.label} {...metric} />
+                  ))}
+                </div>
               </CardContent>
             </Card>
           </section>

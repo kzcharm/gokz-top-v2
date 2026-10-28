@@ -20,6 +20,7 @@ import "./i18n"
 import "./index.css"
 import { applyDevBranding } from "./lib/dev-branding"
 import { bootstrapAnalyticsConsentPreview } from "./lib/google-analytics"
+import { parseSearch, stringifySearch } from "./lib/search-params"
 import { routeTree } from "./routeTree.gen"
 
 bootstrapAnalyticsConsentPreview()
@@ -67,7 +68,7 @@ const queryClient = new QueryClient({
   }),
 })
 
-const router = createRouter({ routeTree })
+const router = createRouter({ routeTree, parseSearch, stringifySearch })
 declare module "@tanstack/react-router" {
   interface Register {
     router: typeof router

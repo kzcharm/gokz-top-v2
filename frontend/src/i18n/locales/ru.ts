@@ -1624,6 +1624,17 @@ export const ru = {
     emptyTop: "Для этой карты нет Stage {{stage}} записей в выбранной области.",
   },
   compare: {
+    skillsAria: "Сравнение навыков {{player1}} и {{player2}}",
+    skillsMissing: "Игроки без оценок навыков не отображаются на диаграмме.",
+    sortBy: "Сортировать по",
+    filterPlayer: "Применить фильтры к",
+    eitherPlayer: "Любому игроку",
+    bothPlayers: "Обоим игрокам",
+    timeSeconds: "Время (секунды)",
+    fromDate: "С даты",
+    toDate: "По дату",
+    searchMaps: "Поиск карт",
+
     title: "Сравнение игроков",
     description:
       "Сравните рейтинги, прогресс карт и PB основных этапов в выбранном скоупе.",

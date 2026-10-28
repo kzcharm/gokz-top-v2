@@ -18,7 +18,9 @@ export function CompletionCard({
   tiers,
   trophies,
   card = false,
+  compact = false,
 }: {
+  compact?: boolean
   card?: boolean
   title: string
   completed: number
@@ -38,8 +40,8 @@ export function CompletionCard({
       data-completion-card={card ? "capture" : undefined}
       className="min-w-0 gap-0 rounded-[26px] border-border/70 bg-card/95 py-0"
     >
-      <CardContent className="p-6">
-        <div className="w-full space-y-5">
+      <CardContent className={compact ? "p-3" : "p-6"}>
+        <div className={compact ? "w-full space-y-2" : "w-full space-y-5"}>
           <div
             data-completion-summary=""
             className="grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end"
@@ -48,7 +50,13 @@ export function CompletionCard({
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
                 {title}
               </p>
-              <div className="mt-3 flex flex-wrap items-center gap-4">
+              <div
+                className={
+                  compact
+                    ? "mt-2 flex flex-wrap items-center gap-3"
+                    : "mt-3 flex flex-wrap items-center gap-4"
+                }
+              >
                 {(["gold", "silver", "bronze"] as const).map((trophy) => (
                   <div key={trophy} className="flex items-center gap-2">
                     <img
@@ -56,9 +64,19 @@ export function CompletionCard({
                       alt={t("profile.completion.trophyAlt", {
                         trophy: t(`profile.completion.trophies.${trophy}`),
                       })}
-                      className="h-7 w-7 object-contain"
+                      className={
+                        compact
+                          ? "h-4 w-4 object-contain"
+                          : "h-7 w-7 object-contain"
+                      }
                     />
-                    <span className="text-2xl font-semibold tracking-tight">
+                    <span
+                      className={
+                        compact
+                          ? "text-sm font-semibold"
+                          : "text-2xl font-semibold tracking-tight"
+                      }
+                    >
                       {formatNumber(trophies[trophy])}
                     </span>
                   </div>
@@ -87,7 +105,9 @@ export function CompletionCard({
                     {tier.label} ({t("profile.completion.averageShort")}{" "}
                     <PaddedAverageNumber value={tier.averagePoints} />)
                   </span>
-                  <div className="h-5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`${compact ? "h-2.5" : "h-5"} overflow-hidden rounded-full bg-muted`}
+                  >
                     <div
                       className="h-full rounded-full"
                       style={{ width, backgroundColor: tier.color }}

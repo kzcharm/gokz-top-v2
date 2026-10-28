@@ -1533,6 +1533,17 @@ export const zhCN = {
     emptyTop: "所选范围内该地图暂无 Stage {{stage}} 记录。",
   },
   compare: {
+    skillsAria: "{{player1}} 与 {{player2}} 的技能对比",
+    skillsMissing: "技能评分不可用的玩家不会显示在图表中。",
+    sortBy: "排序依据",
+    filterPlayer: "记录筛选对象",
+    eitherPlayer: "任一玩家",
+    bothPlayers: "两位玩家",
+    timeSeconds: "用时（秒）",
+    fromDate: "开始日期",
+    toDate: "结束日期",
+    searchMaps: "搜索地图",
+
     title: "玩家对比",
     description: "对比当前范围内的排名、地图进度和主关 PB。",
     player1: "玩家 1",

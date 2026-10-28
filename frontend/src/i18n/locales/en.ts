@@ -1584,6 +1584,18 @@ export const en = {
       "No stage {{stage}} records found for this map in the selected scope.",
   },
   compare: {
+    skillsAria: "Skill comparison between {{player1}} and {{player2}}",
+    skillsMissing:
+      "Players with unavailable skill ratings are omitted from the chart.",
+    sortBy: "Sort by",
+    filterPlayer: "Apply run filters to",
+    eitherPlayer: "Either player",
+    bothPlayers: "Both players",
+    timeSeconds: "Time (seconds)",
+    fromDate: "From date",
+    toDate: "To date",
+    searchMaps: "Search maps",
+
     title: "Compare Players",
     description:
       "Compare scoped rankings, map progression, and main-stage PBs.",
