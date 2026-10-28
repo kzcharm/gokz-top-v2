@@ -46,9 +46,9 @@ export const USER_ROLE_ORDER: UserRole[] = [
 
 export const USER_ROLE_BADGE_CLASS_NAMES: Record<UserRole, string> = {
   superuser: "border-transparent bg-[#009486] text-white",
-  admin: "border-transparent bg-[#b91c1c] text-white",
+  admin: "border-transparent bg-[#7c3aed] text-white",
   map_admin: "border-transparent bg-[#1d4ed8] text-white",
-  server_owner: "border-transparent bg-[#f59e0b] text-white",
+  server_owner: "border-transparent bg-[#b91c1c] text-white",
 }
 
 export type PlayerPermissionLevel = UserRole | "user"
@@ -58,9 +58,9 @@ export const PLAYER_PERMISSION_RING_CLASS_NAMES: Record<
   string
 > = {
   superuser: "ring-[#009486]/90",
-  admin: "ring-[#ef4444]/90",
+  admin: "ring-[#8b5cf6]/90",
   map_admin: "ring-[#1d4ed8]/90",
-  server_owner: "ring-[#f59e0b]/90",
+  server_owner: "ring-[#ef4444]/90",
   user: "ring-pink-400/90",
 }
 
