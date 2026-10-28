@@ -328,6 +328,7 @@ test("public metrics explain values, sort gaps, and persist card options", async
     .getByRole("group", { name: "Metrics", exact: true })
     .getByRole("button")
   await expect(metricButtons.nth(0)).toHaveText("NUB Finishers")
+  await expect(metricButtons.nth(0)).toHaveAttribute("aria-pressed", "true")
   await expect(metricButtons.nth(1)).toHaveText("PRO Finishers")
   for (const [label, explanation] of [
     ["Playtime", "Sum of valid main-course"],
@@ -586,4 +587,173 @@ test("WR ratio formatting truncates at the requested precision", () => {
   expect(wrGapScaleToRatio(0)).toBe(2)
   expect(wrGapScaleToRatio(-2)).toBe(1.25)
   expect(wrGapScaleToRatio(Number.POSITIVE_INFINITY)).toBeNull()
+})
+
+for (const width of [1280, 390]) {
+  test(`map presets save, restore, replace, and delete catalog views at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await install(page)
+    await page.goto("/maps")
+    await page.getByRole("button", { name: "Use PRO personal bests" }).click()
+    await completion(page, "Unfinished")
+    await page.getByRole("button", { name: "Metrics", exact: true }).click()
+    await page
+      .getByRole("button", { name: "NUB Finishers", exact: true })
+      .click()
+    await page.getByRole("button", { name: "Options", exact: true }).click()
+    await page
+      .getByRole("menuitemcheckbox", { name: "Reviews", exact: true })
+      .click()
+    await page.keyboard.press("Escape")
+    await page
+      .getByRole("textbox", { name: "Search maps by name" })
+      .fill("kz_pick_00")
+    await page.getByRole("button", { name: "Presets", exact: true }).click()
+    await expect(page.getByText("No saved presets yet.")).toBeVisible()
+    await page.getByRole("menuitem", { name: "Save current view" }).click()
+    await expect(
+      page.getByRole("textbox", { name: "Preset name" }),
+    ).toHaveValue("Preset 1")
+    await page.getByRole("textbox", { name: "Preset name" }).fill("My maps")
+    await page.getByRole("button", { name: "Save preset", exact: true }).click()
+    await page.reload()
+    await page.getByRole("button", { name: "Presets", exact: true }).click()
+    await page.getByRole("menuitem", { name: "Reset view" }).click()
+    await expect(
+      page.getByRole("textbox", { name: "Search maps by name" }),
+    ).toHaveValue("")
+    await expect(
+      page.getByRole("button", { name: "Use PRO personal bests" }),
+    ).toHaveText("NUB")
+    await expect(page.getByLabel("Review summary").first()).toBeVisible()
+    await page.getByRole("button", { name: "Presets", exact: true }).click()
+    await page.getByRole("menuitem", { name: "Apply preset My maps" }).click()
+    await expect(
+      page.getByRole("textbox", { name: "Search maps by name" }),
+    ).toHaveValue("kz_pick_00")
+    await expect(
+      page.getByRole("button", { name: "Use PRO personal bests" }),
+    ).toHaveText("PRO")
+    await expect(
+      page.getByRole("button", { name: "Unfinished", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true")
+    await expect(
+      page.getByRole("button", { name: "NUB Finishers", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true")
+    await expect(page.getByLabel("Review summary")).toHaveCount(0)
+    await page
+      .getByRole("textbox", { name: "Search maps by name" })
+      .fill("kz_pick_02")
+    await page.getByRole("button", { name: "Presets", exact: true }).click()
+    await page.getByRole("menuitem", { name: "Save current view" }).click()
+    await page.getByRole("textbox", { name: "Preset name" }).fill("my MAPS")
+    await page.getByRole("button", { name: "Save preset", exact: true }).click()
+    await page.reload()
+    await page.getByRole("button", { name: "Presets", exact: true }).click()
+    await expect(
+      page.getByRole("menuitem", { name: /^Apply preset / }),
+    ).toHaveCount(1)
+    await page.getByRole("menuitem", { name: "Reset view" }).click()
+    await page.getByRole("button", { name: "Presets", exact: true }).click()
+    await page.getByRole("menuitem", { name: "Apply preset my MAPS" }).click()
+    await expect(
+      page.getByRole("textbox", { name: "Search maps by name" }),
+    ).toHaveValue("kz_pick_02")
+    await page.getByRole("button", { name: "Presets", exact: true }).click()
+    await page.screenshot({
+      path: `../.temp/screenshots/maps-presets-${width}.png`,
+    })
+    await page.getByRole("button", { name: "Delete preset my MAPS" }).click()
+    await expect(page.getByText("No saved presets yet.")).toBeVisible()
+    await page.keyboard.press("Escape")
+    await page.reload()
+    await page.getByRole("button", { name: "Presets", exact: true }).click()
+    await expect(page.getByText("No saved presets yet.")).toBeVisible()
+  })
+}
+
+test("map presets ignore invalid storage and report failed saves", async ({
+  page,
+}) => {
+  await install(page, { guest: true })
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "gokz-maps-presets-v1",
+      JSON.stringify({
+        version: 1,
+        presets: [null, { id: "bad", name: "Broken", settings: {} }],
+      }),
+    )
+    const originalSetItem = Storage.prototype.setItem
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "gokz-maps-presets-v1") throw new Error("Storage unavailable")
+      return originalSetItem.call(this, key, value)
+    }
+  })
+  await page.goto("/maps")
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await expect(page.getByText("No saved presets yet.")).toBeVisible()
+  await page.getByRole("menuitem", { name: "Save current view" }).click()
+  await page.getByRole("button", { name: "Save preset", exact: true }).click()
+  await expect(
+    page.getByText("Could not save presets in this browser."),
+  ).toBeVisible()
+  await expect(page.getByRole("dialog", { name: "Save preset" })).toBeVisible()
+})
+
+test("maps default view overrides session state until cleared", async ({
+  page,
+}) => {
+  await install(page)
+  await page.goto("/maps")
+  await page
+    .getByRole("textbox", { name: "Search maps by name" })
+    .fill("kz_pick_02")
+  await page.getByRole("button", { name: "Use PRO personal bests" }).click()
+  await page.getByRole("button", { name: "Select record scope" }).click()
+  await page.getByRole("menuitemradio", { name: "SKZ" }).click()
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await page
+    .getByRole("menuitem", { name: "Set as default", exact: true })
+    .click()
+  await page
+    .getByRole("textbox", { name: "Search maps by name" })
+    .fill("changed")
+  await page.getByRole("button", { name: "Select record scope" }).click()
+  await page.getByRole("menuitemradio", { name: "OVR" }).click()
+  await expect(
+    page.getByRole("button", { name: "Select record scope" }),
+  ).toHaveText("OVR")
+  await page.reload()
+  await expect(
+    page.getByRole("textbox", { name: "Search maps by name" }),
+  ).toHaveValue("kz_pick_02")
+  await expect(
+    page.getByRole("button", { name: "Use PRO personal bests" }),
+  ).toHaveText("PRO")
+  await expect(
+    page.getByRole("button", { name: "Select record scope" }),
+  ).toHaveText("SKZ")
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await page
+    .getByRole("menuitem", { name: "Clear default view", exact: true })
+    .click()
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await page.getByRole("menuitem", { name: "Reset view", exact: true }).click()
+  await expect(
+    page.getByRole("textbox", { name: "Search maps by name" }),
+  ).toHaveValue("")
+  await page.reload()
+  await expect(
+    page.getByRole("textbox", { name: "Search maps by name" }),
+  ).toHaveValue("")
+  await expect(
+    page.getByRole("button", { name: "Use PRO personal bests" }),
+  ).toHaveText("NUB")
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await expect(
+    page.getByRole("menuitem", { name: "Clear default view", exact: true }),
+  ).toHaveCount(0)
 })

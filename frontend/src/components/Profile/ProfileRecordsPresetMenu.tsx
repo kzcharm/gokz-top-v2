@@ -8,6 +8,7 @@ import {
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
+import { DefaultViewMenuItems } from "@/components/Common/DefaultViewMenuItems"
 import type { ModeSelectorValue } from "@/components/Common/ModeSelector"
 import type { TierSelectorValue } from "@/components/Common/TierSelector"
 import type { PbRecordsSortState } from "@/components/Records/pb-records-utils"
@@ -23,6 +24,7 @@ import {
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -30,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { readDefaultView } from "@/lib/default-view"
 
 const PRESET_STORAGE_KEY = "gokz-profile-record-presets-v1"
 const MAX_PRESETS = 20
@@ -87,6 +90,31 @@ export interface ProfileRecordsPresetSettings {
   isProOnly: boolean
   isBonus: boolean
   view: ProfileRecordsViewState
+}
+
+export const PROFILE_RECORDS_DEFAULT_STORAGE_KEY =
+  "gokz-profile-record-presets-v1.default"
+
+function parseProfileRecordsPresetSettings(
+  value: unknown,
+): ProfileRecordsPresetSettings | null {
+  if (
+    !isObject(value) ||
+    typeof value.isProOnly !== "boolean" ||
+    typeof value.isBonus !== "boolean"
+  )
+    return null
+  const view = parseViewState(value.view)
+  return view
+    ? { isProOnly: value.isProOnly, isBonus: value.isBonus, view }
+    : null
+}
+
+export function readProfileRecordsDefaultView() {
+  return readDefaultView(
+    PROFILE_RECORDS_DEFAULT_STORAGE_KEY,
+    parseProfileRecordsPresetSettings,
+  )
 }
 
 interface SavedProfileRecordsPreset {
@@ -393,27 +421,34 @@ export function ProfileRecordsPresetMenu({
             </p>
           )}
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onSelect={() =>
-              onApply({
-                isProOnly: false,
-                isBonus: false,
-                view: DEFAULT_PROFILE_RECORDS_VIEW_STATE,
-              })
-            }
-          >
-            <RotateCcwIcon />
-            Reset view
-          </DropdownMenuItem>
-          <DropdownMenuItem
-            onSelect={() => {
-              setPresetName(getNextPresetName(presets))
-              setSaveDialogOpen(true)
-            }}
-          >
-            <SaveIcon />
-            Save current view
-          </DropdownMenuItem>
+          <DropdownMenuGroup>
+            <DefaultViewMenuItems
+              storageKey={PROFILE_RECORDS_DEFAULT_STORAGE_KEY}
+              currentSettings={currentSettings}
+              parseSettings={parseProfileRecordsPresetSettings}
+            />
+            <DropdownMenuItem
+              onSelect={() =>
+                onApply({
+                  isProOnly: false,
+                  isBonus: false,
+                  view: DEFAULT_PROFILE_RECORDS_VIEW_STATE,
+                })
+              }
+            >
+              <RotateCcwIcon />
+              Reset view
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onSelect={() => {
+                setPresetName(getNextPresetName(presets))
+                setSaveDialogOpen(true)
+              }}
+            >
+              <SaveIcon />
+              Save current view
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
         </DropdownMenuContent>
       </DropdownMenu>
 

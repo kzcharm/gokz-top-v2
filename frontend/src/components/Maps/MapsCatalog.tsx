@@ -20,6 +20,7 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react"
 import { useTranslation } from "react-i18next"
@@ -43,6 +44,7 @@ import {
 import { ValidationStatusIconButton } from "@/components/Common/ValidationStatusIconButton"
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
 import {
+  DEFAULT_MAP_CARD_OPTIONS,
   getFirstMedianWrGap,
   getPersonalSortValue,
   isMapMetric,
@@ -57,6 +59,7 @@ import {
 } from "@/components/Maps/catalog-metrics"
 import { MapCard } from "@/components/Maps/MapCard"
 import { MapMetricTooltip } from "@/components/Maps/MapMetricTooltip"
+import { MapsPresetMenu } from "@/components/Maps/MapsPresetMenu"
 import {
   getMapSkillPercentage,
   getMapTierForScope,
@@ -99,6 +102,7 @@ import {
 import useAuth from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
 import { compareLocaleText, formatNumber } from "@/i18n/locale"
+import { readDefaultView } from "@/lib/default-view"
 import { getMapPackageDownloadUrl } from "@/lib/map-downloads"
 import {
   fetchPlayersForDisplay,
@@ -206,6 +210,66 @@ type PersistedMapsCatalogState = {
   page: number
   isProOnly: boolean
   completion: "all" | "finished" | "unfinished"
+}
+
+type MapsPresetSettings = Omit<PersistedMapsCatalogState, "page"> & {
+  scope: AppScope
+  displayOptions: MapCardOptions
+}
+
+const DEFAULT_MAPS_PRESET_SETTINGS: MapsPresetSettings = {
+  searchInput: "",
+  sortField: "bestRated",
+  sortDirection: "desc",
+  selectedSkill: "ladder",
+  selectedReviewSort: "overall",
+  selectedTier: "all",
+  minimumTier: "all",
+  maximumTier: "all",
+  withBonusOnly: false,
+  validationStatus: "validated",
+  mapFilters: EMPTY_MAP_FILTERS,
+  isProOnly: false,
+  completion: "all",
+  scope: "OVR",
+  displayOptions: DEFAULT_MAP_CARD_OPTIONS,
+}
+
+function parseMapsPresetSettings(value: unknown): MapsPresetSettings | null {
+  if (!value || typeof value !== "object") return null
+  const settings = value as MapsPresetSettings
+  if (
+    typeof settings.searchInput !== "string" ||
+    !isMapsSortField(settings.sortField) ||
+    !["asc", "desc"].includes(settings.sortDirection) ||
+    !isSortableSkillKey(settings.selectedSkill) ||
+    !isReviewSortField(settings.selectedReviewSort) ||
+    !isTierSelectorValue(settings.selectedTier) ||
+    !isTierSelectorValue(settings.minimumTier) ||
+    !isTierSelectorValue(settings.maximumTier) ||
+    !isMapValidationStatus(settings.validationStatus) ||
+    typeof settings.withBonusOnly !== "boolean" ||
+    typeof settings.isProOnly !== "boolean" ||
+    !["all", "finished", "unfinished"].includes(settings.completion) ||
+    !["OVR", "KZT", "SKZ", "VNL"].includes(settings.scope) ||
+    !settings.mapFilters ||
+    typeof settings.mapFilters !== "object" ||
+    !Object.keys(EMPTY_MAP_FILTERS).every(
+      (key) =>
+        typeof settings.mapFilters[key as keyof MapFilterValues] === "string",
+    ) ||
+    (settings.mapFilters.mapper !== "" &&
+      !/^\d{17}$/.test(settings.mapFilters.mapper)) ||
+    !settings.displayOptions ||
+    typeof settings.displayOptions !== "object" ||
+    !Object.keys(DEFAULT_MAP_CARD_OPTIONS).every(
+      (key) =>
+        typeof settings.displayOptions[key as keyof MapCardOptions] ===
+        "boolean",
+    )
+  )
+    return null
+  return settings
 }
 
 function readPersistedMapsCatalogState(): Partial<PersistedMapsCatalogState> {
@@ -1056,9 +1120,22 @@ function MapValidationButton({
 
 export function MapsCatalog() {
   const { t } = useTranslation()
-  const { scope } = useScope()
+  const { scope, setScope } = useScope()
   const { user } = useAuth()
-  const [persistedState] = useState(readPersistedMapsCatalogState)
+  const [initialDefault] = useState(() =>
+    readDefaultView("gokz-maps-presets-v1.default", parseMapsPresetSettings),
+  )
+  const [persistedState] = useState<Partial<PersistedMapsCatalogState>>(() =>
+    initialDefault
+      ? { ...initialDefault, page: 1 }
+      : readPersistedMapsCatalogState(),
+  )
+  const defaultScopeRestored = useRef(false)
+  useEffect(() => {
+    if (defaultScopeRestored.current) return
+    defaultScopeRestored.current = true
+    if (initialDefault) setScope(initialDefault.scope)
+  }, [initialDefault, setScope])
   const [isProOnly, setIsProOnly] = useState(persistedState.isProOnly === true)
   const [completion, setCompletion] = useState<
     "all" | "finished" | "unfinished"
@@ -1068,7 +1145,9 @@ export function MapsCatalog() {
       ? persistedState.completion
       : "all",
   )
-  const [displayOptions, setDisplayOptions] = useState(readMapCardOptions)
+  const [displayOptions, setDisplayOptions] = useState(
+    () => initialDefault?.displayOptions ?? readMapCardOptions(),
+  )
   useEffect(() => {
     try {
       localStorage.setItem(
@@ -1188,6 +1267,45 @@ export function MapsCatalog() {
     validationStatus,
     withBonusOnly,
   ])
+
+  const presetSettings: MapsPresetSettings = {
+    searchInput,
+    sortField,
+    sortDirection,
+    selectedSkill,
+    selectedReviewSort,
+    selectedTier,
+    minimumTier,
+    maximumTier,
+    withBonusOnly,
+    validationStatus,
+    mapFilters,
+    isProOnly,
+    completion,
+    scope,
+    displayOptions,
+  }
+
+  function applyPreset(settings: MapsPresetSettings) {
+    startTransition(() => {
+      setSearchInput(settings.searchInput)
+      setSortField(settings.sortField)
+      setSortDirection(settings.sortDirection)
+      setSelectedSkill(settings.selectedSkill)
+      setSelectedReviewSort(settings.selectedReviewSort)
+      setSelectedTier(settings.selectedTier)
+      setMinimumTier(settings.minimumTier)
+      setMaximumTier(settings.maximumTier)
+      setWithBonusOnly(settings.withBonusOnly)
+      setValidationStatus(settings.validationStatus)
+      setMapFilters(settings.mapFilters)
+      setIsProOnly(settings.isProOnly)
+      setCompletion(settings.completion)
+      setScope(settings.scope)
+      setDisplayOptions(settings.displayOptions)
+      setPage(1)
+    })
+  }
 
   const requestedValidatedMaps = validationStatus === "validated"
   const normalizedDeferredSearch = deferredSearch.trim().toLowerCase()
@@ -1842,7 +1960,7 @@ export function MapsCatalog() {
           )
           return
         }
-        setSortField("playtime")
+        setSortField("nub")
         setSortDirection("desc")
         return
       }
@@ -2013,6 +2131,19 @@ export function MapsCatalog() {
             </div>
 
             <div className="flex items-center gap-2">
+              <MapsPresetMenu
+                storageKey="gokz-maps-presets-v1"
+                currentSettings={presetSettings}
+                defaultSettings={DEFAULT_MAPS_PRESET_SETTINGS}
+                parseSettings={parseMapsPresetSettings}
+                summarize={(settings) => {
+                  const label = isPersonalSort(settings.sortField)
+                    ? t(`maps.personal.${settings.sortField}`)
+                    : t(`maps.sortOptions.${settings.sortField}`)
+                  return `${settings.scope} · ${settings.isProOnly ? "PRO" : "NUB"} · ${label} ${settings.sortDirection === "asc" ? "↑" : "↓"}`
+                }}
+                onApply={applyPreset}
+              />
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button

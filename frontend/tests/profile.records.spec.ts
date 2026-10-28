@@ -1822,3 +1822,38 @@ test("Profile ranks fetch only the visible page and never more than 50", async (
   await expect.poll(() => batches.length).toBe(3)
   expect(batches[2]).toHaveLength(25)
 })
+
+test("profile Runs default view persists until cleared", async ({ page }) => {
+  await installProfileShellRoutes(page)
+  await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) =>
+    route.fulfill({ json: ovrRecords }),
+  )
+  await page.goto(`/profile/${steamid64}/runs`)
+  await page.getByRole("switch", { name: "NUB" }).click()
+  await page.getByLabel("Search map name").fill("alpha")
+  await page.getByRole("button", { name: "Points", exact: true }).click()
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await page
+    .getByRole("menuitem", { name: "Set as default", exact: true })
+    .click()
+  await page.getByLabel("Search map name").fill("changed")
+  await page.reload()
+  await expect(page.getByRole("switch", { name: "PRO" })).toBeChecked()
+  await expect(page.getByLabel("Search map name")).toHaveValue("alpha")
+  await expect(
+    page
+      .getByRole("columnheader", { name: /Points/ })
+      .locator(".lucide-arrow-down"),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await page
+    .getByRole("menuitem", { name: "Clear default view", exact: true })
+    .click()
+  await page.reload()
+  await expect(page.getByRole("switch", { name: "NUB" })).not.toBeChecked()
+  await expect(page.getByLabel("Search map name")).toHaveValue("")
+  await page.getByRole("button", { name: "Presets", exact: true }).click()
+  await expect(
+    page.getByRole("menuitem", { name: "Clear default view", exact: true }),
+  ).toHaveCount(0)
+})

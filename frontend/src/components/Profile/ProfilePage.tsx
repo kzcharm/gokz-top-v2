@@ -55,6 +55,7 @@ import {
   DEFAULT_PROFILE_RECORDS_VIEW_STATE,
   ProfileRecordsPresetMenu,
   type ProfileRecordsPresetSettings,
+  readProfileRecordsDefaultView,
 } from "./ProfileRecordsPresetMenu"
 import { ProfileRecordsTab } from "./ProfileRecordsTab"
 import { ProfileSidebar } from "./ProfileSidebar"
@@ -161,8 +162,13 @@ export function ProfilePage({
   useAdminModeSurface(canUseAdminRecoveryActions)
   const recordedProfileViewsRef = useRef<Set<string>>(new Set())
   const autoSyncedFriendsRef = useRef<Set<string>>(new Set())
-  const [isProOnly, setIsProOnly] = useState(false)
-  const [isBonus, setIsBonus] = useState(false)
+  const [initialRecordsDefault] = useState(readProfileRecordsDefaultView)
+  const [isProOnly, setIsProOnly] = useState(
+    initialRecordsDefault?.isProOnly ?? false,
+  )
+  const [isBonus, setIsBonus] = useState(
+    initialRecordsDefault?.isBonus ?? false,
+  )
   const [showHiddenRecords, setShowHiddenRecords] = useState(false)
   const [autoLoadMore, setAutoLoadMore] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE, true),
@@ -213,7 +219,7 @@ export function ProfilePage({
     readBooleanCookie(PROFILE_RUNS_SHOW_MILLISECONDS_COOKIE, true),
   )
   const [recordsViewState, setRecordsViewState] = useState(
-    DEFAULT_PROFILE_RECORDS_VIEW_STATE,
+    initialRecordsDefault?.view ?? DEFAULT_PROFILE_RECORDS_VIEW_STATE,
   )
   const playerQuery = useQuery({
     queryKey: ["profile-player", identifier],

@@ -300,3 +300,7 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 - Frozen replay-policy alternatives for late upstream claims use each candidate’s canonical runtime and the symmetric ±1 ms candidate range, preserving strict PB/WR rules across either rounding direction.
 
 - PB bucket winner selection and map leaderboard refreshes use the same literal `is_valid = true` partial-index predicate as replay qualification. A database-plan regression exercises both write refresh paths and requires partial course indexes.
+
+- `/maps` provides browser-local named presets (up to 20) for scope, NUB/PRO, catalog filters, sorting, and card options; applying resets pagination to page one. Presets are independent of profile Runs and use validated, versioned localStorage with save-error feedback.
+
+- `/maps` and profile Runs independently save optional browser-local default-view snapshots from their Presets menus. Validated versioned defaults load on mount; maps defaults supersede session state and restore scope/card options from page one. Clearing removes only the default, and Runs defaults never activate first-completion history reads.

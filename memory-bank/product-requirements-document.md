@@ -327,3 +327,7 @@ After changing these limits or the formula, run `kztop build rating` across all 
 - Serve the complete upstream WebP collection from persistent local storage, syncing at startup when due and every 24 hours after success. Retry failures after one hour without removing existing images.
 - Cache successful image responses in browsers and Cloudflare for seven days; keep stable URLs and do not purge automatically. Missing images are not cached.
 - Prefer local previews across map, profile, record, and server surfaces. Use direct Steam Workshop previews for missing or failed local images, loading only one source at a time; retain placeholders when no image is available.
+
+- `/maps` provides browser-local named presets (up to 20) for scope, NUB/PRO, catalog filters, sorting, and card options; applying resets pagination to page one. Presets are independent of profile Runs and use validated, versioned localStorage with save-error feedback.
+
+- `/maps` and profile Runs independently save optional browser-local default-view snapshots from their Presets menus. Validated versioned defaults load on mount; maps defaults supersede session state and restore scope/card options from page one. Clearing removes only the default, and Runs defaults never activate first-completion history reads.
