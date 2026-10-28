@@ -2,10 +2,10 @@ import type { MapLeaderboardEntryPublic, RecordPublic } from "@/client"
 import { getWrGap } from "@/components/Records/wr-gap"
 
 export const MAP_METRICS = [
-  "playtime",
-  "avgPlaytime",
   "nub",
   "pro",
+  "playtime",
+  "avgPlaytime",
   "proRatio",
   "finishes",
   "firstMed",

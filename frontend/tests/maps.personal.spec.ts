@@ -324,10 +324,15 @@ test("public metrics explain values, sort gaps, and persist card options", async
   await expect(
     page.getByRole("button", { name: "Metrics", exact: true }).locator("svg"),
   ).toHaveCount(0)
+  const metricButtons = page
+    .getByRole("group", { name: "Metrics", exact: true })
+    .getByRole("button")
+  await expect(metricButtons.nth(0)).toHaveText("NUB Finishers")
+  await expect(metricButtons.nth(1)).toHaveText("PRO Finishers")
   for (const [label, explanation] of [
     ["Playtime", "Sum of valid main-course"],
     ["Avg Playtime", "Average cumulative"],
-    ["Finishers", "including PRO finishes"],
+    ["NUB Finishers", "including PRO finishes"],
     ["PRO Finishers", "using zero teleports"],
     ["PRO Ratio", "Percentage of main-course"],
     ["Total Runs", "including repeat finishes"],

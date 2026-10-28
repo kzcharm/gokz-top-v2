@@ -1510,7 +1510,7 @@ export const en = {
       commentsCount: "Comments Count",
       playtime: "Playtime",
       avgPlaytime: "Avg Playtime",
-      nub: "Finishers",
+      nub: "NUB Finishers",
       pro: "PRO Finishers",
       proRatio: "PRO Ratio",
       finishes: "Total Runs",

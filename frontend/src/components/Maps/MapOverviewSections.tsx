@@ -76,7 +76,7 @@ export function MapReviewSummary({ map }: { map: MapPublic }) {
   const summary = map.review_summary
   return (
     <section
-      className="flex min-w-0 flex-col gap-2"
+      className="flex min-w-0 flex-col items-center gap-2"
       aria-label={t("maps.overview.reviewSummary")}
     >
       {summary && summary.reviews_count > 0 ? (
@@ -98,11 +98,11 @@ export function MapReviewSummary({ map }: { map: MapPublic }) {
           />
         </div>
       ) : (
-        <p className="text-sm text-muted-foreground">
+        <p className="text-center text-sm text-muted-foreground">
           {t("maps.overview.noReviews")}
         </p>
       )}
-      <p className="text-xs text-muted-foreground">
+      <p className="text-center text-xs text-muted-foreground">
         {t("maps.overview.reviewCounts", {
           reviews: t("maps.overview.ratingCount", {
             count: summary?.reviews_count ?? 0,

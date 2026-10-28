@@ -1462,7 +1462,7 @@ export const zhCN = {
       commentsCount: "留言数",
       playtime: "游玩时间",
       avgPlaytime: "平均游玩时间",
-      nub: "完成人数",
+      nub: "NUB 完成人数",
       pro: "PRO 完成人数",
       proRatio: "PRO 比例",
       finishes: "总完赛次数",

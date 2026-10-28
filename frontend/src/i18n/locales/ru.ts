@@ -1550,7 +1550,7 @@ export const ru = {
       commentsCount: "Число комментариев",
       playtime: "Время игры",
       avgPlaytime: "Ср. время игры",
-      nub: "Прошедшие",
+      nub: "Прошедшие NUB",
       pro: "Прошедшие PRO",
       proRatio: "Доля PRO",
       finishes: "Всего забегов",
