@@ -1,9 +1,10 @@
 import type { ColumnDef } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
+import { ArrowDown, ArrowUp } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { PlayerCompareRunPublic, RecordPublic } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import {
   ModeSelector,
@@ -36,7 +37,7 @@ type SortKey =
   | "tier"
   | "time_delta"
   | "points_delta"
-  | `${"player1" | "player2"}.${"mode" | "teleports" | "time" | "points"}`
+  | `${"player1" | "player2"}.${"mode" | "teleports" | "time" | "points" | "created_on"}`
 const EMPTY_FILTERS = {
   map: "",
   server: "",
@@ -62,8 +63,12 @@ function valueFor(
   if (key === "time_delta" || key === "points_delta") return row[key] ?? null
   const [player, field] = key.split(".") as [
     "player1" | "player2",
-    "mode" | "teleports" | "time" | "points",
+    "mode" | "teleports" | "time" | "points" | "created_on",
   ]
+  if (field === "created_on") {
+    const timestamp = Date.parse(row[player]?.created_on ?? "")
+    return Number.isFinite(timestamp) ? timestamp : null
+  }
   return row[player]?.[field] ?? null
 }
 
@@ -81,7 +86,7 @@ export function CompareRunsTable({
   const { t } = useTranslation()
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({
-    key: "player1.points",
+    key: "player1.created_on",
     desc: true,
   })
   const [pageIndex, setPageIndex] = useState(0)
@@ -183,7 +188,7 @@ export function CompareRunsTable({
   useEffect(() => {
     setPageIndex((index) => Math.min(index, pageCount - 1))
   }, [pageCount])
-  const header = (key: SortKey, label: string) => (
+  const header = (key: SortKey, label: string, playerName?: string) => (
     <Button
       variant="ghost"
       size="sm"
@@ -192,7 +197,7 @@ export function CompareRunsTable({
         setSort({ key, desc: sort.key === key ? !sort.desc : key !== "map" })
         setPageIndex(0)
       }}
-      aria-label={`${t("compare.sortBy")} ${label}`}
+      aria-label={`${t("compare.sortBy")} ${playerName ? `${playerName} ` : ""}${label}`}
     >
       {label}
       {sort.key === key ? (
@@ -201,9 +206,7 @@ export function CompareRunsTable({
         ) : (
           <ArrowUp className="size-3" />
         )
-      ) : (
-        <ArrowUpDown className="size-3 opacity-40" />
-      )}
+      ) : null}
     </Button>
   )
   const delta = (value: number | null | undefined, time: boolean) =>
@@ -232,12 +235,14 @@ export function CompareRunsTable({
   ): ColumnDef<PlayerCompareRunPublic>[] => [
     {
       id: `${slot}.mode`,
+      size: 64,
       header: () => header(`${slot}.mode`, t("labels.mode")),
       cell: ({ row }) =>
         row.original[slot] ? <ModeBadge mode={row.original[slot].mode} /> : "—",
     },
     {
       id: `${slot}.teleports`,
+      size: 56,
       header: () => header(`${slot}.teleports`, t("labels.tps")),
       cell: ({ row }) =>
         row.original[slot] ? (
@@ -248,6 +253,7 @@ export function CompareRunsTable({
     },
     {
       id: `${slot}.time`,
+      size: 120,
       header: () => header(`${slot}.time`, name),
       cell: ({ row }) => (
         <span className="font-mono tabular-nums">
@@ -257,7 +263,8 @@ export function CompareRunsTable({
     },
     {
       id: `${slot}.points`,
-      header: () => header(`${slot}.points`, t("labels.points")),
+      size: 80,
+      header: () => header(`${slot}.points`, t("labels.points"), name),
       cell: ({ row }) =>
         row.original[slot] ? (
           <PointsBadge points={row.original[slot].points} />
@@ -265,10 +272,26 @@ export function CompareRunsTable({
           "—"
         ),
     },
+    {
+      id: `${slot}.created_on`,
+      size: 112,
+      header: () =>
+        header(`${slot}.created_on`, t("profile.records.date"), name),
+      cell: ({ row }) => (
+        <FormattedDateTime
+          value={row.original[slot]?.created_on}
+          display="absolute"
+          dateOnly
+          fallback="—"
+          className="whitespace-nowrap text-xs text-muted-foreground"
+        />
+      ),
+    },
   ]
   const columns: ColumnDef<PlayerCompareRunPublic>[] = [
     {
       id: "map",
+      size: 180,
       header: () => header("map", t("labels.map")),
       cell: ({ row }) => (
         <MapDisplay
@@ -279,6 +302,7 @@ export function CompareRunsTable({
     },
     {
       id: "tier",
+      size: 56,
       header: () => header("tier", t("labels.tier")),
       cell: ({ row }) => (
         <TierBadge tier={row.original.map_tier} hideWhenUnknown />
@@ -287,11 +311,13 @@ export function CompareRunsTable({
     ...playerColumns("player1", player1Name),
     {
       id: "time_delta",
+      size: 110,
       header: () => header("time_delta", t("compare.timeDelta")),
       cell: ({ row }) => delta(row.original.time_delta, true),
     },
     {
       id: "points_delta",
+      size: 110,
       header: () => header("points_delta", t("compare.pointsDelta")),
       cell: ({ row }) => delta(row.original.points_delta, false),
     },
@@ -423,7 +449,7 @@ export function CompareRunsTable({
           disablePagination
           showFooter={false}
           emptyText={t("compare.noRuns")}
-          tableClassName="min-w-[1220px]"
+          tableClassName="[&_th]:px-2 [&_td]:px-2"
           getRowId={(row) => String(row.map_id)}
         />
         <TablePaginationFooter

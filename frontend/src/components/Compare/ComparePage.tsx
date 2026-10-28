@@ -29,6 +29,7 @@ import {
 import { cn } from "@/lib/utils"
 import { CompareCompletion } from "./CompareCompletion"
 import { CompareRunsTable } from "./CompareRunsTable"
+import type { CompareHighlightProps, ComparePlayerSlot } from "./compare-player"
 
 const SKILLS: ProfileSkillKey[] = [
   "boxtech",
@@ -64,7 +65,9 @@ function ComparisonRadar({
   ratings2,
   player1Name,
   player2Name,
+  activePlayer,
 }: {
+  activePlayer: ComparePlayerSlot | null
   ratings1: ProfileSkillRatings | null
   ratings2: ProfileSkillRatings | null
   player1Name: string
@@ -98,7 +101,7 @@ function ComparisonRadar({
     const values = SKILLS
     const option: EChartsOption = {
       color: ["#0f9d8b", "#e8792f"],
-      legend: { bottom: 0, data: [player1Name, player2Name] },
+      legend: { show: false },
       radar: {
         startAngle: 90,
         radius: "62%",
@@ -118,20 +121,41 @@ function ComparisonRadar({
           type: "radar",
           symbol: "none",
           data: [
-            { name: player1Name, ratings: ratings1, color: "#0f9d8b" },
-            { name: player2Name, ratings: ratings2, color: "#e8792f" },
+            {
+              name: player1Name,
+              ratings: ratings1,
+              color: "#0f9d8b",
+              slot: "player1",
+            },
+            {
+              name: player2Name,
+              ratings: ratings2,
+              color: "#e8792f",
+              slot: "player2",
+            },
           ]
             .filter(
               ({ ratings }) =>
                 ratings &&
                 SKILLS.every((skill) => ratings[skill]?.rating != null),
             )
-            .map(({ name, ratings, color }) => ({
+            .map(({ name, ratings, color, slot }) => ({
               itemStyle: { color },
-              lineStyle: { color },
+              lineStyle: {
+                color,
+                width: activePlayer === slot ? 3 : 2,
+                opacity: activePlayer && activePlayer !== slot ? 0.2 : 1,
+              },
               name,
               value: SKILLS.map((skill) => ratings?.[skill]?.rating ?? 0),
-              areaStyle: { opacity: 0.14 },
+              areaStyle: {
+                opacity:
+                  activePlayer && activePlayer !== slot
+                    ? 0.03
+                    : activePlayer === slot
+                      ? 0.3
+                      : 0.14,
+              },
             })),
         },
       ],
@@ -149,7 +173,7 @@ function ComparisonRadar({
       },
     }
     chart.setOption(option, true)
-  }, [ratings1, ratings2, player1Name, player2Name, t])
+  }, [ratings1, ratings2, player1Name, player2Name, activePlayer, t])
 
   return (
     <div
@@ -170,6 +194,7 @@ type ComparisonMetric = {
   player2Value: number | null | undefined
   formatValue: (value: number) => string
   higherIsBetter?: boolean
+  isWr?: boolean
 }
 
 function MetricDifferenceBadge({
@@ -200,7 +225,9 @@ function MetricRow({
   player2Value,
   formatValue,
   higherIsBetter = true,
-}: ComparisonMetric) {
+  activePlayer,
+  onHighlightPlayer,
+}: ComparisonMetric & CompareHighlightProps) {
   const difference =
     player1Value != null && player2Value != null
       ? Math.abs(player1Value - player2Value)
@@ -213,7 +240,15 @@ function MetricRow({
 
   return (
     <div className="grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-2 rounded-lg bg-muted/30 px-2 py-2">
-      <div className="flex min-w-0 items-center justify-end gap-1.5">
+      <div
+        data-compare-metric="player1"
+        onPointerEnter={() => onHighlightPlayer("player1")}
+        onPointerLeave={() => onHighlightPlayer(null)}
+        className={cn(
+          "flex min-w-0 items-center justify-end gap-1.5 transition-opacity",
+          activePlayer === "player2" && "opacity-30",
+        )}
+      >
         {player1HasLargerValue && difference != null ? (
           <MetricDifferenceBadge
             value={difference}
@@ -227,7 +262,15 @@ function MetricRow({
       <span className="min-w-16 text-center text-xs font-medium text-muted-foreground">
         {label}
       </span>
-      <div className="flex min-w-0 items-center gap-1.5">
+      <div
+        data-compare-metric="player2"
+        onPointerEnter={() => onHighlightPlayer("player2")}
+        onPointerLeave={() => onHighlightPlayer(null)}
+        className={cn(
+          "flex min-w-0 items-center gap-1.5 transition-opacity",
+          activePlayer === "player1" && "opacity-30",
+        )}
+      >
         <span className="truncate font-mono text-sm font-semibold tabular-nums">
           {player2Value == null ? "-" : formatValue(player2Value)}
         </span>
@@ -254,6 +297,9 @@ export function ComparePage({
   const { scope } = useScope()
   const [runType, setRunType] = useState<"NUB" | "PRO">("NUB")
   const [onlyBoth, setOnlyBoth] = useState(true)
+  const [activePlayer, setActivePlayer] = useState<ComparePlayerSlot | null>(
+    null,
+  )
   const [selectionError, setSelectionError] = useState<string | null>(null)
   const player1Query = useQuery({
     queryKey: ["compare-player", initialPlayer1],
@@ -370,12 +416,14 @@ export function ComparePage({
         },
         {
           label: t("compare.nubWrs"),
+          isWr: true,
           player1Value: comparison.player1.wrs_nub,
           player2Value: comparison.player2.wrs_nub,
           formatValue: formatMetric,
         },
         {
           label: t("compare.proWrs"),
+          isWr: true,
           player1Value: comparison.player1.wrs_pro,
           player2Value: comparison.player2.wrs_pro,
           formatValue: formatMetric,
@@ -395,41 +443,45 @@ export function ComparePage({
       ]
     : []
 
+  const playerSearch = (slot: "player1" | "player2") => (
+    <div className="mx-auto w-full max-w-80 md:px-3">
+      <PlayerSearchSelect
+        ariaLabel={t(
+          slot === "player1"
+            ? "compare.player1Search"
+            : "compare.player2Search",
+        )}
+        clearOnSelect
+        clearButtonLabel={t(
+          slot === "player1" ? "compare.clearPlayer1" : "compare.clearPlayer2",
+        )}
+        label={t(slot === "player1" ? "compare.player1" : "compare.player2")}
+        searchQueryKey={`compare-${slot}`}
+        showSelectedPlayerDisplay={false}
+        selectedPlayer={slot === "player1" ? player1 : player2}
+        onClearPlayer={() => clearPlayer(slot)}
+        onSelectPlayer={(player) => setPlayer(slot, player)}
+      />
+    </div>
+  )
+  const swapButton = (
+    <Button
+      type="button"
+      variant="outline"
+      size="icon"
+      className="justify-self-center md:absolute md:top-6 md:left-1/2 md:-translate-x-1/2"
+      aria-label={t("compare.swapPlayers")}
+      disabled={!initialPlayer1 || !initialPlayer2}
+      onClick={swapPlayers}
+    >
+      <ArrowLeftRight />
+    </Button>
+  )
   const playerSelection = (
-    <section className="grid items-end gap-3 xl:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)]">
-      <PlayerSearchSelect
-        ariaLabel={t("compare.player1Search")}
-        clearOnSelect
-        clearButtonLabel={t("compare.clearPlayer1")}
-        label={t("compare.player1")}
-        searchQueryKey="compare-player1"
-        showSelectedPlayerDisplay={false}
-        selectedPlayer={player1}
-        onClearPlayer={() => clearPlayer("player1")}
-        onSelectPlayer={(player) => setPlayer("player1", player)}
-      />
-      <Button
-        type="button"
-        variant="outline"
-        size="icon"
-        className="mb-0.5"
-        aria-label={t("compare.swapPlayers")}
-        disabled={!initialPlayer1 || !initialPlayer2}
-        onClick={swapPlayers}
-      >
-        <ArrowLeftRight />
-      </Button>
-      <PlayerSearchSelect
-        ariaLabel={t("compare.player2Search")}
-        clearOnSelect
-        clearButtonLabel={t("compare.clearPlayer2")}
-        label={t("compare.player2")}
-        searchQueryKey="compare-player2"
-        showSelectedPlayerDisplay={false}
-        selectedPlayer={player2}
-        onClearPlayer={() => clearPlayer("player2")}
-        onSelectPlayer={(player) => setPlayer("player2", player)}
-      />
+    <section className="relative grid w-full items-start gap-4 md:grid-cols-2">
+      {playerSearch("player1")}
+      {playerSearch("player2")}
+      {swapButton}
     </section>
   )
 
@@ -468,36 +520,44 @@ export function ComparePage({
           <section className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem] xl:items-start">
             <Card className="min-w-0 border-border/70 bg-card/95 py-0">
               <CardContent className="space-y-6 p-5 sm:p-6">
-                {playerSelection}
                 {selectionError ? (
                   <p className="text-sm text-destructive">{selectionError}</p>
                 ) : null}
                 <section className="space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
+                  <div className="relative grid gap-4 md:grid-cols-2">
                     {(["player1", "player2"] as const).map((slot, index) => (
-                      <div key={slot} className="min-w-0 space-y-4">
-                        <div
-                          className={cn(
-                            "border-l-4 pl-3",
-                            index === 0
-                              ? "border-[#0f9d8b]"
-                              : "border-[#e8792f]",
-                          )}
-                        >
-                          <PlayerDisplay
-                            player={
-                              (index === 0 ? player1 : player2) ??
-                              comparison[slot].player
-                            }
-                          />
-                        </div>
-                        <CompareCompletion
-                          comparison={comparison}
-                          slot={slot}
+                      <fieldset
+                        key={slot}
+                        data-testid={`compare-identity-${slot}`}
+                        onPointerEnter={() => setActivePlayer(slot)}
+                        onPointerLeave={() => setActivePlayer(null)}
+                        onFocus={() => setActivePlayer(slot)}
+                        onBlur={() => setActivePlayer(null)}
+                        className={cn(
+                          "min-w-0 space-y-4 transition-opacity",
+                          activePlayer && activePlayer !== slot && "opacity-30",
+                        )}
+                      >
+                        {playerSearch(slot)}
+                        <PlayerDisplay
+                          avatarSize="extra-large"
+                          showRatingIcon={false}
+                          layout="stacked"
+                          className="w-full"
+                          player={
+                            (index === 0 ? player1 : player2) ??
+                            comparison[slot].player
+                          }
                         />
-                      </div>
+                      </fieldset>
                     ))}
+                    {swapButton}
                   </div>
+                  <CompareCompletion
+                    comparison={comparison}
+                    activePlayer={activePlayer}
+                    onHighlightPlayer={setActivePlayer}
+                  />
                 </section>
               </CardContent>
             </Card>
@@ -506,10 +566,8 @@ export function ComparePage({
                 <h2 className="text-lg font-semibold">
                   {t("profile.skillRadar.title")}
                 </h2>
-                <p className="text-xs text-muted-foreground">
-                  {t("profile.skillRadar.globalHint")}
-                </p>
                 <ComparisonRadar
+                  activePlayer={activePlayer}
                   ratings1={skills1.data?.skillRatings ?? null}
                   ratings2={skills2.data?.skillRatings ?? null}
                   player1Name={player1Name}
@@ -519,8 +577,14 @@ export function ComparePage({
                 skills2.isError ||
                 skills1.isLoading ||
                 skills2.isLoading ||
-                !skills1.data?.skillRatings ||
-                !skills2.data?.skillRatings ? (
+                !SKILLS.every(
+                  (skill) =>
+                    skills1.data?.skillRatings?.[skill]?.rating != null,
+                ) ||
+                !SKILLS.every(
+                  (skill) =>
+                    skills2.data?.skillRatings?.[skill]?.rating != null,
+                ) ? (
                   <p className="text-xs text-muted-foreground">
                     {skills1.isError || skills2.isError
                       ? t("compare.loadFailed")
@@ -533,9 +597,25 @@ export function ComparePage({
                   {scope}
                 </p>
                 <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-1">
-                  {metrics.map((metric) => (
-                    <MetricRow key={metric.label} {...metric} />
-                  ))}
+                  {metrics
+                    .filter(
+                      (metric) =>
+                        !metric.isWr ||
+                        [
+                          comparison.player1.wrs_nub,
+                          comparison.player1.wrs_pro,
+                          comparison.player2.wrs_nub,
+                          comparison.player2.wrs_pro,
+                        ].some((value) => value !== 0),
+                    )
+                    .map((metric) => (
+                      <MetricRow
+                        key={metric.label}
+                        {...metric}
+                        activePlayer={activePlayer}
+                        onHighlightPlayer={setActivePlayer}
+                      />
+                    ))}
                 </div>
               </CardContent>
             </Card>

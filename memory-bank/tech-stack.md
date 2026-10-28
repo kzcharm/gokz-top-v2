@@ -172,7 +172,7 @@
 - Generated API client:
   - @hey-api/openapi-ts
   - frontend review authoring flows read both latest-review and website-review variants from the generated `/v1/maps/reviews` contract
-  - `/compare` is a URL-backed React route with two player search selectors, a scoped progression radar, and NUB/PRO main-stage comparison tables; authenticated player context menus can open it prefilled with the viewer and selected player
+  - `/compare` is a URL-backed React route with two player search selectors, profile completion cards, a shared 0–11 skill radar, and sortable/filterable NUB/PRO main-stage comparison tables with shared pagination; query serialization preserves player SteamID64 strings without quotes; authenticated player context menus can open it prefilled with the viewer and selected player
 
 ## Frontend Tooling and Tests
 - Bun workspace scripts at repository root

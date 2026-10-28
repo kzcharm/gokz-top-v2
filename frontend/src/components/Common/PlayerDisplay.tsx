@@ -153,9 +153,12 @@ interface PlayerDisplayProps {
   fallbackSteamid64?: string
   showSteamid?: boolean
   showCountryFlag?: boolean
+  showRatingIcon?: boolean
   subline?: PlayerDisplaySubline | null
   className?: string
   compact?: boolean
+  avatarSize?: "default" | "large" | "extra-large"
+  layout?: "inline" | "stacked"
   nameMaxLength?: number
   disableProfileLink?: boolean
   hideAvatarWithoutSteamid64?: boolean
@@ -495,9 +498,12 @@ export function PlayerDisplay({
   fallbackSteamid64,
   showSteamid = false,
   showCountryFlag = true,
+  showRatingIcon = true,
   subline = null,
   className,
   compact = false,
+  avatarSize = "default",
+  layout = "inline",
   nameMaxLength,
   disableProfileLink = false,
   hideAvatarWithoutSteamid64 = false,
@@ -598,6 +604,7 @@ export function PlayerDisplay({
     showCountryFlag &&
     (presentation === "card" || playerDisplayPreferences.showCountryFlag)
   const showRatingBadge =
+    showRatingIcon &&
     presentation !== "card" &&
     playerDisplayPreferences.showRatingIcon &&
     rating !== undefined &&
@@ -700,74 +707,77 @@ export function PlayerDisplay({
     }
   }
 
+  const identityBadges = (
+    <span className="flex shrink-0 items-center gap-1">
+      {showEffectiveCountryFlag && presentation !== "card" ? (
+        FlagComponent ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                className="inline-flex"
+                data-testid={`country-flag-${steamid64}`}
+                role="img"
+                aria-label={countryName || countryCode || "Unknown country"}
+              >
+                <FlagComponent
+                  className={cn("shrink-0", compact ? "h-3.5 w-5" : "h-4 w-6")}
+                />
+              </span>
+            </TooltipTrigger>
+            <TooltipContent sideOffset={8}>
+              {countryName || countryCode}
+            </TooltipContent>
+          </Tooltip>
+        ) : (
+          <img
+            src={noneFlagSrc}
+            alt="Unknown country"
+            className={cn(
+              "shrink-0 rounded-[2px] border border-border/80",
+              compact ? "h-3.5 w-5" : "h-4 w-6",
+            )}
+            title="Unknown country"
+          />
+        )
+      ) : null}
+
+      {showRatingBadge ? (
+        <span
+          className={cn(
+            "inline-flex shrink-0 items-center justify-center",
+            compact ? "h-4 w-4" : "h-5 w-5",
+          )}
+        >
+          {ratingBadgeSrc ? (
+            <img
+              src={ratingBadgeSrc}
+              alt={`Rating level ${ratingLevel}`}
+              data-testid={`rating-icon-${steamid64}`}
+              className={cn("shrink-0", compact ? "h-4 w-4" : "h-5 w-5")}
+            />
+          ) : null}
+        </span>
+      ) : null}
+    </span>
+  )
+
   const content = (
     <div
       data-drag-scroll-ignore
       data-player-presentation={presentation}
+      data-player-layout={layout}
       data-current-user={isCurrentUser ? "true" : undefined}
       className={cn(
         "flex min-w-0 items-center transition-colors",
         compact ? "gap-2" : "gap-2.5",
+        layout === "stacked" && "flex-col justify-center",
         hasProfileLink &&
           "group-hover:text-foreground group-focus-visible:text-foreground",
         className,
       )}
     >
       <div className={cn("flex items-center", compact ? "gap-1.5" : "gap-2")}>
-        <div className="flex items-center gap-1">
-          {showEffectiveCountryFlag && presentation !== "card" ? (
-            FlagComponent ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span
-                    className="inline-flex"
-                    data-testid={`country-flag-${steamid64}`}
-                    role="img"
-                    aria-label={countryName || countryCode || "Unknown country"}
-                  >
-                    <FlagComponent
-                      className={cn(
-                        "shrink-0",
-                        compact ? "h-3.5 w-5" : "h-4 w-6",
-                      )}
-                    />
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent sideOffset={8}>
-                  {countryName || countryCode}
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <img
-                src={noneFlagSrc}
-                alt="Unknown country"
-                className={cn(
-                  "shrink-0 rounded-[2px] border border-border/80",
-                  compact ? "h-3.5 w-5" : "h-4 w-6",
-                )}
-                title="Unknown country"
-              />
-            )
-          ) : null}
-
-          {showRatingBadge ? (
-            <span
-              className={cn(
-                "inline-flex shrink-0 items-center justify-center",
-                compact ? "h-4 w-4" : "h-5 w-5",
-              )}
-            >
-              {ratingBadgeSrc ? (
-                <img
-                  src={ratingBadgeSrc}
-                  alt={`Rating level ${ratingLevel}`}
-                  data-testid={`rating-icon-${steamid64}`}
-                  className={cn("shrink-0", compact ? "h-4 w-4" : "h-5 w-5")}
-                />
-              ) : null}
-            </span>
-          ) : null}
-        </div>
+        {layout === "inline" ? identityBadges : null}
 
         {showAvatar ? (
           <span className="relative inline-flex shrink-0">
@@ -777,7 +787,13 @@ export function PlayerDisplay({
               }
               className={cn(
                 "transition-transform duration-200",
-                compact ? "size-6 rounded-md" : "size-8 rounded-lg",
+                avatarSize === "extra-large"
+                  ? "size-24 rounded-2xl sm:size-32"
+                  : avatarSize === "large"
+                    ? "size-16 rounded-2xl sm:size-20"
+                    : compact
+                      ? "size-6 rounded-md"
+                      : "size-8 rounded-lg",
                 showRoleRing &&
                   (compact
                     ? "ring-2 ring-offset-1 ring-offset-background"
@@ -830,15 +846,23 @@ export function PlayerDisplay({
         ) : null}
       </div>
 
-      <div className="min-w-0">
+      <div
+        className={cn(
+          "min-w-0",
+          layout === "stacked" && "max-w-full text-center",
+        )}
+      >
         <p
           className={cn(
             "flex w-full min-w-0 items-center gap-1 text-sm font-medium transition-colors",
+            avatarSize !== "default" && "text-lg font-semibold sm:text-xl",
+            layout === "stacked" && "justify-center gap-2",
             hasProfileLink &&
               "group-hover:text-accent-foreground group-focus-visible:text-accent-foreground",
           )}
           title={fullDisplayLabel}
         >
+          {layout === "stacked" ? identityBadges : null}
           {presentation === "card" &&
             showEffectiveCountryFlag &&
             FlagComponent && (

@@ -2037,6 +2037,7 @@ export const en = {
       "No stage {{stage}} records found for this map in the selected scope.",
   },
   compare: {
+    completionType: "Show PRO completion",
     skillsAria: "Skill comparison between {{player1}} and {{player2}}",
     skillsMissing:
       "Players with unavailable skill ratings are omitted from the chart.",

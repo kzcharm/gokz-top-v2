@@ -1974,6 +1974,7 @@ export const zhCN = {
     emptyTop: "所选范围内该地图暂无 Stage {{stage}} 记录。",
   },
   compare: {
+    completionType: "显示 PRO 完成度",
     skillsAria: "{{player1}} 与 {{player2}} 的技能对比",
     skillsMissing: "技能评分不可用的玩家不会显示在图表中。",
     sortBy: "排序依据",
