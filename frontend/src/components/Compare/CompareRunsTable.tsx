@@ -1,6 +1,6 @@
 import type { ColumnDef } from "@tanstack/react-table"
 import { ArrowDown, ArrowUp } from "lucide-react"
-import { useEffect, useMemo, useState } from "react"
+import { type ReactNode, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { PlayerCompareRunPublic, RecordPublic } from "@/client"
 import { DataTable } from "@/components/Common/DataTable"
@@ -10,6 +10,10 @@ import {
   ModeSelector,
   type ModeSelectorValue,
 } from "@/components/Common/ModeSelector"
+import {
+  PlayerDisplay,
+  type PlayerDisplayPlayer,
+} from "@/components/Common/PlayerDisplay"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
   TierSelector,
@@ -19,6 +23,7 @@ import { ModeBadge } from "@/components/Records/ModeBadge"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
+import { formatWrGap, getWrGap } from "@/components/Records/wr-gap"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -31,6 +36,7 @@ import {
 } from "@/components/ui/select"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
 import { cn } from "@/lib/utils"
+import { COMPARE_PLAYER_COLORS } from "./compare-player"
 
 type SortKey =
   | "map"
@@ -77,13 +83,33 @@ export function CompareRunsTable({
   player1Name,
   player2Name,
   onlyBoth,
+  player1,
+  player2,
 }: {
   rows: PlayerCompareRunPublic[]
   player1Name: string
   player2Name: string
   onlyBoth: boolean
+  player1: PlayerDisplayPlayer
+  player2: PlayerDisplayPlayer
 }) {
   const { t } = useTranslation()
+  const [gapMode, setGapMode] = useState<"difference" | "ratio">(() => {
+    try {
+      return localStorage.getItem("compare-time-gap-mode") === "difference"
+        ? "difference"
+        : "ratio"
+    } catch {
+      return "ratio"
+    }
+  })
+  useEffect(() => {
+    try {
+      localStorage.setItem("compare-time-gap-mode", gapMode)
+    } catch {
+      // Keep the control usable when browser storage is unavailable.
+    }
+  }, [gapMode])
   const [filters, setFilters] = useState(EMPTY_FILTERS)
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean }>({
     key: "player1.created_on",
@@ -209,84 +235,168 @@ export function CompareRunsTable({
       ) : null}
     </Button>
   )
-  const delta = (value: number | null | undefined, time: boolean) =>
-    value == null ? (
-      "—"
-    ) : (
+  const delta = (
+    row: PlayerCompareRunPublic,
+    slot: "player1" | "player2",
+    field: "time" | "points",
+  ) => {
+    const record = row[slot]
+    const other = row[slot === "player1" ? "player2" : "player1"]
+    if (!record || !other || record[field] <= other[field]) return null
+    const difference = record[field] - other[field]
+    return (
       <span
+        data-testid={`compare-${field}-delta`}
         className={cn(
-          "font-mono tabular-nums",
-          value < 0
-            ? "text-emerald-600 dark:text-emerald-400"
-            : value > 0
-              ? "text-red-600 dark:text-red-400"
-              : "text-muted-foreground",
+          "text-xs font-mono tabular-nums",
+          field === "time"
+            ? "text-red-600 dark:text-red-400"
+            : "text-emerald-600 dark:text-emerald-400",
         )}
       >
-        {value < 0 ? "−" : "+"}
-        {time
-          ? formatRecordTime(Math.abs(value))
-          : Math.abs(value).toLocaleString()}
+        (
+        {gapMode === "ratio" && field === "time"
+          ? formatWrGap(getWrGap(record[field], other[field]))
+          : `+${field === "time" ? formatRecordTime(difference) : difference.toLocaleString()}`}
+        )
       </span>
     )
-  const playerColumns = (
-    slot: "player1" | "player2",
-    name: string,
-  ): ColumnDef<PlayerCompareRunPublic>[] => [
+  }
+  const slots = ["player1", "player2"] as const
+  const stacked = (render: (slot: "player1" | "player2") => ReactNode) => (
+    <div className="-mx-3 grid grid-rows-2 divide-y divide-border/20">
+      {slots.map((slot) => (
+        <div
+          key={slot}
+          data-player={slot}
+          className="flex h-11 items-center gap-2 whitespace-nowrap px-3"
+          style={{
+            backgroundColor: `color-mix(in srgb, ${COMPARE_PLAYER_COLORS[slot]} 7%, transparent)`,
+          }}
+        >
+          {render(slot)}
+        </div>
+      ))}
+    </div>
+  )
+  const recordHeader = (
+    field: "mode" | "teleports" | "time" | "points" | "created_on",
+    label: string,
+  ) => {
+    const active =
+      sort.key === `player1.${field}` || sort.key === `player2.${field}`
+    const slot = sort.key.startsWith("player2.") ? "player2" : "player1"
+    return (
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 px-1"
+        aria-label={`${t("compare.sortBy")} ${label}`}
+        onClick={() => {
+          if (!active) setSort({ key: `player1.${field}`, desc: false })
+          else if (!sort.desc) setSort({ key: `${slot}.${field}`, desc: true })
+          else
+            setSort({
+              key: `${slot === "player1" ? "player2" : "player1"}.${field}`,
+              desc: false,
+            })
+          setPageIndex(0)
+        }}
+      >
+        {label}
+        {active && (
+          <span
+            className="inline-flex items-center gap-1 text-xs text-primary"
+            title={slot === "player1" ? player1Name : player2Name}
+          >
+            {slot === "player1" ? "P1" : "P2"}
+            {sort.desc ? (
+              <ArrowDown className="size-3" />
+            ) : (
+              <ArrowUp className="size-3" />
+            )}
+          </span>
+        )}
+      </Button>
+    )
+  }
+  const recordColumns: ColumnDef<PlayerCompareRunPublic>[] = [
     {
-      id: `${slot}.mode`,
-      size: 64,
-      header: () => header(`${slot}.mode`, t("labels.mode")),
-      cell: ({ row }) =>
-        row.original[slot] ? <ModeBadge mode={row.original[slot].mode} /> : "—",
+      id: "player",
+      size: 150,
+      header: () => t("labels.player"),
+      cell: () =>
+        stacked((slot) => (
+          <>
+            <span
+              aria-hidden="true"
+              className="size-2 shrink-0 rounded-full"
+              style={{ backgroundColor: COMPARE_PLAYER_COLORS[slot] }}
+            />
+            <PlayerDisplay
+              player={slot === "player1" ? player1 : player2}
+              compact
+              showRatingIcon={false}
+              showAvatar={false}
+              showCountryFlag={false}
+            />
+          </>
+        )),
     },
-    {
-      id: `${slot}.teleports`,
-      size: 56,
-      header: () => header(`${slot}.teleports`, t("labels.tps")),
-      cell: ({ row }) =>
-        row.original[slot] ? (
-          <TeleportsBadge teleports={row.original[slot].teleports} />
-        ) : (
-          "—"
-        ),
-    },
-    {
-      id: `${slot}.time`,
-      size: 120,
-      header: () => header(`${slot}.time`, name),
-      cell: ({ row }) => (
-        <span className="font-mono tabular-nums">
-          {row.original[slot] ? formatRecordTime(row.original[slot].time) : "—"}
-        </span>
-      ),
-    },
-    {
-      id: `${slot}.points`,
-      size: 80,
-      header: () => header(`${slot}.points`, t("labels.points"), name),
-      cell: ({ row }) =>
-        row.original[slot] ? (
-          <PointsBadge points={row.original[slot].points} />
-        ) : (
-          "—"
-        ),
-    },
-    {
-      id: `${slot}.created_on`,
-      size: 112,
-      header: () =>
-        header(`${slot}.created_on`, t("profile.records.date"), name),
-      cell: ({ row }) => (
-        <FormattedDateTime
-          value={row.original[slot]?.created_on}
-          display="absolute"
-          dateOnly
-          fallback="—"
-          className="whitespace-nowrap text-xs text-muted-foreground"
-        />
-      ),
-    },
+    ...(["time", "points", "mode", "teleports", "created_on"] as const).map(
+      (field): ColumnDef<PlayerCompareRunPublic> => ({
+        id: field,
+        size:
+          field === "created_on"
+            ? 120
+            : field === "time"
+              ? 180
+              : field === "points"
+                ? 150
+                : 80,
+        header: () =>
+          recordHeader(
+            field,
+            field === "created_on"
+              ? t("profile.records.date")
+              : field === "teleports"
+                ? t("labels.tps")
+                : t(`labels.${field}`),
+          ),
+        cell: ({ row }) =>
+          stacked((slot) => {
+            const record = row.original[slot]
+            if (!record) return <span className="text-muted-foreground">—</span>
+            if (field === "mode") return <ModeBadge mode={record.mode} />
+            if (field === "teleports")
+              return <TeleportsBadge teleports={record.teleports} />
+            if (field === "points")
+              return (
+                <>
+                  <PointsBadge points={record.points} />
+                  {delta(row.original, slot, "points")}
+                </>
+              )
+            if (field === "created_on")
+              return (
+                <FormattedDateTime
+                  value={record.created_on}
+                  display="absolute"
+                  dateOnly
+                  className="text-xs text-muted-foreground"
+                />
+              )
+            return (
+              <>
+                <span className="font-mono tabular-nums">
+                  {formatRecordTime(record.time)}
+                </span>
+                {delta(row.original, slot, "time")}
+              </>
+            )
+          }),
+      }),
+    ),
   ]
   const columns: ColumnDef<PlayerCompareRunPublic>[] = [
     {
@@ -295,6 +405,7 @@ export function CompareRunsTable({
       header: () => header("map", t("labels.map")),
       cell: ({ row }) => (
         <MapDisplay
+          className="bg-muted dark:bg-muted"
           mapName={row.original.map_name}
           mapId={row.original.map_id}
         />
@@ -308,24 +419,27 @@ export function CompareRunsTable({
         <TierBadge tier={row.original.map_tier} hideWhenUnknown />
       ),
     },
-    ...playerColumns("player1", player1Name),
-    {
-      id: "time_delta",
-      size: 110,
-      header: () => header("time_delta", t("compare.timeDelta")),
-      cell: ({ row }) => delta(row.original.time_delta, true),
-    },
-    {
-      id: "points_delta",
-      size: 110,
-      header: () => header("points_delta", t("compare.pointsDelta")),
-      cell: ({ row }) => delta(row.original.points_delta, false),
-    },
-    ...playerColumns("player2", player2Name),
+    ...recordColumns,
   ]
   return (
     <section className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
+        <fieldset
+          className="inline-flex items-center rounded-lg border p-1"
+          aria-label={t("compare.gapDisplay")}
+        >
+          {(["difference", "ratio"] as const).map((mode) => (
+            <Button
+              key={mode}
+              size="sm"
+              variant={gapMode === mode ? "secondary" : "ghost"}
+              aria-pressed={gapMode === mode}
+              onClick={() => setGapMode(mode)}
+            >
+              {t(`compare.${mode}`)}
+            </Button>
+          ))}
+        </fieldset>
         <Input
           className="w-56"
           aria-label={t("compare.searchMaps")}
@@ -449,7 +563,7 @@ export function CompareRunsTable({
           disablePagination
           showFooter={false}
           emptyText={t("compare.noRuns")}
-          tableClassName="[&_th]:px-2 [&_td]:px-2"
+          tableClassName="[&_th]:px-3 [&_td]:px-3 [&_td]:py-0 [&_td]:bg-card [&_tbody>tr:not(:last-child)]:border-b-2 [&_tbody>tr:not(:last-child)]:border-foreground/25"
           getRowId={(row) => String(row.map_id)}
         />
         <TablePaginationFooter

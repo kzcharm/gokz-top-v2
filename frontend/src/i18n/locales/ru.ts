@@ -2086,6 +2086,9 @@ export const ru = {
     emptyTop: "Для этой карты нет Stage {{stage}} записей в выбранной области.",
   },
   compare: {
+    gapDisplay: "Сравнение времени",
+    difference: "Разница",
+    ratio: "Отношение",
     completionType: "Показать прохождение PRO",
     skillsAria: "Сравнение навыков {{player1}} и {{player2}}",
     skillsMissing: "Игроки без оценок навыков не отображаются на диаграмме.",

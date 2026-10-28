@@ -9,7 +9,10 @@ let hasWorldRecords = false
 test.beforeEach(async ({ page }) => {
   hasWorldRecords = false
   await page.addInitScript(() => {
-    localStorage.clear()
+    if (!sessionStorage.getItem("compare-test-initialized")) {
+      localStorage.clear()
+      sessionStorage.setItem("compare-test-initialized", "true")
+    }
   })
   await page.route("**/v1/maps?*", (route) =>
     route.fulfill({
@@ -208,22 +211,68 @@ test("runs sort, filter by player, and paginate the filtered collection", async 
   await expect(
     page.getByText("Shared 0–11 scale for comparing players.", { exact: true }),
   ).toHaveCount(0)
-  await page
-    .getByRole("button", { name: "Sort by Beta Date", exact: true })
-    .click()
-  await expect(rows.first()).toContainText("kz_map_1")
-  await page
-    .getByRole("button", { name: "Sort by Beta Date", exact: true })
-    .click()
-  await expect(rows.first()).toContainText("kz_map_11")
-  await page
-    .getByRole("button", { name: "Sort by Alpha Date", exact: true })
-    .click()
-  await expect(rows.first()).toContainText("kz_map_11")
-  await page
-    .getByRole("button", { name: "Sort by Alpha Date", exact: true })
-    .click()
-  await expect(rows.first()).toContainText("kz_map_1")
+  await expect(rows.first().locator("[data-player] img")).toHaveCount(0)
+  await expect(
+    page.getByRole("columnheader", { name: "Time delta" }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("columnheader", { name: "Points delta" }),
+  ).toHaveCount(0)
+  await expect(
+    rows
+      .first()
+      .locator('[data-player="player2"]')
+      .getByTestId("compare-time-delta"),
+  ).toHaveText("(1.18x)")
+  await expect(
+    rows
+      .first()
+      .locator('[data-player="player1"]')
+      .getByTestId("compare-points-delta"),
+  ).toHaveText("(+100)")
+  await page.getByRole("button", { name: "Ratio", exact: true }).click()
+  await expect(rows.first().getByTestId("compare-time-delta")).toHaveText(
+    "(1.18x)",
+  )
+  await expect(rows.first().getByTestId("compare-points-delta")).toHaveText(
+    "(+100)",
+  )
+  await page.getByRole("button", { name: "Difference", exact: true }).click()
+  await expect(rows.first().getByTestId("compare-time-delta")).toHaveText(
+    "(+0:20.000)",
+  )
+  await page.reload()
+  await expect(
+    page.getByRole("button", { name: "Difference", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(rows.first().getByTestId("compare-time-delta")).toHaveText(
+    "(+0:20.000)",
+  )
+  await page.getByRole("button", { name: "Ratio", exact: true }).click()
+  await page.reload()
+  await expect(
+    page.getByRole("button", { name: "Ratio", exact: true }),
+  ).toHaveAttribute("aria-pressed", "true")
+  await expect(rows.first().getByTestId("compare-points-delta")).toHaveText(
+    "(+100)",
+  )
+  const dateSort = page.getByRole("button", {
+    name: "Sort by Date",
+    exact: true,
+  })
+  // Default P1 descending -> P2 ascending -> P2 descending -> P1 ascending -> P1 descending.
+  for (const [indicator, map] of [
+    ["P2", "kz_map_11"],
+    ["P2", "kz_map_1"],
+    ["P1", "kz_map_1"],
+    ["P1", "kz_map_11"],
+  ]) {
+    await dateSort.click()
+    await expect(dateSort).toContainText(indicator)
+    await expect(rows.first()).toContainText(map)
+  }
+  await expect(rows.first().locator('[data-player="player1"]')).toHaveCount(6)
+  await expect(rows.first().locator('[data-player="player2"]')).toHaveCount(6)
   await page.getByRole("button", { name: "Sort by Map", exact: true }).click()
   await expect(rows.first()).toContainText("kz_map_1")
   await page.getByRole("button", { name: "Sort by Map", exact: true }).click()
@@ -352,4 +401,18 @@ test("WR metrics remain visible if either player has a WR", async ({
   await page.goto(`/compare?player1=${player1}&player2=${player2}`)
   await expect(page.getByText("NUB WRs", { exact: true })).toBeVisible()
   await expect(page.getByText("PRO WRs", { exact: true })).toBeVisible()
+})
+
+test("stacked records preview", async ({ page }) => {
+  await page.goto(`/compare?player1=${player1}&player2=${player2}`)
+  await expect(page.locator("tbody tr")).toHaveCount(11)
+  await page
+    .locator("#compare-runs")
+    .screenshot({ path: "../.temp/compare/stacked-desktop.png" })
+  await page.setViewportSize({ width: 390, height: 844 })
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth,
+    ),
+  ).toBe(true)
 })

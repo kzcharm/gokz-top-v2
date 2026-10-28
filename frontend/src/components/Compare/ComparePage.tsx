@@ -29,7 +29,11 @@ import {
 import { cn } from "@/lib/utils"
 import { CompareCompletion } from "./CompareCompletion"
 import { CompareRunsTable } from "./CompareRunsTable"
-import type { CompareHighlightProps, ComparePlayerSlot } from "./compare-player"
+import {
+  COMPARE_PLAYER_COLORS,
+  type CompareHighlightProps,
+  type ComparePlayerSlot,
+} from "./compare-player"
 
 const SKILLS: ProfileSkillKey[] = [
   "boxtech",
@@ -100,7 +104,7 @@ function ComparisonRadar({
     }
     const values = SKILLS
     const option: EChartsOption = {
-      color: ["#0f9d8b", "#e8792f"],
+      color: [COMPARE_PLAYER_COLORS.player1, COMPARE_PLAYER_COLORS.player2],
       legend: { show: false },
       radar: {
         startAngle: 90,
@@ -124,13 +128,13 @@ function ComparisonRadar({
             {
               name: player1Name,
               ratings: ratings1,
-              color: "#0f9d8b",
+              color: COMPARE_PLAYER_COLORS.player1,
               slot: "player1",
             },
             {
               name: player2Name,
               ratings: ratings2,
-              color: "#e8792f",
+              color: COMPARE_PLAYER_COLORS.player2,
               slot: "player2",
             },
           ]
@@ -620,7 +624,7 @@ export function ComparePage({
               </CardContent>
             </Card>
           </section>
-          <section className="space-y-4">
+          <section id="compare-runs" className="scroll-mt-24 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-lg font-semibold">{t("compare.runs")}</h2>
               <div className="flex flex-wrap items-center gap-2">
@@ -652,6 +656,8 @@ export function ComparePage({
               </div>
             </div>
             <CompareRunsTable
+              player1={player1 ?? comparison.player1.player}
+              player2={player2 ?? comparison.player2.player}
               rows={
                 runType === "NUB" ? comparison.nub_runs : comparison.pro_runs
               }

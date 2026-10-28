@@ -152,6 +152,7 @@ interface PlayerDisplayProps {
   player?: PlayerDisplayPlayer | null
   fallbackSteamid64?: string
   showSteamid?: boolean
+  showAvatar?: boolean
   showCountryFlag?: boolean
   showRatingIcon?: boolean
   subline?: PlayerDisplaySubline | null
@@ -497,6 +498,7 @@ export function PlayerDisplay({
   presentation = "default",
   fallbackSteamid64,
   showSteamid = false,
+  showAvatar: allowAvatar = true,
   showCountryFlag = true,
   showRatingIcon = true,
   subline = null,
@@ -591,7 +593,8 @@ export function PlayerDisplay({
     ? `https://steamcommunity.com/profiles/${steamid64}`
     : null
   const showAvatar =
-    !hideAvatarWithoutSteamid64 || steamid64Pattern.test(steamid64)
+    allowAvatar &&
+    (!hideAvatarWithoutSteamid64 || steamid64Pattern.test(steamid64))
 
   const countryCode = resolvedPlayer?.country?.toUpperCase() || null
   const FlagComponent = countryCode ? flagComponents[countryCode] : null
