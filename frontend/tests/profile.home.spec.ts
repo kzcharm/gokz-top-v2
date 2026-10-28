@@ -23,10 +23,10 @@ const playerStats = {
   daily_activity: {
     updated_at: "2026-04-03T12:00:00Z",
     days: [
-      { date: "2025-12-31", count: 2 },
-      { date: "2026-01-01", count: 1 },
-      { date: "2026-03-30", count: 2 },
-      { date: "2026-03-31", count: 4 },
+      { date: "2025-12-31", count: 2, total_seconds: 7200 },
+      { date: "2026-01-01", count: 1, total_seconds: 3600 },
+      { date: "2026-03-30", count: 2, total_seconds: 7200 },
+      { date: "2026-03-31", count: 4, total_seconds: 14400 },
     ],
   },
   playtime: {
@@ -557,7 +557,7 @@ for (const timezoneId of ["America/Los_Angeles", "Pacific/Kiritimati"]) {
           '[role="tooltip"]:not([data-state="closed"])',
         )
         await page.getByTestId("profile-activity-cell-2026-03-31").hover()
-        await expect(tooltip).toHaveText(`4 records on ${date}`)
+        await expect(tooltip).toHaveText(`4 hours · 4 records on ${date}`)
         if (preset === "euro") {
           await page.screenshot({
             path: testInfo.outputPath("activity-tooltip.png"),
@@ -567,7 +567,7 @@ for (const timezoneId of ["America/Los_Angeles", "Pacific/Kiritimati"]) {
         await page.keyboard.press("Escape")
         await expect(page.getByRole("tooltip")).toHaveCount(0)
         await page.getByTestId("profile-activity-cell-2026-04-01").hover()
-        await expect(tooltip).toHaveText(`0 records on ${emptyDate}`)
+        await expect(tooltip).toHaveText(`0 hours · 0 records on ${emptyDate}`)
         await page.keyboard.press("Escape")
         await expect(page.getByRole("tooltip")).toHaveCount(0)
         await page.getByTestId("profile-activity-cell-2026-01-01").hover()
@@ -588,7 +588,7 @@ test("Profile activity counts days played within the selected period", async ({
         ...playerStats.daily_activity,
         days: [
           ...playerStats.daily_activity.days,
-          { date: "2026-04-02", count: 0 },
+          { date: "2026-04-02", count: 0, total_seconds: 0 },
         ],
       },
     },
@@ -673,26 +673,25 @@ test("Profile home renders live pinned records with points badges and absolute d
   ).toHaveAttribute("data-state", "active")
   await expect(
     page.getByTestId("profile-activity-cell-2026-03-31"),
-  ).toHaveAttribute("data-activity-level", "2")
+  ).toHaveAttribute("data-activity-level", "4")
   await expect(
     page.getByTestId("profile-activity-cell-2026-03-30"),
-  ).toHaveAttribute("data-activity-level", "2")
+  ).toHaveAttribute("data-activity-level", "3")
   await expect(
     page.getByTestId("profile-activity-cell-2026-01-01"),
   ).toHaveAttribute("data-activity-level", "1")
   await expect(
     page.getByTestId("profile-activity-cell-2025-12-31"),
-  ).toHaveAttribute("data-activity-level", "2")
+  ).toHaveAttribute("data-activity-level", "3")
 
   await page.getByTestId("profile-activity-view-calendar-year").click()
   await page.getByTestId("profile-activity-year-input").fill("2025")
   await page.getByTestId("profile-activity-year-input").press("Enter")
   await expect(
     page.getByTestId("profile-activity-cell-2025-12-31"),
-  ).toHaveAttribute("data-activity-level", "2")
+  ).toHaveAttribute("data-activity-level", "4")
 
   await expect(page.getByText("Pinned records")).toBeVisible()
-  await expect(page.getByText("6 of 6")).toBeVisible()
 
   await expect(page.getByText("kz_alpha")).toBeVisible()
   await expect(page.getByText("kz_beta")).toBeVisible()
@@ -773,7 +772,7 @@ test("Profile home activity card shows empty-year message for players without ac
     page.getByTestId("profile-activity-view-last-365-days"),
   ).toBeVisible()
   await expect(
-    page.getByText("No record submissions found in the latest 365 days."),
+    page.getByText("No activity found in the latest 365 days."),
   ).toBeVisible()
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
     "0 days 0.0%",
@@ -1184,3 +1183,48 @@ for (const width of [375, 1280]) {
       .screenshot({ path: testInfo.outputPath(`profile-counts-${width}.png`) })
   })
 }
+
+test("Profile activity uses session hours and view-relative quartiles", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(new Date("2026-04-03T12:00:00Z"))
+  await installProfileHomeRoutes(page, {
+    stats: {
+      ...playerStats,
+      daily_activity: {
+        updated_at: playerStats.daily_activity.updated_at,
+        days: [
+          { date: "2025-12-31", count: 0, total_seconds: 36000 },
+          { date: "2026-01-01", count: 99, total_seconds: 1 },
+          { date: "2026-03-30", count: 0, total_seconds: 3600 },
+          { date: "2026-03-31", count: 0, total_seconds: 3600 },
+        ],
+      },
+    },
+  })
+  await page.goto(`/profile/${steamid64}`)
+  await expect(page.getByText("kz_alpha")).toBeVisible()
+  const sessionDay = page.getByTestId("profile-activity-cell-2026-03-31")
+  await expect(sessionDay).toHaveAttribute("data-activity-level", "3")
+  await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
+    "4 days 1.1%",
+  )
+  await sessionDay.hover()
+  await expect(
+    page.locator('[role="tooltip"]:not([data-state="closed"])'),
+  ).toContainText("1 hour · 0 records")
+  await page.keyboard.press("Escape")
+  await page.getByTestId("profile-activity-cell-2026-01-01").hover()
+  await expect(
+    page.locator('[role="tooltip"]:not([data-state="closed"])'),
+  ).toContainText("<0.01 hours · 99 records")
+  await page.keyboard.press("Escape")
+  await page.getByTestId("profile-activity-view-calendar-year").click()
+  await expect(sessionDay).toHaveAttribute("data-activity-level", "4")
+  await expect(
+    page.getByTestId("profile-activity-cell-2026-03-30"),
+  ).toHaveAttribute("data-activity-level", "4")
+  await expect(
+    page.getByTestId("profile-activity-cell-2026-04-01"),
+  ).toHaveAttribute("data-activity-level", "0")
+})

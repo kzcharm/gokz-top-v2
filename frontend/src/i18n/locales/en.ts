@@ -932,8 +932,8 @@ export const en = {
       emptyState: "No activity found in {{range}}.",
       less: "Less",
       more: "More",
-      cellTooltip_one: "{{hours}} hours · {{count}} record on {{date}}",
-      cellTooltip_other: "{{hours}} hours · {{count}} records on {{date}}",
+      cellTooltip_one: "{{duration}} · {{count}} record on {{date}}",
+      cellTooltip_other: "{{duration}} · {{count}} records on {{date}}",
     },
     duration: {
       previousYear: "Go to previous year",

@@ -5,9 +5,9 @@ from decimal import ROUND_HALF_UP, Decimal
 from typing import Any
 
 from pydantic import ValidationError
-from sqlalchemy import Date, String, cast, func
+from sqlalchemy import Date, String, cast, func, text
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlmodel import col, select
+from sqlmodel import col
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.crud.player_profile_field_change import player_action_timestamp_exists
@@ -29,9 +29,7 @@ from app.models import (
     PlayerMostPlayedServerPeriodPublic,
     PlayerMostPlayedServerPublic,
     PlayerMostPlayedServerStatPublic,
-    PlayerPlaytimeCacheContent,
     PlayerPlaytimeContentPublic,
-    PlayerPlaytimeCursor,
     PlayerPlaytimePublic,
     PlayerPlaytimeStatPublic,
     PlayerStatCache,
@@ -45,6 +43,7 @@ from app.models import (
 from app.models.utils import get_sqlmodel_table, select_row
 
 MOST_PLAYED_MAPS_ENTRY_LIMIT = 10
+DAILY_ACTIVITY_CACHE_VERSION = 2
 
 
 def get_utc_midnight(*, now: datetime | None = None) -> datetime:
@@ -81,20 +80,7 @@ def _normalize_daily_activity_content(content: Any) -> PlayerDailyActivityConten
 def _serialize_daily_activity_content(
     content: PlayerDailyActivityContentPublic,
 ) -> dict[str, Any]:
-    return content.model_dump(mode="json")
-
-
-def _normalize_playtime_cache_content(content: Any) -> PlayerPlaytimeCacheContent:
-    try:
-        return PlayerPlaytimeCacheContent.model_validate(content)
-    except ValidationError:
-        return PlayerPlaytimeCacheContent()
-
-
-def _serialize_playtime_cache_content(
-    content: PlayerPlaytimeCacheContent,
-) -> dict[str, Any]:
-    return content.model_dump(mode="json", exclude_none=True)
+    return {**content.model_dump(mode="json"), "version": DAILY_ACTIVITY_CACHE_VERSION}
 
 
 def _normalize_most_played_server_content(
@@ -135,18 +121,6 @@ def _to_player_daily_activity_stat_public(
         type=cache_row.type,
         updated_at=cache_row.updated_at,
         content=_normalize_daily_activity_content(cache_row.content),
-    )
-
-
-def _to_player_playtime_stat_public(
-    cache_row: PlayerStatCache,
-) -> PlayerPlaytimeStatPublic:
-    content = _normalize_playtime_cache_content(cache_row.content)
-    return PlayerPlaytimeStatPublic(
-        steamid64=str(cache_row.steamid64),
-        type=cache_row.type,
-        updated_at=cache_row.updated_at,
-        content=PlayerPlaytimeContentPublic(total_seconds=content.total_seconds),
     )
 
 
@@ -338,47 +312,80 @@ async def _auto_update_player_favorite_server(
     await session.refresh(player)
 
 
+# Aggregate ranges once; multirange containment avoids a session lookup per run.
+DAILY_ACTIVITY_SQL = """
+WITH windows AS MATERIALIZED (
+    SELECT COALESCE(range_agg(tstzrange(connected_at, disconnect_at, '[]')),
+                    '{{}}'::tstzmultirange) AS spans
+    FROM player_session
+    WHERE player_steamid64 = :steamid64 AND disconnect_at IS NOT NULL {window_filter}
+), record_days AS (
+    SELECT (created_at AT TIME ZONE 'UTC')::date AS day,
+           count(*) AS count,
+           sum(CASE WHEN spans @> created_at THEN 0 ELSE time END) AS seconds
+    FROM record CROSS JOIN windows
+    WHERE steamid64 = :steamid64 {record_filter}
+    GROUP BY 1
+), session_days AS (
+    SELECT day::date AS day, 0::bigint AS count,
+           sum(EXTRACT(EPOCH FROM (
+               least(upper(span), (day + interval '1 day') AT TIME ZONE 'UTC')
+               - greatest(lower(span), day AT TIME ZONE 'UTC')
+           ))) AS seconds
+    FROM windows CROSS JOIN LATERAL unnest(spans) AS span
+    CROSS JOIN LATERAL generate_series(
+        date_trunc('day', lower(span) AT TIME ZONE 'UTC'),
+        date_trunc('day', upper(span) AT TIME ZONE 'UTC'), interval '1 day'
+    ) AS day
+    WHERE day AT TIME ZONE 'UTC' < upper(span) {session_filter}
+    GROUP BY 1
+)
+SELECT day, sum(count)::bigint AS count, sum(seconds) AS seconds
+FROM (SELECT * FROM record_days UNION ALL SELECT * FROM session_days) AS activity
+GROUP BY day ORDER BY day
+"""
+
+
 async def _load_daily_activity_days(
     *,
     session: AsyncSession,
     steamid64: int,
-    start_date: date | None = None,
+    dates: list[date] | None = None,
 ) -> list[PlayerDailyActivityDayPublic]:
-    record_date = _record_utc_date_expression()
-    statement = select(record_date, func.count()).where(
-        col(Record.steamid64) == steamid64
-    )
-    if start_date is not None:
-        statement = statement.where(
-            col(Record.created_at) >= _start_datetime_for_utc_date(start_date)
+    record_filter = ""
+    session_filter = ""
+    window_filter = ""
+    params: dict[str, Any] = {"steamid64": steamid64}
+    if dates is not None:
+        if not dates:
+            return []
+        params["dates"] = dates
+        params["start"] = _start_datetime_for_utc_date(min(dates))
+        params["end"] = _start_datetime_for_utc_date(max(dates) + timedelta(days=1))
+        record_filter = """AND created_at >= :start AND created_at < :end
+            AND (created_at AT TIME ZONE 'UTC')::date = ANY(:dates)"""
+        session_filter = "AND day::date = ANY(:dates)"
+        window_filter = "AND connected_at < :end AND disconnect_at >= :start"
+    rows = (
+        await session.execute(
+            text(
+                DAILY_ACTIVITY_SQL.format(
+                    record_filter=record_filter,
+                    session_filter=session_filter,
+                    window_filter=window_filter,
+                )
+            ),
+            params,
         )
-    statement = statement.group_by(record_date).order_by(record_date)
-    rows = (await session.exec(statement)).all()
+    ).all()
     return [
-        PlayerDailyActivityDayPublic(date=row[0], count=int(row[1])) for row in rows
-    ]
-
-
-async def _load_daily_activity_counts_for_dates(
-    *,
-    session: AsyncSession,
-    steamid64: int,
-    dates: list[date],
-) -> dict[date, int]:
-    if not dates:
-        return {}
-
-    record_date = _record_utc_date_expression()
-    statement = (
-        select(record_date, func.count())
-        .where(
-            col(Record.steamid64) == steamid64,
-            record_date.in_(dates),
+        PlayerDailyActivityDayPublic(
+            date=row.day,
+            count=row.count,
+            total_seconds=_quantize_seconds(row.seconds),
         )
-        .group_by(record_date)
-    )
-    rows = (await session.exec(statement)).all()
-    return {row[0]: int(row[1]) for row in rows}
+        for row in rows
+    ]
 
 
 async def refresh_player_daily_activity_cache_dates(
@@ -398,24 +405,25 @@ async def refresh_player_daily_activity_cache_dates(
     )
     if cache_row is None:
         return
+    if cache_row.content.get("version") != DAILY_ACTIVITY_CACHE_VERSION:
+        await session.delete(cache_row)
+        return
 
     await session.flush()
 
     cached_content = _normalize_daily_activity_content(cache_row.content)
     days_by_date = {day.date: day for day in cached_content.days}
-    counts_by_date = await _load_daily_activity_counts_for_dates(
-        session=session,
-        steamid64=steamid64,
-        dates=requested_dates,
-    )
-
+    refreshed = {
+        day.date: day
+        for day in await _load_daily_activity_days(
+            session=session,
+            steamid64=steamid64,
+            dates=requested_dates,
+        )
+    }
     for requested_date in requested_dates:
-        count = counts_by_date.get(requested_date, 0)
-        if count > 0:
-            days_by_date[requested_date] = PlayerDailyActivityDayPublic(
-                date=requested_date,
-                count=count,
-            )
+        if requested_date in refreshed:
+            days_by_date[requested_date] = refreshed[requested_date]
         else:
             days_by_date.pop(requested_date, None)
 
@@ -428,26 +436,6 @@ async def refresh_player_daily_activity_cache_dates(
     if cache_row.updated_at >= get_utc_midnight(now=current_now):
         cache_row.updated_at = current_now
     session.add(cache_row)
-
-
-async def _load_playtime_day_totals(
-    *,
-    session: AsyncSession,
-    steamid64: int,
-    start_date: date | None = None,
-) -> list[tuple[date, Decimal]]:
-    record_date = _record_utc_date_expression()
-    statement = select(
-        record_date,
-        func.coalesce(func.sum(col(Record.time)), 0),
-    ).where(col(Record.steamid64) == steamid64)
-    if start_date is not None:
-        statement = statement.where(
-            col(Record.created_at) >= _start_datetime_for_utc_date(start_date)
-        )
-    statement = statement.group_by(record_date).order_by(record_date)
-    rows = (await session.exec(statement)).all()
-    return [(row[0], Decimal(row[1])) for row in rows]
 
 
 async def _upsert_player_stat_cache(
@@ -488,35 +476,16 @@ async def rebuild_player_daily_activity_stat(
     steamid64: int,
     now: datetime | None = None,
 ) -> PlayerDailyActivityStatPublic:
-    cache_row = await session.get(
-        PlayerStatCache,
-        (steamid64, PlayerStatType.DAILY_ACTIVITY),
-    )
-    cached_content = (
-        _normalize_daily_activity_content(cache_row.content)
-        if cache_row is not None
-        else PlayerDailyActivityContentPublic()
-    )
-    latest_cached_day = (
-        cached_content.days[-1].date if len(cached_content.days) > 0 else None
-    )
     refreshed_days = await _load_daily_activity_days(
         session=session,
         steamid64=steamid64,
-        start_date=latest_cached_day,
-    )
-    merged_days = (
-        [day for day in cached_content.days if day.date < latest_cached_day]
-        + refreshed_days
-        if latest_cached_day is not None
-        else refreshed_days
     )
     persisted = await _upsert_player_stat_cache(
         session=session,
         steamid64=steamid64,
         stat_type=PlayerStatType.DAILY_ACTIVITY,
         content=_serialize_daily_activity_content(
-            PlayerDailyActivityContentPublic(days=merged_days)
+            PlayerDailyActivityContentPublic(days=refreshed_days)
         ),
         updated_at=now or get_datetime_utc(),
     )
@@ -529,59 +498,30 @@ async def rebuild_player_playtime_stat(
     steamid64: int,
     now: datetime | None = None,
 ) -> PlayerPlaytimeStatPublic:
-    cache_row = await session.get(
-        PlayerStatCache,
-        (steamid64, PlayerStatType.PLAYTIME),
-    )
-    cached_content = (
-        _normalize_playtime_cache_content(cache_row.content)
-        if cache_row is not None
-        else PlayerPlaytimeCacheContent()
-    )
-    cursor = cached_content.cursor
-    refreshed_day_totals = await _load_playtime_day_totals(
+    activity = await rebuild_player_daily_activity_stat(
         session=session,
         steamid64=steamid64,
-        start_date=cursor.latest_day if cursor is not None else None,
+        now=now,
     )
+    return _playtime_from_activity(activity)
 
-    if cursor is None:
-        base_total_before_latest_day = Decimal("0")
-    else:
-        base_total_before_latest_day = Decimal(str(cursor.total_before_latest_day))
 
-    tail_total = sum((day_total for _, day_total in refreshed_day_totals), Decimal("0"))
-    total_seconds = _quantize_seconds(base_total_before_latest_day + tail_total)
-
-    if refreshed_day_totals:
-        latest_day = refreshed_day_totals[-1][0]
-        total_before_latest_day = _quantize_seconds(
-            base_total_before_latest_day
-            + sum(
-                (day_total for _, day_total in refreshed_day_totals[:-1]),
-                Decimal("0"),
-            )
-        )
-        next_cursor = PlayerPlaytimeCursor(
-            latest_day=latest_day,
-            total_before_latest_day=total_before_latest_day,
-        )
-    else:
-        next_cursor = None
-
-    persisted = await _upsert_player_stat_cache(
-        session=session,
-        steamid64=steamid64,
-        stat_type=PlayerStatType.PLAYTIME,
-        content=_serialize_playtime_cache_content(
-            PlayerPlaytimeCacheContent(
-                total_seconds=total_seconds,
-                cursor=next_cursor,
+def _playtime_from_activity(
+    activity: PlayerDailyActivityStatPublic,
+) -> PlayerPlaytimeStatPublic:
+    return PlayerPlaytimeStatPublic(
+        steamid64=activity.steamid64,
+        type=PlayerStatType.PLAYTIME,
+        updated_at=activity.updated_at,
+        content=PlayerPlaytimeContentPublic(
+            total_seconds=_quantize_seconds(
+                sum(
+                    (Decimal(str(day.total_seconds)) for day in activity.content.days),
+                    Decimal(0),
+                )
             )
         ),
-        updated_at=now or get_datetime_utc(),
     )
-    return _to_player_playtime_stat_public(persisted)
 
 
 async def _load_most_played_server_rows(
@@ -883,8 +823,10 @@ async def get_or_rebuild_player_daily_activity_stat(
         PlayerStatCache,
         (steamid64, PlayerStatType.DAILY_ACTIVITY),
     )
-    if cache_row is not None and cache_row.updated_at >= get_utc_midnight(
-        now=current_now
+    if (
+        cache_row is not None
+        and cache_row.content.get("version") == DAILY_ACTIVITY_CACHE_VERSION
+        and cache_row.updated_at >= get_utc_midnight(now=current_now)
     ):
         return _to_player_daily_activity_stat_public(cache_row)
 
@@ -901,20 +843,12 @@ async def get_or_rebuild_player_playtime_stat(
     steamid64: int,
     now: datetime | None = None,
 ) -> PlayerPlaytimeStatPublic:
-    current_now = now or get_datetime_utc()
-    cache_row = await session.get(
-        PlayerStatCache,
-        (steamid64, PlayerStatType.PLAYTIME),
-    )
-    if cache_row is not None and cache_row.updated_at >= get_utc_midnight(
-        now=current_now
-    ):
-        return _to_player_playtime_stat_public(cache_row)
-
-    return await rebuild_player_playtime_stat(
-        session=session,
-        steamid64=steamid64,
-        now=current_now,
+    return _playtime_from_activity(
+        await get_or_rebuild_player_daily_activity_stat(
+            session=session,
+            steamid64=steamid64,
+            now=now,
+        )
     )
 
 
@@ -987,10 +921,14 @@ async def get_or_rebuild_player_stats(
         )
 
     if PlayerStatType.PLAYTIME in requested_types:
-        playtime = await get_or_rebuild_player_playtime_stat(
-            session=session,
-            steamid64=steamid64,
-            now=current_now,
+        playtime = (
+            _playtime_from_activity(daily_activity)
+            if PlayerStatType.DAILY_ACTIVITY in requested_types
+            else await get_or_rebuild_player_playtime_stat(
+                session=session,
+                steamid64=steamid64,
+                now=current_now,
+            )
         )
         payload.playtime = PlayerPlaytimePublic(
             updated_at=playtime.updated_at,

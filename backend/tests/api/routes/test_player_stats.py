@@ -232,8 +232,8 @@ async def test_read_player_stats_builds_cache_on_first_read(
         "daily_activity": {
             "updated_at": _json_datetime(now),
             "days": [
-                {"date": "2026-04-01", "count": 2},
-                {"date": "2026-04-02", "count": 1},
+                {"date": "2026-04-01", "count": 2, "total_seconds": 20.0},
+                {"date": "2026-04-02", "count": 1, "total_seconds": 10.0},
             ],
         },
         "playtime": {
@@ -302,7 +302,7 @@ async def test_read_player_stats_builds_cache_on_first_read(
         PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
     )
     assert daily_activity_cache is not None
-    assert playtime_cache is not None
+    assert playtime_cache is None
     assert maps_cache is not None
 
 
@@ -533,10 +533,10 @@ async def test_read_player_stats_refreshes_same_day_daily_activity_on_record_syn
     refreshed = second_response.json()
     assert refreshed["daily_activity"] == {
         "updated_at": _json_datetime(first_now),
-        "days": [{"date": "2026-04-02", "count": 2}],
+        "days": [{"date": "2026-04-02", "count": 2, "total_seconds": 10.0}],
     }
     assert refreshed["playtime"] == {
-        "updated_at": _json_datetime(second_now),
+        "updated_at": _json_datetime(first_now),
         "total_seconds": 10.0,
     }
     assert refreshed["most_played_maps"] == _single_map_stats_payload(
@@ -555,10 +555,9 @@ async def test_read_player_stats_refreshes_same_day_daily_activity_on_record_syn
         PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
     )
     assert daily_activity_cache is not None
-    assert playtime_cache is not None
+    assert playtime_cache is None
     assert maps_cache is not None
     assert daily_activity_cache.updated_at == first_now
-    assert playtime_cache.updated_at == second_now
     assert maps_cache.updated_at == second_now
 
 
@@ -623,9 +622,9 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
         "daily_activity": {
             "updated_at": _json_datetime(refresh_now),
             "days": [
-                {"date": "2026-04-01", "count": 1},
-                {"date": "2026-04-02", "count": 2},
-                {"date": "2026-04-03", "count": 1},
+                {"date": "2026-04-01", "count": 1, "total_seconds": 5.0},
+                {"date": "2026-04-02", "count": 2, "total_seconds": 18.0},
+                {"date": "2026-04-03", "count": 1, "total_seconds": 13.0},
             ],
         },
         "playtime": {
@@ -694,10 +693,9 @@ async def test_read_player_stats_refreshes_stale_cache_from_latest_cached_day(
         PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
     )
     assert daily_activity_cache is not None
-    assert playtime_cache is not None
+    assert playtime_cache is None
     assert maps_cache is not None
     assert daily_activity_cache.updated_at == refresh_now
-    assert playtime_cache.updated_at == refresh_now
     assert maps_cache.updated_at == refresh_now
 
 
@@ -751,5 +749,5 @@ async def test_read_player_stats_returns_empty_payload_and_writes_cache(
         PlayerStatCache, (steamid64, PlayerStatType.MOST_PLAYED_MAPS)
     )
     assert daily_activity_cache is not None
-    assert playtime_cache is not None
+    assert playtime_cache is None
     assert maps_cache is not None

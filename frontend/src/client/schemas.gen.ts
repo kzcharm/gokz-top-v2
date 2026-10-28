@@ -4944,6 +4944,12 @@ export const PlayerDailyActivityDayPublicSchema = {
             type: 'integer',
             minimum: 0,
             title: 'Count'
+        },
+        total_seconds: {
+            type: 'number',
+            minimum: 0,
+            title: 'Total Seconds',
+            default: 0
         }
     },
     type: 'object',

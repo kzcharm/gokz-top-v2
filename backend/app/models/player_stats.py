@@ -56,6 +56,7 @@ class PlayerStatCache(SQLModel, table=True):
 class PlayerDailyActivityDayPublic(SQLModel):
     date: date
     count: int = Field(ge=0)
+    total_seconds: float = Field(default=0, ge=0)
 
 
 class PlayerDailyActivityContentPublic(SQLModel):

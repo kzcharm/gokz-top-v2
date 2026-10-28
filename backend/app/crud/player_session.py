@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timedelta
 from typing import Any, cast
 
-from sqlalchemy import String, bindparam, func, text, update
+from sqlalchemy import String, bindparam, delete, func, text, update
 from sqlalchemy import cast as sa_cast
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import col, select
@@ -25,6 +25,8 @@ from app.models import (
     PlayerSessionDisconnect,
     PlayerSessionHeartbeat,
     PlayerSessionPublic,
+    PlayerStatCache,
+    PlayerStatType,
     ServerGroup,
     get_datetime_utc,
 )
@@ -643,6 +645,15 @@ async def disconnect_player_session(
     if payload.disconnect_at > player_session.last_heartbeat_at:
         player_session.last_heartbeat_at = payload.disconnect_at
     session.add(player_session)
+    await session.flush()
+    await session.exec(
+        delete(PlayerStatCache).where(
+            col(PlayerStatCache.steamid64) == player_session.player_steamid64,
+            col(PlayerStatCache.type).in_(
+                [PlayerStatType.DAILY_ACTIVITY, PlayerStatType.PLAYTIME]
+            ),
+        )
+    )
     await session.commit()
     await session.refresh(player_session)
     return player_session
@@ -662,10 +673,21 @@ async def close_timed_out_player_sessions(
             col(PlayerSession.last_heartbeat_at) < cutoff,
         )
         .values(disconnect_at=PlayerSession.last_heartbeat_at)
+        .returning(col(PlayerSession.player_steamid64))
     )
     result = await session.exec(statement)
+    players = list(result.scalars().all())
+    if players:
+        await session.exec(
+            delete(PlayerStatCache).where(
+                col(PlayerStatCache.steamid64).in_(set(players)),
+                col(PlayerStatCache.type).in_(
+                    [PlayerStatType.DAILY_ACTIVITY, PlayerStatType.PLAYTIME]
+                ),
+            )
+        )
     await session.commit()
-    return int(result.rowcount or 0)
+    return len(players)
 
 
 __all__ = [

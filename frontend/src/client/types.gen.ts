@@ -991,6 +991,7 @@ export type PlayerComparisonPublic = {
 export type PlayerDailyActivityDayPublic = {
     date: string;
     count: number;
+    total_seconds?: number;
 };
 
 export type PlayerDailyActivityPublic = {

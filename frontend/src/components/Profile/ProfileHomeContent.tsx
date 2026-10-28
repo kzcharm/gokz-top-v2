@@ -55,6 +55,7 @@ const ACTIVITY_MONTH_LABEL_MIN_WEEK_GAP = 3
 type ActivityCell = {
   date: string
   count: number
+  totalSeconds: number
   isEmpty: boolean
   level: number
 }
@@ -116,24 +117,23 @@ function getWeekdayLabels(locale: string) {
   )
 }
 
-function getActivityLevel(count: number) {
-  if (count <= 0) {
-    return 0
-  }
+function activityThresholds(values: number[]) {
+  const sorted = values.filter((value) => value > 0).sort((a, b) => a - b)
+  if (!sorted.length) return []
+  return [0.25, 0.5, 0.75].map((p) => {
+    const position = (sorted.length - 1) * p
+    const lower = Math.floor(position)
+    return (
+      sorted[lower] +
+      (sorted[Math.ceil(position)] - sorted[lower]) * (position - lower)
+    )
+  })
+}
 
-  if (count >= 10) {
-    return 4
-  }
-
-  if (count >= 5) {
-    return 3
-  }
-
-  if (count >= 2) {
-    return 2
-  }
-
-  return 1
+function getActivityLevel(seconds: number, thresholds: number[]) {
+  return seconds <= 0
+    ? 0
+    : 1 + thresholds.filter((value) => seconds >= value).length
 }
 
 function buildActivityCalendar({
@@ -142,7 +142,7 @@ function buildActivityCalendar({
   end,
   locale,
 }: {
-  days: Array<{ date: string; count: number }>
+  days: Array<{ date: string; count: number; total_seconds?: number }>
   start: Date
   end: Date
   locale: string
@@ -159,7 +159,10 @@ function buildActivityCalendar({
         const date = new Date(`${day.date}T00:00:00Z`)
         return date >= startDate && date <= endDate
       })
-      .map((day) => [day.date, day.count]),
+      .map((day) => [day.date, day]),
+  )
+  const thresholds = activityThresholds(
+    Array.from(countsByDate.values(), (day) => day.total_seconds ?? 0),
   )
   const weeks: ActivityCell[][] = []
   let currentWeek: ActivityCell[] = []
@@ -171,6 +174,7 @@ function buildActivityCalendar({
     currentWeek.push({
       date: `${rangeKey}-empty-0-${dayIndex}`,
       count: 0,
+      totalSeconds: 0,
       isEmpty: true,
       level: 0,
     })
@@ -178,13 +182,16 @@ function buildActivityCalendar({
 
   while (current <= endDate) {
     const date = current.toISOString().slice(0, 10)
-    const count = countsByDate.get(date) ?? 0
+    const activity = countsByDate.get(date)
+    const count = activity?.count ?? 0
+    const totalSeconds = activity?.total_seconds ?? 0
 
     currentWeek.push({
       date,
       count,
+      totalSeconds,
       isEmpty: false,
-      level: getActivityLevel(count),
+      level: getActivityLevel(totalSeconds, thresholds),
     })
 
     if (current.getUTCDay() === 6) {
@@ -200,6 +207,7 @@ function buildActivityCalendar({
       currentWeek.push({
         date: `${rangeKey}-empty-${weeks.length}-${currentWeek.length}`,
         count: 0,
+        totalSeconds: 0,
         isEmpty: true,
         level: 0,
       })
@@ -253,8 +261,9 @@ function buildActivityCalendar({
       Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1,
     monthLabels: spacedMonthLabels,
     weeks,
-    daysPlayed: Array.from(countsByDate.values()).filter((count) => count > 0)
-      .length,
+    daysPlayed: Array.from(countsByDate.values()).filter(
+      (day) => (day.total_seconds ?? 0) > 0,
+    ).length,
   }
 }
 
@@ -487,6 +496,20 @@ function ActivityCard({
                                 >
                                   {t("profile.activity.cellTooltip", {
                                     count: day.count,
+                                    duration: `${day.totalSeconds > 0 && day.totalSeconds < 36 ? "<" : ""}${new Intl.NumberFormat(
+                                      locale,
+                                      {
+                                        style: "unit",
+                                        unit: "hour",
+                                        unitDisplay: "long",
+                                        maximumFractionDigits: 2,
+                                      },
+                                    ).format(
+                                      day.totalSeconds > 0 &&
+                                        day.totalSeconds < 36
+                                        ? 0.01
+                                        : day.totalSeconds / 3600,
+                                    )}`,
                                     // Keep this UTC activity bucket's calendar date
                                     // when formatting in the browser's time zone.
                                     date: formatDateTime(

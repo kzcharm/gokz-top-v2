@@ -63,13 +63,10 @@ async def _create_server(
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
     for steamid64 in (76561198000000010, 76561198000000020):
-
         if await db.get(Player, steamid64) is None:
-
             db.add(Player(steamid64=steamid64, name=str(steamid64)))
 
     db.add(
-
         ServerGlobalapi(
             id=id,
             port=27015,
@@ -170,10 +167,10 @@ async def test_rebuild_player_daily_activity_stat_upserts_existing_cache_row(
     )
 
     assert first_stat.content.model_dump(mode="json") == {
-        "days": [{"date": "2026-04-02", "count": 1}]
+        "days": [{"date": "2026-04-02", "count": 1, "total_seconds": 20.0}]
     }
     assert second_stat.content.model_dump(mode="json") == {
-        "days": [{"date": "2026-04-02", "count": 2}]
+        "days": [{"date": "2026-04-02", "count": 2, "total_seconds": 40.0}]
     }
 
     cache_rows = (
@@ -193,7 +190,10 @@ async def test_rebuild_player_daily_activity_stat_upserts_existing_cache_row(
     )
     assert cache_row is not None
     assert cache_row.updated_at == second_now
-    assert cache_row.content == {"days": [{"date": "2026-04-02", "count": 2}]}
+    assert cache_row.content == {
+        "version": 2,
+        "days": [{"date": "2026-04-02", "count": 2, "total_seconds": 40.0}],
+    }
 
 
 @pytest.mark.asyncio
@@ -244,10 +244,11 @@ async def test_record_upsert_refreshes_cached_daily_activity_for_record_date(
     )
     assert cache_row is not None
     assert cache_row.content == {
+        "version": 2,
         "days": [
-            {"date": "2026-04-01", "count": 2},
-            {"date": "2026-04-03", "count": 1},
-        ]
+            {"date": "2026-04-01", "count": 2, "total_seconds": 40.0},
+            {"date": "2026-04-03", "count": 1, "total_seconds": 20.0},
+        ],
     }
 
 
@@ -301,7 +302,8 @@ async def test_record_upsert_refreshes_old_and_new_daily_activity_dates(
     )
     assert cache_row is not None
     assert cache_row.content == {
-        "days": [{"date": "2026-04-02", "count": 1}]
+        "version": 2,
+        "days": [{"date": "2026-04-02", "count": 1, "total_seconds": 19.0}],
     }
 
 
@@ -365,22 +367,19 @@ async def test_rebuild_player_playtime_stat_upserts_existing_cache_row(
             .select_from(PlayerStatCache)
             .where(
                 PlayerStatCache.steamid64 == steamid64,
-                PlayerStatCache.type == PlayerStatType.PLAYTIME,
+                PlayerStatCache.type == PlayerStatType.DAILY_ACTIVITY,
             )
         )
     ).one()
     assert cache_rows == 1
 
-    cache_row = await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME))
+    cache_row = await db.get(
+        PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY)
+    )
     assert cache_row is not None
     assert cache_row.updated_at == second_now
-    assert cache_row.content == {
-        "total_seconds": 25.0,
-        "cursor": {
-            "latest_day": "2026-04-03",
-            "total_before_latest_day": 20.0,
-        },
-    }
+    assert sum(day["total_seconds"] for day in cache_row.content["days"]) == 25.0
+    assert await db.get(PlayerStatCache, (steamid64, PlayerStatType.PLAYTIME)) is None
 
 
 @pytest.mark.asyncio
@@ -632,8 +631,7 @@ async def test_rebuild_player_most_played_maps_stat_limits_rankings_to_top_10(
     assert len(stat.content.all_time.entries_by_time) == 10
     assert stat.content.all_time.entries_by_time[-1].map_name == "kz_top_09"
     assert all(
-        entry.map_name != "kz_top_10"
-        for entry in stat.content.all_time.entries_by_time
+        entry.map_name != "kz_top_10" for entry in stat.content.all_time.entries_by_time
     )
 
 
@@ -756,8 +754,157 @@ async def test_get_or_rebuild_player_stats_returns_requested_fields(
     assert stats.playtime.total_seconds == 9.5
     assert stats.most_played_maps is not None
     assert stats.most_played_maps.all_time.total_records == 1
-    assert stats.most_played_maps.all_time.entries_by_records[0].map_name == "kz_combined"
+    assert (
+        stats.most_played_maps.all_time.entries_by_records[0].map_name == "kz_combined"
+    )
     assert filtered_stats.daily_activity is None
     assert filtered_stats.playtime is not None
     assert filtered_stats.playtime.total_seconds == 9.5
     assert filtered_stats.most_played_maps is None
+
+
+async def test_combined_activity_merges_sessions_and_excludes_covered_finishes(
+    db: AsyncSession,
+) -> None:
+    from datetime import timedelta
+
+    from app.models import PlayerSession, PlayerSessionDisconnect, generate_uuid7
+
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Session runner")
+    group, _ = await create_test_server_group(db)
+    other_group, _ = await create_test_server_group(db)
+    await _create_map(db, id=981299, name="kz_sessions")
+    await _create_server(db, id=982299, name="Sessions")
+    start = datetime(2025, 12, 31, 23, tzinfo=UTC)
+    sessions = []
+    for offset, end, target_group in [
+        (0, 2, group),
+        (1, 3, other_group),
+        (48, None, group),
+    ]:
+        row = PlayerSession(
+            id=generate_uuid7(),
+            player_steamid64=steamid64,
+            server_group_id=target_group.id,
+            connected_at=start + timedelta(hours=offset),
+            disconnect_at=start + timedelta(hours=end) if end is not None else None,
+            last_heartbeat_at=start + timedelta(hours=end if end is not None else 49),
+            ip_address="127.0.0.1",
+            map_name="kz_sessions",
+        )
+        db.add(row)
+        sessions.append(row)
+    await db.commit()
+    # Start, interior and end are covered. Outside and open-session finishes remain fallback time.
+    for index, hours in enumerate([-1, 0, 1, 3, 49]):
+        await _create_record(
+            db,
+            id=983290 + index,
+            steamid64=steamid64,
+            map_id=981299,
+            server_id=982299,
+            created_on=start + timedelta(hours=hours),
+            time_seconds="60.000",
+        )
+    now = start + timedelta(days=4)
+    activity = await crud.get_or_rebuild_player_daily_activity_stat(
+        session=db, steamid64=steamid64, now=now
+    )
+    assert activity.content.model_dump(mode="json")["days"] == [
+        {"date": "2025-12-31", "count": 2, "total_seconds": 3660.0},
+        {"date": "2026-01-01", "count": 2, "total_seconds": 7200.0},
+        {"date": "2026-01-03", "count": 1, "total_seconds": 60.0},
+    ]
+    total = await crud.get_or_rebuild_player_playtime_stat(
+        session=db, steamid64=steamid64, now=now
+    )
+    assert total.content.total_seconds == 10920
+    # Closing a session replaces fallback runtime and adds the previously session-only day.
+    await crud.disconnect_player_session(
+        session=db,
+        group=group,
+        payload=PlayerSessionDisconnect(
+            session_id=sessions[-1].id, disconnect_at=start + timedelta(hours=50)
+        ),
+    )
+    assert (
+        await db.get(PlayerStatCache, (steamid64, PlayerStatType.DAILY_ACTIVITY))
+        is None
+    )
+    total = await crud.get_or_rebuild_player_playtime_stat(
+        session=db, steamid64=steamid64, now=now
+    )
+    assert total.content.total_seconds == 18060
+    activity = await crud.get_or_rebuild_player_daily_activity_stat(
+        session=db, steamid64=steamid64, now=now
+    )
+    assert any(
+        day.count == 0 and day.total_seconds == 3600 for day in activity.content.days
+    )
+    # A delayed finish in a covered session must refresh counts without adding runtime.
+    await _create_record(
+        db,
+        id=983299,
+        steamid64=steamid64,
+        map_id=981299,
+        server_id=982299,
+        created_on=start + timedelta(minutes=30),
+        time_seconds="120.000",
+    )
+    total = await crud.get_or_rebuild_player_playtime_stat(
+        session=db, steamid64=steamid64, now=now
+    )
+    assert total.content.total_seconds == 18060
+
+
+async def test_activity_upgrades_legacy_cache_and_timeout_invalidates(
+    db: AsyncSession,
+) -> None:
+    from datetime import timedelta
+
+    from app.models import PlayerSession, generate_uuid7
+
+    steamid64 = random_steamid64()
+    await _create_player(db, steamid64=steamid64, name="Legacy session")
+    group, _ = await create_test_server_group(db)
+    now = datetime(2026, 4, 4, 12, tzinfo=UTC)
+    db.add(
+        PlayerStatCache(
+            steamid64=steamid64,
+            type=PlayerStatType.DAILY_ACTIVITY,
+            content={"days": [{"date": "2020-01-01", "count": 999}]},
+            updated_at=now,
+        )
+    )
+    db.add(
+        PlayerStatCache(
+            steamid64=steamid64,
+            type=PlayerStatType.PLAYTIME,
+            content={"total_seconds": 999999},
+            updated_at=now,
+        )
+    )
+    db.add(
+        PlayerSession(
+            id=generate_uuid7(),
+            player_steamid64=steamid64,
+            server_group_id=group.id,
+            connected_at=now - timedelta(hours=2),
+            last_heartbeat_at=now - timedelta(hours=1),
+            ip_address="127.0.0.1",
+            map_name="kz_session",
+        )
+    )
+    await db.commit()
+    total = await crud.get_or_rebuild_player_playtime_stat(
+        session=db, steamid64=steamid64, now=now
+    )
+    assert total.content.total_seconds == 0
+    await crud.close_timed_out_player_sessions(
+        session=db, now=now, timeout=timedelta(minutes=5)
+    )
+    total = await crud.get_or_rebuild_player_playtime_stat(
+        session=db, steamid64=steamid64, now=now
+    )
+    assert total.content.total_seconds == 3600
