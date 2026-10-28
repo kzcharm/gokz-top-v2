@@ -432,6 +432,7 @@ test("Own profile can pin and unpin records from the records tab and home card",
   await expect(pinnedCard).toHaveCount(1)
   await expect(pinnedCard).toHaveAttribute("href", "/maps/kz_alpha/maptop")
   await expect(pinnedCard).toContainText("KZT · NUB")
+  await expect(pinnedCard.getByText("T4", { exact: true })).toBeVisible()
   await expect(pinnedCard).toContainText("2026-03-31")
   await expect(pinnedCard).not.toContainText("12:00")
   await expect(pinnedCard.locator("[aria-hidden=true]").first()).toHaveCSS(
@@ -458,6 +459,51 @@ test("Own profile can pin and unpin records from the records tab and home card",
     page.getByRole("menuitem", { name: "Pin this record" }),
   ).toBeVisible()
 })
+
+for (const stage of [0, 1]) {
+  test(`Pinned stage ${stage} records show tiers only for Main`, async ({
+    page,
+  }) => {
+    await installPinnedRecordRoutes(page)
+    await page.route(
+      /\/v1\/players\/[^/]+\/pinned-records(\?.*)?$/,
+      async (route) => {
+        await route.fulfill({
+          json: {
+            data: [
+              {
+                id: `stage-${stage}-pin`,
+                player_steamid64: steamid64,
+                map_id: nubRecords[0].map_id,
+                scope: "KZT",
+                stage,
+                type: "NUB",
+                record: { ...nubRecords[0], stage },
+              },
+            ],
+            count: 1,
+          },
+        })
+      },
+    )
+    await page.goto(`/profile/${steamid64}`)
+    const card = page.getByTestId("pinned-record-card")
+    await expect(card).toBeVisible()
+    await expect(card.getByText("T4", { exact: true })).toHaveCount(
+      stage === 0 ? 1 : 0,
+    )
+    await expect(card.getByText("Main", { exact: true })).toHaveCount(0)
+    await expect(card.getByText("Bonus 1", { exact: true })).toHaveCount(
+      stage === 1 ? 1 : 0,
+    )
+    const badges = card.locator('[data-slot="badge"]')
+    await expect(badges).toHaveCount(2)
+    for (const badge of await badges.all()) {
+      await expect(badge).toHaveCSS("height", "16px")
+      await expect(badge).toHaveCSS("font-size", "10px")
+    }
+  })
+}
 
 test("Pinned zero-teleport records show PRO and link to the map", async ({
   page,

@@ -10,6 +10,7 @@ import { PointsBadge } from "@/components/Records/PointsBadge"
 import { StageBadge } from "@/components/Records/StageBadge"
 import { formatCompactCount } from "@/components/Records/TeleportsBadge"
 import { formatRecordTime } from "@/components/Records/utils"
+import { TierBadge } from "@/components/Servers/TierBadge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
 import {
@@ -588,10 +589,18 @@ function PinnedRecordCard({
           <p className="min-w-0 truncate text-sm font-semibold">
             {record.map_name}
           </p>
-          <StageBadge
-            stage={record.stage}
-            className="shrink-0 px-1.5 py-0 text-[0.625rem] [text-shadow:none]"
-          />
+          {record.stage === 0 ? (
+            <TierBadge
+              tier={record.map_tier}
+              hideWhenUnknown
+              className="h-4 shrink-0 px-1.5 py-0 text-[0.625rem] leading-none [text-shadow:none]"
+            />
+          ) : (
+            <StageBadge
+              stage={record.stage}
+              className="h-4 shrink-0 px-1.5 py-0 text-[0.625rem] leading-none [text-shadow:none]"
+            />
+          )}
         </div>
         <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-slate-200">
           <span className="whitespace-nowrap">
@@ -620,7 +629,7 @@ function PinnedRecordCard({
           </span>
           <PointsBadge
             points={record.points}
-            className="min-w-0 px-1.5 py-0 text-[0.625rem] [text-shadow:none]"
+            className="h-4 min-w-0 px-1.5 py-0 text-[0.625rem] leading-none [text-shadow:none]"
           />
         </div>
       </div>
