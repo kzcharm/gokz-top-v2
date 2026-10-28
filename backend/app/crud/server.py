@@ -206,6 +206,7 @@ def _build_server_live_status_public(
     global_status = _build_server_global_status_public(status.global_status)
     parsed_workshop_id = parse_server_workshop_id(status.map)
     return ServerLiveStatusPublic(
+        app_id=status.app_id,
         hostname=status.hostname,
         map=normalize_server_map_name(status.map),
         workshop_id=parsed_workshop_id or (str(workshop_id) if workshop_id else None),
@@ -871,6 +872,7 @@ async def create_server(
     queried_player_count: int,
     queried_max_players: int,
     queried_players: list[dict[str, Any]],
+    queried_app_id: int | None = None,
     notify: bool = True,
 ) -> Server:
     await _validate_group_id(session=session, group_id=server_in.group_id)
@@ -920,6 +922,8 @@ async def create_server(
             player_count=queried_player_count,
             max_players=queried_max_players,
             players=queried_players,
+            app_id=queried_app_id,
+            update_app_id=True,
             is_online=True,
         )
         existing_server.status = ServerStatus.ENABLED
@@ -978,6 +982,8 @@ async def create_server(
         player_count=queried_player_count,
         max_players=queried_max_players,
         players=queried_players,
+        app_id=queried_app_id,
+        update_app_id=True,
         is_online=True,
     )
     if notify:
@@ -1277,6 +1283,7 @@ async def record_a2s_success(
     player_count: int,
     max_players: int,
     players: list[dict[str, Any]],
+    app_id: int | None = None,
     notify: bool = True,
 ) -> Server:
     await _record_server_status(
@@ -1290,6 +1297,8 @@ async def record_a2s_success(
         max_players=max_players,
         players=players,
         is_online=True,
+        app_id=app_id,
+        update_app_id=True,
     )
     if notify:
         await notify_server_status_updated(session=session, server_id=server.id)
@@ -1313,6 +1322,18 @@ async def record_a2s_failure(
 
     state = _get_live_status_state(status)
     state.last_a2s_seen_at = observed_at
+    state.last_app_id_query_at = observed_at
+    if (
+        state.last_plugin_seen_at is not None
+        and (observed_at - state.last_plugin_seen_at).total_seconds() <= 5
+    ):
+        # An identity probe failure cannot override current plugin telemetry.
+        _set_live_status_state(status, state)
+        session.add(status)
+        if notify:
+            await notify_server_status_updated(session=session, server_id=server.id)
+        await session.commit()
+        return await get_server_by_id(session=session, server_id=server.id) or server
     state.timeout_count += 1
     _set_live_status_state(status, state)
     session.add(status)
@@ -1419,7 +1440,17 @@ async def read_servers_due_for_a2s_poll(
         last_plugin_seen_at = state.last_plugin_seen_at if state else None
         last_a2s_seen_at = state.last_a2s_seen_at if state else None
 
-        if last_plugin_seen_at is not None and last_plugin_seen_at >= plugin_cutoff_dt:
+        # Plugin telemetry does not identify which game Steam should launch.
+        # Refresh that identity hourly even while plugin heartbeats are fresh.
+        app_id_query_at = state.last_app_id_query_at if state else None
+        app_id_query_due = (
+            app_id_query_at is None or (now - app_id_query_at).total_seconds() >= 3600
+        )
+        if (
+            last_plugin_seen_at is not None
+            and last_plugin_seen_at >= plugin_cutoff_dt
+            and not app_id_query_due
+        ):
             continue
         if last_a2s_seen_at is not None and last_a2s_seen_at >= a2s_cutoff_dt:
             continue
@@ -1485,6 +1516,8 @@ async def _record_server_status(
     max_players: int,
     players: list[dict[str, Any]],
     is_online: bool,
+    app_id: int | None = None,
+    update_app_id: bool = False,
     sv_ms: float | None = None,
     var_ms: float | None = None,
     global_status: dict[str, Any] | None = None,
@@ -1525,6 +1558,10 @@ async def _record_server_status(
         state.last_plugin_seen_at = observed_at
         state.last_successful_seen_at = observed_at
     else:
+        # A2S owns game identity, even when plugin telemetry is fresher.
+        if update_app_id:
+            status.app_id = app_id or None
+            state.last_app_id_query_at = observed_at
         plugin_is_fresh = (
             state.last_plugin_seen_at is not None
             and (observed_at - state.last_plugin_seen_at).total_seconds() <= 5

@@ -188,6 +188,7 @@ async def _apply_query_outcome(outcome: CollectorQueryOutcome) -> None:
                 player_count=outcome.info.player_count,
                 max_players=outcome.info.max_players,
                 players=outcome.info.players,
+                app_id=outcome.info.app_id,
             )
         else:
             await crud.record_a2s_failure(

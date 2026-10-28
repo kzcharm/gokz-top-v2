@@ -115,6 +115,8 @@ Scope model:
 - Shareable, fast-loading profile UI with clear information hierarchy.
 
 ### 5.5 Servers and Live Status
+
+- Server cards, tables, and details show **Connect via Steam** only for reported standalone CS:GO App ID `4465480`. Servers reporting `730`, any other ID, or an unknown ID retain only **Copy server address**, which copies the console `connect IP:port` command. Existing unknown IDs populate through background A2S queries.
 - Public server registry and ownership-aware management.
 - Server visibility is controlled independently from operational status. Hidden servers continue normal heartbeat and health collection but must not appear in public lists, detail/history reads, server-group counts, or live WebSocket updates.
 - Admin server management provides Root Admin access to all GlobalAPI/public servers and Server Owner access to owned servers, with approval control reserved for Root Admins.

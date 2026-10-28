@@ -1739,3 +1739,68 @@ test("Add-server validation and API errors are translated", async ({
     dialog.getByText("Этот сервер уже есть в списке.", { exact: true }),
   ).toBeVisible()
 })
+
+for (const scenario of [
+  { name: "standalone", appId: 4465480, direct: true },
+  { name: "730", appId: 730, direct: false },
+  { name: "unknown", appId: null, direct: false },
+  { name: "other", appId: 9032, direct: false },
+]) {
+  test(`Server connection actions for ${scenario.name} preserve copy command`, async ({
+    page,
+  }) => {
+    const server = {
+      ...seedServers.data[0],
+      live_status: {
+        ...seedServers.data[0].live_status,
+        app_id: scenario.appId,
+      },
+    }
+    await stubMapImageGraphql(page)
+    await page.routeWebSocket("**/v1/ws/servers**", () => {})
+    await page.route(/\/v1\/servers\/?(\?.*)?$/, (route) =>
+      route.fulfill({ json: { count: 1, data: [server] } }),
+    )
+    await page.addInitScript(() => {
+      Object.defineProperty(navigator, "clipboard", {
+        value: {
+          writeText: async (value: string) => {
+            ;(window as any).__copiedCommand = value
+          },
+        },
+      })
+    })
+    await page.goto("/servers?view=grid")
+    const card = page.getByTestId("server-card-10.0.0.1:27015")
+    await expect(card).toBeVisible()
+    await expect(
+      card.getByRole("button", { name: "Connect via Steam" }),
+    ).toHaveCount(scenario.direct ? 1 : 0)
+    await card.getByRole("button", { name: "Copy server address" }).click()
+    await expect
+      .poll(() => page.evaluate(() => (window as any).__copiedCommand))
+      .toBe("connect 10.0.0.1:27015")
+    await page.getByTestId("server-card-map-image-10.0.0.1:27015").click()
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible()
+    await expect(
+      dialog.getByRole("button", { name: "Connect via Steam" }),
+    ).toHaveCount(scenario.direct ? 1 : 0)
+    await expect(
+      dialog.getByRole("button", { name: "Copy server address" }),
+    ).toBeVisible()
+    await page.screenshot({
+      path: `../.temp/screenshots/server-connect-${scenario.name}.png`,
+    })
+    await page.keyboard.press("Escape")
+    await page.getByRole("button", { name: "Table view", exact: true }).click()
+    const row = page.getByRole("row").filter({ hasText: "Alpha Seed" })
+    await expect(row).toBeVisible()
+    await expect(
+      row.getByRole("button", { name: "Connect via Steam" }),
+    ).toHaveCount(scenario.direct ? 1 : 0)
+    await expect(
+      row.getByRole("button", { name: "Copy server address" }),
+    ).toBeVisible()
+  })
+}

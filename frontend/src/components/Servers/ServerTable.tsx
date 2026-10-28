@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils"
 
 import type { ServerSortDirection, ServerSortKey } from "./utils"
 import {
+  canSteamConnect,
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
@@ -233,20 +234,22 @@ export function ServerTable({
                       >
                         <Copy className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onSteamConnect(server)
-                        }}
-                        disabled={!isServerOnline(server)}
-                        title={t("serverBrowser.connect")}
-                        aria-label={t("serverBrowser.connect")}
-                      >
-                        <Play className="h-4 w-4" />
-                      </Button>
+                      {canSteamConnect(server) && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            onSteamConnect(server)
+                          }}
+                          disabled={!isServerOnline(server)}
+                          title={t("serverBrowser.connect")}
+                          aria-label={t("serverBrowser.connect")}
+                        >
+                          <Play className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>

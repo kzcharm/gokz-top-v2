@@ -120,6 +120,7 @@ async def test_apply_query_outcome_success_updates_db_and_notifies(
     refreshed = await crud.get_server_by_id(session=db, server_id=server.id)
     assert refreshed is not None
     assert refreshed.live_status is not None
+    assert refreshed.live_status.app_id == 730
     assert refreshed.live_status.hostname == "New Host"
     assert refreshed.live_status.map == "kz_new"
     assert notified_server_ids == [server.id]
@@ -201,7 +202,9 @@ async def test_run_server_query_collector_never_queries_same_server_concurrently
     max_concurrent = 0
     sleep_calls = 0
 
-    async def _fake_load_targets(*, now: datetime) -> list[server_collector.CollectorTarget]:
+    async def _fake_load_targets(
+        *, now: datetime
+    ) -> list[server_collector.CollectorTarget]:
         del now
         return [target]
 
@@ -240,7 +243,9 @@ async def test_run_server_query_collector_never_queries_same_server_concurrently
             raise asyncio.CancelledError
         await asyncio.sleep(0)
 
-    monkeypatch.setattr(server_collector, "_apply_query_outcome", lambda outcome: asyncio.sleep(0))
+    monkeypatch.setattr(
+        server_collector, "_apply_query_outcome", lambda outcome: asyncio.sleep(0)
+    )
 
     with pytest.raises(asyncio.CancelledError):
         await server_collector.run_server_query_collector(

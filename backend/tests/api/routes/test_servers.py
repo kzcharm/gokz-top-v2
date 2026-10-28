@@ -539,6 +539,7 @@ async def test_create_server_requires_successful_a2s_query(
     assert payload["is_public"] is True
     assert payload["source"]["type"] == "manual"
     assert payload["source"]["steamid64"].isdigit()
+    assert payload["live_status"]["app_id"] == 730
     assert payload["live_status"]["hostname"].startswith("Queried ")
     assert payload["live_status"]["map"] == "kz_alpha"
     assert payload["country"] == "DE"
@@ -1021,6 +1022,7 @@ async def test_create_server_allows_zero_app_id_when_game_field_matches_csgo(
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["live_status"]["app_id"] is None
     assert payload["live_status"]["hostname"].startswith("Queried ")
 
 

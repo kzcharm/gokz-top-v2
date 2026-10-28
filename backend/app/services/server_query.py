@@ -106,6 +106,14 @@ def validate_server_addition_info(result: A2SInfoResult) -> None:
         )
 
 
+def resolve_a2s_app_id(app_id: int | None, game_id: int | None) -> int | None:
+    # The base field is only 16 bits; the extended GameID contains the full
+    # 24-bit App ID (with type/mod information in the remaining bits).
+    if game_id is not None:
+        return (int(game_id) & 0xFFFFFF) or None
+    return int(app_id) if app_id else None
+
+
 def _players_to_public(players: list[Any]) -> list[dict[str, Any]]:
     return [
         {
@@ -165,5 +173,7 @@ async def query_server_a2s_info(
         if getattr(info, "folder", None) is not None
         else None,
         game_name=str(info.game) if getattr(info, "game", None) is not None else None,
-        app_id=int(info.app_id) if getattr(info, "app_id", None) is not None else None,
+        app_id=resolve_a2s_app_id(
+            getattr(info, "app_id", None), getattr(info, "game_id", None)
+        ),
     )

@@ -378,6 +378,7 @@ async def create_server(
             queried_player_count=queried.player_count,
             queried_max_players=queried.max_players,
             queried_players=queried.players,
+            queried_app_id=queried.app_id,
         )
     except ServerQueryError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
@@ -449,6 +450,7 @@ async def update_server(
             player_count=queried.player_count,
             max_players=queried.max_players,
             players=queried.players,
+            app_id=queried.app_id,
         )
 
     return crud.to_server_public(server=server)

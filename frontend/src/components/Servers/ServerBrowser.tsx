@@ -58,6 +58,7 @@ import type {
 import {
   buildServerConfigFile,
   buildServersWebSocketUrl,
+  canSteamConnect,
   countOnlinePlayers,
   createServersSearchParams,
   getRegionCounts,
@@ -570,6 +571,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   }
 
   const handleSteamConnect = (server: ServerPublic) => {
+    if (!canSteamConnect(server)) return
     window.location.href = `steam://connect/${getServerAddress(server)}`
   }
 

@@ -20,7 +20,11 @@ from app.core.config import settings
 from app.core.db import async_session_maker
 from app.crud.server import mark_server_group_api_key_used
 from app.models import ServerGroupStatus, ServerStatusPut
-from app.services.server_query import A2SInfoResult, ServerQueryError
+from app.services.server_query import (
+    A2SInfoResult,
+    ServerQueryError,
+    resolve_a2s_app_id,
+)
 
 SERVER_PLUGIN_FRESH_SECONDS = 5
 SERVER_A2S_POLL_SECONDS = 10
@@ -175,7 +179,7 @@ def _send_a2s_request(
 
 def _parse_a2s_info_response(
     response: bytes,
-) -> tuple[str, str, str, str, int, int, int]:
+) -> tuple[str, str, str, str, int | None, int, int]:
     offset = 6
     hostname, offset = _read_cstring(response, offset)
     map_name, offset = _read_cstring(response, offset)
@@ -188,12 +192,36 @@ def _parse_a2s_info_response(
     offset += 2
     player_count = response[offset]
     max_players = response[offset + 1]
+    offset += 2
+    game_id = None
+    if offset < len(response):
+        # Bots, server type, environment, visibility, VAC, then version.
+        if len(response) < offset + 5:
+            raise ServerQueryError("Incomplete A2S info payload")
+        offset += 5
+        _, offset = _read_cstring(response, offset)
+        if offset < len(response):
+            edf = response[offset]
+            offset += 1
+            if edf & 0x80:
+                offset += 2  # Game port
+            if edf & 0x10:
+                offset += 8  # Server SteamID
+            if edf & 0x40:
+                offset += 2  # SourceTV port
+                _, offset = _read_cstring(response, offset)
+            if edf & 0x20:
+                _, offset = _read_cstring(response, offset)  # Keywords
+            if edf & 0x01:
+                if len(response) < offset + 8:
+                    raise ServerQueryError("Incomplete A2S GameID payload")
+                game_id = int.from_bytes(response[offset : offset + 8], "little")
     return (
         hostname,
         map_name,
         game_directory,
         game_name,
-        app_id,
+        resolve_a2s_app_id(app_id, game_id),
         player_count,
         max_players,
     )
@@ -588,6 +616,7 @@ async def run_server_a2s_refresh_cycle() -> None:
                 player_count=info.player_count,
                 max_players=info.max_players,
                 players=info.players,
+                app_id=info.app_id,
             )
 
 

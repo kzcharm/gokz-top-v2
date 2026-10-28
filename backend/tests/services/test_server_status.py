@@ -181,6 +181,12 @@ async def test_read_servers_due_for_a2s_poll_skips_fresh_plugin_heartbeats(
             players=[_plugin_player(status="finished")],
         ),
     )
+    assert fresh_server.live_status is not None
+    fresh_server.live_status.state = {
+        **fresh_server.live_status.state,
+        "last_app_id_query_at": now.isoformat(),
+    }
+    db.add(fresh_server.live_status)
     assert stale_server.live_status is not None
     stale_server.live_status.state = {
         **stale_server.live_status.state,
@@ -341,6 +347,7 @@ async def test_run_server_discovery_cycle_only_tracks_supported_kz_prefixes(
         "query_server_a2s_info",
         _unexpected_query_server_a2s_info,
     )
+
     async def _lookup_ip_location(_ip: str) -> GeoIPLocation:
         return GeoIPLocation(
             country_code="SE",
@@ -927,3 +934,149 @@ async def test_run_server_status_collector_in_app_skips_without_advisory_lock(
             (server_status.SERVER_STATUS_COLLECTOR_LOCK_ID,),
         ),
     ]
+
+
+@pytest.mark.parametrize("app_id", [730, 4465480, None])
+async def test_a2s_app_id_survives_plugin_heartbeats_and_is_exposed(
+    db: AsyncSession,
+    app_id: int | None,
+) -> None:
+    server = await create_server(db)
+    now = datetime.now(UTC)
+    payload = ServerStatusPut(
+        ip=server.ip,
+        port=server.port,
+        observed_at=now,
+        hostname="Plugin Host",
+        map="kz_plugin",
+        player_count=0,
+        max_players=16,
+        players=[],
+    )
+    server = await crud.record_plugin_heartbeat(
+        session=db, server=server, payload=payload
+    )
+    server = await crud.record_a2s_success(
+        session=db,
+        server=server,
+        observed_at=now + timedelta(seconds=1),
+        hostname="A2S Host",
+        map_name="kz_a2s",
+        player_count=0,
+        max_players=16,
+        players=[],
+        app_id=app_id,
+    )
+    assert server.live_status is not None
+    assert server.live_status.hostname == "Plugin Host"
+    assert server.live_status.app_id == app_id
+    server = await crud.record_plugin_heartbeat(
+        session=db,
+        server=server,
+        payload=payload.model_copy(update={"observed_at": now + timedelta(seconds=2)}),
+    )
+    public = server_crud.to_server_public(server=server)
+    assert public.live_status is not None
+    assert public.live_status.app_id == app_id
+    due = await crud.read_servers_due_for_a2s_poll(
+        session=db,
+        now=now + timedelta(seconds=3),
+        plugin_stale_after_seconds=5,
+        a2s_poll_after_seconds=1,
+    )
+    assert server.id not in {s.id for s in due}
+    # Plugin updates do not postpone periodic game-identity queries.
+    server = await crud.record_plugin_heartbeat(
+        session=db,
+        server=server,
+        payload=payload.model_copy(update={"observed_at": now + timedelta(hours=2)}),
+    )
+    due = await crud.read_servers_due_for_a2s_poll(
+        session=db,
+        now=now + timedelta(hours=2),
+        plugin_stale_after_seconds=5,
+        a2s_poll_after_seconds=1,
+    )
+    assert server.id in {s.id for s in due}
+    # A later query that cannot identify the game must remove direct connect.
+    server = await crud.record_a2s_success(
+        session=db,
+        server=server,
+        observed_at=now + timedelta(hours=2, seconds=1),
+        hostname="A2S Host",
+        map_name="kz_a2s",
+        player_count=0,
+        max_players=16,
+        players=[],
+        app_id=None,
+    )
+    assert server.live_status is not None
+    assert server.live_status.app_id is None
+
+
+@pytest.mark.parametrize("app_id,extended", [(730, False), (4465480, True)])
+async def test_parse_a2s_info_reads_full_app_id(app_id: int, extended: bool) -> None:
+    response = (
+        server_status.A2S_PACKET_PREFIX
+        + b"\x49\x11"
+        + b"Host\x00kz_test\x00csgo\x00Counter-Strike\x00"
+        + (app_id & 0xFFFF).to_bytes(2, "little")
+        + bytes([0, 16])
+        + b"\x00dl\x00\x01"
+        + b"1.38.8.1\x00"
+    )
+    if extended:
+        # All EDF fields precede the extended GameID.
+        response += (
+            b"\xf1"
+            + (27015).to_bytes(2, "little")
+            + (123).to_bytes(8, "little")
+            + (27020).to_bytes(2, "little")
+            + b"SourceTV\x00"
+            + b"kz\x00"
+            + ((123 << 32) | app_id).to_bytes(8, "little")
+        )
+    else:
+        response += b"\x00"
+    assert server_status._parse_a2s_info_response(response)[4] == app_id
+    if extended:
+        with pytest.raises(ServerQueryError, match="GameID"):
+            server_status._parse_a2s_info_response(response[:-1])
+
+
+async def test_app_id_probe_failure_preserves_fresh_plugin_status(
+    db: AsyncSession,
+) -> None:
+    server = await create_server(db)
+    now = datetime.now(UTC)
+    server = await crud.record_plugin_heartbeat(
+        session=db,
+        server=server,
+        payload=ServerStatusPut(
+            ip=server.ip,
+            port=server.port,
+            observed_at=now,
+            hostname="Live Plugin",
+            map="kz_plugin",
+            player_count=1,
+            max_players=16,
+            players=[_plugin_player()],
+        ),
+    )
+    server = await crud.record_a2s_failure(
+        session=db,
+        server=server,
+        observed_at=now + timedelta(seconds=1),
+        offline_after_failures=1,
+    )
+    assert server.live_status is not None
+    assert server.live_status.is_online is True
+    assert server.live_status.player_count == 1
+    assert server.live_status.hostname == "Live Plugin"
+    due = await crud.read_servers_due_for_a2s_poll(
+        session=db,
+        now=now + timedelta(seconds=2),
+        plugin_stale_after_seconds=5,
+        a2s_poll_after_seconds=0,
+    )
+    assert server.id not in {s.id for s in due}

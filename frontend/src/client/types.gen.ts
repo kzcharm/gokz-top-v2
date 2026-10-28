@@ -2132,6 +2132,7 @@ export type ServerHistoryPublic = {
 };
 
 export type ServerLiveStatusPublic = {
+    app_id?: (number | null);
     hostname?: (string | null);
     map?: (string | null);
     workshop_id?: (string | null);
@@ -2148,6 +2149,7 @@ export type ServerLiveStatusPublic = {
 };
 
 export type ServerLiveStatusStatePublic = {
+    last_app_id_query_at?: (string | null);
     last_plugin_seen_at?: (string | null);
     last_a2s_seen_at?: (string | null);
     last_successful_seen_at?: (string | null);

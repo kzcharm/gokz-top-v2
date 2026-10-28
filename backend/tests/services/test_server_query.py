@@ -58,8 +58,20 @@ async def test_request_a2s_protocol_closes_transport_on_error(
     assert isinstance(conn.transport, server_query._ClosedTransport)
 
 
+@pytest.mark.parametrize(
+    ("app_id", "game_id", "expected_app_id"),
+    [
+        (730, None, 730),
+        (4465480 & 0xFFFF, 4465480, 4465480),
+        (4465480 & 0xFFFF, (123 << 32) | 4465480, 4465480),
+        (0, None, None),
+    ],
+)
 @pytest.mark.asyncio
 async def test_query_server_a2s_info_only_calls_players_when_needed(
+    app_id: int,
+    game_id: int | None,
+    expected_app_id: int | None,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     class _Info:
@@ -69,7 +81,9 @@ async def test_query_server_a2s_info_only_calls_players_when_needed(
         max_players = 16
         folder = "csgo"
         game = "Counter-Strike: Global Offensive"
-        app_id = 730
+
+    _Info.app_id = app_id
+    _Info.game_id = game_id
 
     calls: list[type[object]] = []
 
@@ -84,7 +98,9 @@ async def test_query_server_a2s_info_only_calls_players_when_needed(
         calls.append(protocol)
         return _Info()
 
-    monkeypatch.setattr(server_query, "request_a2s_protocol", _fake_request_a2s_protocol)
+    monkeypatch.setattr(
+        server_query, "request_a2s_protocol", _fake_request_a2s_protocol
+    )
 
     result = await server_query.query_server_a2s_info(
         ip="127.0.0.1",
@@ -93,6 +109,7 @@ async def test_query_server_a2s_info_only_calls_players_when_needed(
         players_timeout=5.0,
     )
 
+    assert result.app_id == expected_app_id
     assert result.hostname == "Test Host"
     assert result.player_count == 0
     assert result.players == []

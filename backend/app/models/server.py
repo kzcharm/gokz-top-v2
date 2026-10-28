@@ -265,6 +265,7 @@ class Server(ServerBase, table=True):
 
 
 class ServerLiveStatusBase(SQLModel):
+    app_id: int | None = Field(default=None, ge=1)
     hostname: str | None = Field(default=None, max_length=255)
     map: str | None = Field(default=None, max_length=255)
     player_count: int = Field(default=0, ge=0)
@@ -431,6 +432,7 @@ class ServerGroupSummary(SQLModel):
 
 
 class ServerLiveStatusStatePublic(SQLModel):
+    last_app_id_query_at: datetime | None = None
     last_plugin_seen_at: datetime | None = None
     last_a2s_seen_at: datetime | None = None
     last_successful_seen_at: datetime | None = None
@@ -455,6 +457,7 @@ class ServerGlobalStatusPublic(ServerGlobalStatusPut):
 
 
 class ServerLiveStatusPublic(SQLModel):
+    app_id: int | None = None
     hostname: str | None = None
     map: str | None = None
     workshop_id: str | None = None

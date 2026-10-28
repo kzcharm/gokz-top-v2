@@ -18,6 +18,7 @@ import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
 import {
+  canSteamConnect,
   formatTimerTime,
   getPlayerAvatarUrl,
   getPlayerBooleanValue,
@@ -209,20 +210,22 @@ export const ServerCard = memo(function ServerCard({
         >
           <Copy className="h-3 w-3" />
         </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(event) => {
-            event.stopPropagation()
-            onSteamConnect(server)
-          }}
-          disabled={offline}
-          className="h-6 w-6 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
-          aria-label={t("serverBrowser.connect")}
-          title={t("serverBrowser.connect")}
-        >
-          <Play className="h-3 w-3" />
-        </Button>
+        {canSteamConnect(server) && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={(event) => {
+              event.stopPropagation()
+              onSteamConnect(server)
+            }}
+            disabled={offline}
+            className="h-6 w-6 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
+            aria-label={t("serverBrowser.connect")}
+            title={t("serverBrowser.connect")}
+          >
+            <Play className="h-3 w-3" />
+          </Button>
+        )}
       </div>
 
       <div className="relative aspect-video w-full overflow-hidden bg-gray-100 dark:bg-gray-800">

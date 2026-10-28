@@ -240,6 +240,10 @@ export function writeServersFilterPreferences(
   }
 }
 
+export function canSteamConnect(server: ServerPublic) {
+  return server.live_status?.app_id === 4465480
+}
+
 export function getServerAddress(server: ServerPublic) {
   return `${server.ip}:${server.port}`
 }

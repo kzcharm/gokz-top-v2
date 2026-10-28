@@ -10641,6 +10641,17 @@ export const ServerHistoryPublicSchema = {
 
 export const ServerLiveStatusPublicSchema = {
     properties: {
+        app_id: {
+            anyOf: [
+                {
+                    type: 'integer'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'App Id'
+        },
         hostname: {
             anyOf: [
                 {
@@ -10758,6 +10769,18 @@ export const ServerLiveStatusPublicSchema = {
 
 export const ServerLiveStatusStatePublicSchema = {
     properties: {
+        last_app_id_query_at: {
+            anyOf: [
+                {
+                    type: 'string',
+                    format: 'date-time'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Last App Id Query At'
+        },
         last_plugin_seen_at: {
             anyOf: [
                 {

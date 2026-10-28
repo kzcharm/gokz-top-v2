@@ -19,6 +19,7 @@ import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { cn } from "@/lib/utils"
 
 import {
+  canSteamConnect,
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
@@ -171,18 +172,20 @@ export function ServerDetailSheet({
                         >
                           <Copy className="h-4 w-4" />
                         </Button>
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => onSteamConnect(server)}
-                          disabled={!isServerOnline(server)}
-                          className="h-8 w-8 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
-                          aria-label={t("serverBrowser.connect")}
-                          title={t("serverBrowser.connect")}
-                        >
-                          <Play className="h-4 w-4" />
-                        </Button>
+                        {canSteamConnect(server) && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => onSteamConnect(server)}
+                            disabled={!isServerOnline(server)}
+                            className="h-8 w-8 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
+                            aria-label={t("serverBrowser.connect")}
+                            title={t("serverBrowser.connect")}
+                          >
+                            <Play className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                       <div className="absolute inset-x-2 top-2 flex items-center gap-1 pr-20">
                         <span
