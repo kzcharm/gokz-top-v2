@@ -83,6 +83,7 @@ export function CompareRunsTable({
   player1Name,
   player2Name,
   onlyBoth,
+  headerControls,
   player1,
   player2,
 }: {
@@ -90,6 +91,7 @@ export function CompareRunsTable({
   player1Name: string
   player2Name: string
   onlyBoth: boolean
+  headerControls?: ReactNode
   player1: PlayerDisplayPlayer
   player2: PlayerDisplayPlayer
 }) {
@@ -204,6 +206,15 @@ export function CompareRunsTable({
         )
       })
   }, [rows, filters, sort, onlyBoth])
+  const wins = useMemo(() => {
+    const counts = { player1: 0, player2: 0 }
+    for (const row of filteredRows) {
+      if (!row.player1 || !row.player2) continue
+      if (row.player1.time < row.player2.time) counts.player1++
+      else if (row.player2.time < row.player1.time) counts.player2++
+    }
+    return counts
+  }, [filteredRows])
   const pageCount = Math.max(1, Math.ceil(filteredRows.length / pageSize))
   const currentPage = Math.min(pageIndex, pageCount - 1)
   // Reset pagination when switching run type, scope, players, or completion mode.
@@ -423,6 +434,49 @@ export function CompareRunsTable({
   ]
   return (
     <section className="space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
+          <h2 className="text-lg font-semibold">{t("compare.runs")}</h2>
+          <div
+            className="flex flex-wrap items-center gap-x-6 gap-y-2 text-sm"
+            aria-live="polite"
+          >
+            <span
+              className="text-muted-foreground"
+              title={t("compare.winningMapsHint")}
+            >
+              {t("compare.winningMaps")}
+            </span>
+            {slots.map((slot) => (
+              <div
+                key={slot}
+                className="flex items-center gap-2"
+                data-testid={`compare-wins-${slot}`}
+              >
+                <span
+                  aria-hidden="true"
+                  className="size-2 rounded-full"
+                  style={{ backgroundColor: COMPARE_PLAYER_COLORS[slot] }}
+                />
+                <PlayerDisplay
+                  player={slot === "player1" ? player1 : player2}
+                  compact
+                  showAvatar={false}
+                  showCountryFlag={false}
+                  showRatingIcon={false}
+                />
+                <strong
+                  className="font-mono tabular-nums"
+                  data-testid={`compare-win-count-${slot}`}
+                >
+                  {wins[slot].toLocaleString()}
+                </strong>
+              </div>
+            ))}
+          </div>
+        </div>
+        {headerControls}
+      </div>
       <div className="flex flex-wrap items-center gap-2">
         <fieldset
           className="inline-flex items-center rounded-lg border p-1"

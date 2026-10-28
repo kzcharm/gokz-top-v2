@@ -126,7 +126,13 @@ test.beforeEach(async ({ page }) => {
             map_name: `kz_map_${index + 1}`,
             map_tier: 1,
             player1: record(1000 - index * 10, 100 + index),
-            player2: index === 11 ? null : record(800, 120 + index),
+            player2:
+              index === 11
+                ? null
+                : record(
+                    800,
+                    index === 0 ? 100 : index === 1 ? 90 : 120 + index,
+                  ),
             time_delta: index === 11 ? null : 20,
             points_delta: index === 11 ? null : -200 + index * 10,
           }
@@ -199,6 +205,8 @@ test("runs sort, filter by player, and paginate the filtered collection", async 
   await page.goto(`/compare?player1=${player1}&player2=${player2}`)
   const rows = page.locator("tbody tr")
   await expect(rows).toHaveCount(11)
+  await expect(page.getByTestId("compare-win-count-player1")).toHaveText("9")
+  await expect(page.getByTestId("compare-win-count-player2")).toHaveText("1")
   await expect(rows.first()).toContainText("kz_map_11")
   await expect(rows.first()).toContainText("2026-10-11")
   await expect(rows.first()).toContainText("2026-10-10")
@@ -279,6 +287,8 @@ test("runs sort, filter by player, and paginate the filtered collection", async 
   await expect(rows.first()).toContainText("kz_map_11")
   await page.getByRole("textbox", { name: "Search maps" }).fill("map_2")
   await expect(rows).toHaveCount(1)
+  await expect(page.getByTestId("compare-win-count-player1")).toHaveText("0")
+  await expect(page.getByTestId("compare-win-count-player2")).toHaveText("1")
   await expect(rows.first()).toContainText("kz_map_2")
   await page.getByRole("button", { name: "Clear Filters" }).click()
   await page.locator("summary").filter({ hasText: "Filters" }).click()
@@ -297,6 +307,8 @@ test("runs sort, filter by player, and paginate the filtered collection", async 
   await page.getByRole("combobox").filter({ hasText: "50" }).click()
   await page.getByRole("option", { name: "10", exact: true }).click()
   await expect(rows).toHaveCount(10)
+  await expect(page.getByTestId("compare-win-count-player1")).toHaveText("9")
+  await expect(page.getByTestId("compare-win-count-player2")).toHaveText("1")
   await page
     .getByRole("button", { name: "Go to next page", exact: true })
     .click()
@@ -309,7 +321,7 @@ test("runs sort, filter by player, and paginate the filtered collection", async 
   })
   await page.setViewportSize({ width: 390, height: 844 })
   await expect(
-    page.getByRole("heading", { name: "Compare Players" }),
+    page.getByRole("heading", { name: "Runs", exact: true }),
   ).toBeVisible()
   expect(
     await page.evaluate(
@@ -358,7 +370,7 @@ test("completion toggles one mirrored profile-style chart and highlights a playe
   await expect(
     page.locator('[data-compare-metric="player2"]').first(),
   ).toHaveCSS("opacity", "0.3")
-  await page.getByRole("heading", { name: "Compare Players" }).hover()
+  await page.getByRole("heading", { name: "Runs", exact: true }).hover()
   await expect(
     chart.locator('[data-compare-player="player2"]').first(),
   ).toHaveCSS("opacity", "1")

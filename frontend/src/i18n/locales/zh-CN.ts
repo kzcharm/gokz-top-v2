@@ -1974,6 +1974,9 @@ export const zhCN = {
     emptyTop: "所选范围内该地图暂无 Stage {{stage}} 记录。",
   },
   compare: {
+    winningMaps: "领先地图 · 当前筛选",
+    winningMapsHint: "统计双方均完成的地图中用时更短的次数，不计平局。",
+
     gapDisplay: "用时对比方式",
     difference: "差值",
     ratio: "倍数",

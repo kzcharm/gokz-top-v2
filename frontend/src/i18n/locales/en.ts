@@ -2037,6 +2037,9 @@ export const en = {
       "No stage {{stage}} records found for this map in the selected scope.",
   },
   compare: {
+    winningMaps: "Winning maps · filtered",
+    winningMapsHint: "Faster finishes on maps completed by both players. Ties are excluded.",
+
     gapDisplay: "Time comparison",
     difference: "Difference",
     ratio: "Ratio",
