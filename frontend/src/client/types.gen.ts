@@ -2885,6 +2885,18 @@ export type MapsReadMapsData = {
 
 export type MapsReadMapsResponse = (Array<MapPublic>);
 
+export type MapsReadLocalMapImageData = {
+    mapName: string;
+};
+
+export type MapsReadLocalMapImageResponse = (unknown);
+
+export type MapsReadLocalMapImage1Data = {
+    mapName: string;
+};
+
+export type MapsReadLocalMapImage1Response = (unknown);
+
 export type MapsReadWorkshopPreviewImageData = {
     workshopId: string;
 };
