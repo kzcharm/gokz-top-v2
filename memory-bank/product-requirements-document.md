@@ -335,3 +335,9 @@ After changing these limits or the formula, run `kztop build rating` across all 
 - `/maps` and profile Runs independently save optional browser-local default-view snapshots from their Presets menus. Validated versioned defaults load on mount; maps defaults supersede session state and restore scope/card options from page one. Clearing removes only the default, and Runs defaults never activate first-completion history reads.
 
 - Profile Activity and total playtime share versioned daily cache data combining merged completed player sessions and record runtimes whose finish timestamps fall outside those sessions (inclusive endpoints). Sessions split at UTC midnight; open sessions are excluded until disconnect/timeout. Daily entries retain record counts and add total_seconds. Session closure invalidates the shared cache; record mutations refresh affected days. Calendar colors use view-relative positive-duration quartiles. Server/map breakdowns remain record-based.
+
+## Shared QQ and Discord Bot
+
+- QQ and Discord expose the same GOKZ command features through one NoneBot/Alconna application. QQ uses Chinese Markdown and keyboards; Discord uses English slash commands, embeds, buttons, and player cards. QQ-only rendering diagnostics and automatic voice compliments remain platform-specific.
+- Discord users initially bind using the existing website binding-code page and `/bind code:<code>`, with a private reply. This is independent of website Discord social links and requires no website deployment. Preferences and daily maps remain independent per platform account.
+- Interactive controls are restricted to the requesting user and expire after ten minutes or restart. Discord acknowledges slow commands immediately; binding/errors remain private. Root identities are platform-qualified, and server defaults apply to QQ groups or Discord guilds.

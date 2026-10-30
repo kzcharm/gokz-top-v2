@@ -10,7 +10,7 @@
   - FastAPI backend in `backend/`
   - React + TypeScript frontend in `frontend/`
   - SourceMod plugin code tracked in the `sourcemod/` git submodule (`kzcharm/gokz-top-plugins`)
-  - Official QQ API bot tracked in the `qqbot/` git submodule (`kzcharm/qqbot-saki-chan`), with its own deployment on E
+  - Official QQ and Discord NoneBot application tracked in the `qqbot/` git submodule (`kzcharm/qqbot-saki-chan`), with its own deployment on E
   - GOKZ replay viewer tracked in the `replay-viewer/` git submodule (`kzcharm/replay-viewer`) and deployed as a separate Traefik-routed frontend service
 - API surfaces:
   - `/v0` for GlobalAPI v2.0 compatibility behavior
@@ -307,3 +307,9 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 - `/maps` and profile Runs independently save optional browser-local default-view snapshots from their Presets menus. Validated versioned defaults load on mount; maps defaults supersede session state and restore scope/card options from page one. Clearing removes only the default, and Runs defaults never activate first-completion history reads.
 
 - Profile Activity and total playtime share versioned daily cache data combining merged completed player sessions and record runtimes whose finish timestamps fall outside those sessions (inclusive endpoints). Sessions split at UTC midnight; open sessions are excluded until disconnect/timeout. Daily entries retain record counts and add total_seconds. Session closure invalidates the shared cache; record mutations refresh affected days. Calendar colors use view-relative positive-duration quartiles. Server/map breakdowns remain record-based.
+
+## Shared QQ and Discord Bot
+
+- The `qqbot/` submodule runs one NoneBot application with independently configurable QQ and Discord adapters. A shared Alconna catalog defines commands, aliases, help, QQ command panels, and Discord slash options; shared services return platform-independent results for Chinese QQ Markdown/keyboards and English Discord embeds/buttons.
+- Both platforms verify the existing website-issued `KZTOP` binding codes locally with `QQ_BOT_SECRET`; no new website endpoint or deployment is needed. Discord bindings/preferences use `bot_platform_preferences`, keyed by `discord:<user-id>`, while existing QQ rows are preserved. Daily picks remain independent across platforms. The website's Discord social-link verification is separate.
+- SQLite upgrades run transactionally before ancillary table initialization. Deployment backs up SQLite and records the previous image, then checks both adapter connections. Discord omits automatic voice compliments. The existing image name, Compose project, service, and persistent SQLite path remain unchanged.
