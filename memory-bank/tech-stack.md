@@ -315,3 +315,5 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 - SQLite upgrades run transactionally before ancillary table initialization. Deployment backs up SQLite and records the previous image, then checks both adapter connections. Discord omits automatic voice compliments. The existing image name, Compose project, service, and persistent SQLite path remain unchanged.
 
 - Discord edits each deferred slash response in place. Status embeds use semantic colours; record embeds include map previews and native Discord timestamps, while ban history consumes notes and expiry metadata. After global command sync, only known obsolete guild-scoped commands owned by Sakiko are retired to prevent duplicate menus.
+
+- Discord profile enrichment uses `/v1/player-social-links/players/{steamid64}` and isolates optional social/stats/rank failures from the base player read. Profile/rank embeds use Steam avatars and grouped metrics; live server embeds include rosters and connection commands. Domain warnings are amber, operational errors red, and recent-record dates use Discord relative timestamps.
