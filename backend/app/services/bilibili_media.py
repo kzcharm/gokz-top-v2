@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import logging
 import time
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
+from email.utils import parsedate_to_datetime
 from typing import Any
 from urllib.parse import urlencode, urlparse, urlsplit
 
@@ -111,6 +113,109 @@ _WBI_MIXIN_KEY_ENC_TAB = (
 _WBI_SANITIZE_CHARS = "!'()*"
 _wbi_keys: tuple[str, str] | None = None
 _wbi_keys_fetched_at: datetime | None = None
+
+
+BILIBILI_METADATA_TTL = timedelta(hours=24)
+BILIBILI_BACKOFF_INITIAL_SECONDS = 900
+BILIBILI_BACKOFF_MAX_SECONDS = 21_600
+
+
+@dataclass
+class _RequestBackoff:
+    failures: int
+    retry_at: datetime
+
+
+class BilibiliBackoffError(RuntimeError):
+    """An endpoint is paused after a Bilibili anti-bot or rate-limit response."""
+
+
+# Endpoint-specific: blocked video details must not stop upload discovery.
+# Shared by polling, manual reclassification and on-demand view-count refreshes.
+_request_backoffs: dict[str, _RequestBackoff] = {}
+
+
+def _check_backoff(url: str) -> None:
+    state = _request_backoffs.get(url)
+    if state is not None and get_datetime_utc() < state.retry_at:
+        raise BilibiliBackoffError(
+            f"Bilibili endpoint paused until {state.retry_at.isoformat()}: {url}"
+        )
+
+
+def _start_backoff(url: str, response: httpx.Response) -> None:
+    now = get_datetime_utc()
+    previous = _request_backoffs.get(url)
+    failures = previous.failures + 1 if previous else 1
+    seconds = min(
+        BILIBILI_BACKOFF_MAX_SECONDS,
+        BILIBILI_BACKOFF_INITIAL_SECONDS * 2 ** min(failures - 1, 5),
+    )
+    retry_after = response.headers.get("Retry-After")
+    if retry_after:
+        try:
+            seconds = max(seconds, int(retry_after))
+        except ValueError:
+            try:
+                retry_date = parsedate_to_datetime(retry_after)
+                seconds = max(seconds, int((retry_date - now).total_seconds()))
+            except (TypeError, ValueError, OverflowError):
+                pass
+    state = _RequestBackoff(
+        failures=failures, retry_at=now + timedelta(seconds=seconds)
+    )
+    _request_backoffs[url] = state
+    logger.warning(
+        "Bilibili endpoint %s backed off until %s after %s rejection(s)",
+        url,
+        state.retry_at.isoformat(),
+        failures,
+        extra={
+            "endpoint": url,
+            "retry_at": state.retry_at.isoformat(),
+            "failures": failures,
+        },
+    )
+    raise BilibiliBackoffError(
+        f"Bilibili endpoint rejected requests; paused until {state.retry_at.isoformat()}: {url}"
+    )
+
+
+async def _get_json(
+    client: httpx.AsyncClient, url: str, *, params: dict[str, str] | None = None
+) -> dict[str, Any]:
+    _check_backoff(url)
+    response = await client.get(url, params=params)
+    # Check status before parsing: HTTP 412 may return HTML rather than JSON.
+    if response.status_code in {412, 429}:
+        _start_backoff(url, response)
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise ValueError("Bilibili API returned an invalid payload")
+    if payload.get("code") in {-352, -412, -799}:
+        _start_backoff(url, response)
+    if payload.get("code") != 0:
+        raise ValueError(payload.get("message") or "Bilibili API error")
+    _request_backoffs.pop(url, None)
+    return payload
+
+
+def _metadata_is_fresh(post: MediaPost, item: dict[str, Any], now: datetime) -> bool:
+    """Upload descriptions can be truncated; compare them as canonical prefixes."""
+    title = item.get("title")
+    description = item.get("description")
+    duration = _parse_duration(item.get("length") or item.get("duration"))
+    return (
+        post.metadata_checked_at is not None
+        and now - post.metadata_checked_at < BILIBILI_METADATA_TTL
+        and (not isinstance(title, str) or title[:500] == post.title)
+        and (
+            not isinstance(description, str)
+            or (post.description or "").startswith(description)
+        )
+        and (duration is None or duration == post.duration_seconds)
+    )
 
 
 def _parse_duration(value: object) -> int | None:
@@ -230,9 +335,7 @@ def _sign_wbi_params(
 
 
 async def _fetch_wbi_keys(client: httpx.AsyncClient) -> tuple[str, str]:
-    response = await client.get(BILIBILI_WBI_KEYS_URL)
-    response.raise_for_status()
-    payload = response.json()
+    payload = await _get_json(client, BILIBILI_WBI_KEYS_URL)
     if payload.get("code") != 0:
         raise ValueError(payload.get("message") or "Bilibili WBI key API error")
     data = payload.get("data")
@@ -262,47 +365,31 @@ async def _get_wbi_keys(
     return _wbi_keys
 
 
-def _is_retryable_bilibili_response(
-    response: httpx.Response, payload: dict[str, Any]
-) -> bool:
-    return response.status_code in {412, 429} or payload.get("code") in {
-        -352,
-        -412,
-        -799,
-    }
-
-
 async def _fetch_bilibili_upload_page(
     client: httpx.AsyncClient, *, uid: int, page: int, page_size: int
 ) -> tuple[list[dict[str, Any]], int | None]:
-    for attempt in range(2):
-        img_key, sub_key = await _get_wbi_keys(client, force_refresh=attempt == 1)
-        response = await client.get(
-            BILIBILI_UPLOADS_URL,
-            params=_sign_wbi_params(
-                {"mid": uid, "pn": page, "ps": page_size, "order": "pubdate"},
-                img_key=img_key,
-                sub_key=sub_key,
-            ),
-        )
-        payload = response.json()
-        if attempt == 0 and _is_retryable_bilibili_response(response, payload):
-            continue
-        response.raise_for_status()
-        if payload.get("code") != 0:
-            raise ValueError(payload.get("message") or "Bilibili media API error")
-        data = payload.get("data")
-        archive = data.get("list") if isinstance(data, dict) else None
-        videos = archive.get("vlist") if isinstance(archive, dict) else None
-        page_data = data.get("page") if isinstance(data, dict) else None
-        total = page_data.get("count") if isinstance(page_data, dict) else None
-        return (
-            [item for item in videos if isinstance(item, dict)]
-            if isinstance(videos, list)
-            else [],
-            total if isinstance(total, int) and total >= 0 else None,
-        )
-    raise AssertionError("Bilibili upload page retry loop was exhausted")
+    _check_backoff(BILIBILI_UPLOADS_URL)
+    img_key, sub_key = await _get_wbi_keys(client)
+    payload = await _get_json(
+        client,
+        BILIBILI_UPLOADS_URL,
+        params=_sign_wbi_params(
+            {"mid": uid, "pn": page, "ps": page_size, "order": "pubdate"},
+            img_key=img_key,
+            sub_key=sub_key,
+        ),
+    )
+    data = payload.get("data")
+    archive = data.get("list") if isinstance(data, dict) else None
+    videos = archive.get("vlist") if isinstance(archive, dict) else None
+    page_data = data.get("page") if isinstance(data, dict) else None
+    total = page_data.get("count") if isinstance(page_data, dict) else None
+    return (
+        [item for item in videos if isinstance(item, dict)]
+        if isinstance(videos, list)
+        else [],
+        total if isinstance(total, int) and total >= 0 else None,
+    )
 
 
 async def fetch_bilibili_posts(
@@ -311,6 +398,7 @@ async def fetch_bilibili_posts(
     page_size: int = 30,
     cutoff: datetime | None = None,
 ) -> list[dict[str, Any]]:
+    _check_backoff(BILIBILI_UPLOADS_URL)
     posts: list[dict[str, Any]] = []
     async with httpx.AsyncClient(timeout=15.0, headers=_bilibili_headers()) as client:
         page = 1
@@ -333,14 +421,13 @@ async def fetch_bilibili_posts(
 
 
 async def fetch_bilibili_video_view_counts(video_ids: list[str]) -> dict[str, int]:
+    _check_backoff(BILIBILI_VIDEO_VIEW_URL)
     view_counts: dict[str, int] = {}
     async with httpx.AsyncClient(timeout=15.0, headers=_bilibili_headers()) as client:
         for video_id in video_ids:
-            response = await client.get(
-                BILIBILI_VIDEO_VIEW_URL, params={"bvid": video_id}
+            payload = await _get_json(
+                client, BILIBILI_VIDEO_VIEW_URL, params={"bvid": video_id}
             )
-            response.raise_for_status()
-            payload = response.json()
             if payload.get("code") != 0:
                 raise ValueError(payload.get("message") or "Bilibili video API error")
             data = payload.get("data")
@@ -354,10 +441,11 @@ async def fetch_bilibili_video_view_counts(video_ids: list[str]) -> dict[str, in
 
 
 async def fetch_bilibili_video_detail(bvid: str) -> dict[str, Any]:
+    _check_backoff(BILIBILI_VIDEO_VIEW_URL)
     async with httpx.AsyncClient(timeout=15.0, headers=_bilibili_headers()) as client:
-        response = await client.get(BILIBILI_VIDEO_VIEW_URL, params={"bvid": bvid})
-        response.raise_for_status()
-        payload = response.json()
+        payload = await _get_json(
+            client, BILIBILI_VIDEO_VIEW_URL, params={"bvid": bvid}
+        )
     if payload.get("code") != 0:
         raise ValueError(payload.get("message") or "Bilibili video API error")
     data = payload.get("data")
@@ -367,10 +455,11 @@ async def fetch_bilibili_video_detail(bvid: str) -> dict[str, Any]:
 
 
 async def fetch_bilibili_video_tags(bvid: str) -> list[str]:
+    _check_backoff(BILIBILI_VIDEO_TAGS_URL)
     async with httpx.AsyncClient(timeout=15.0, headers=_bilibili_headers()) as client:
-        response = await client.get(BILIBILI_VIDEO_TAGS_URL, params={"bvid": bvid})
-        response.raise_for_status()
-        payload = response.json()
+        payload = await _get_json(
+            client, BILIBILI_VIDEO_TAGS_URL, params={"bvid": bvid}
+        )
     if payload.get("code") != 0:
         raise ValueError(payload.get("message") or "Bilibili tag API error")
     data = payload.get("data")
@@ -456,6 +545,12 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                     ):
                         continue
                     existing = existing_posts.get(bvid)
+                    if existing is not None and _metadata_is_fresh(existing, item, now):
+                        if "play" in item:
+                            existing.view_count = _parse_view_count(item["play"])
+                        session.add(existing)
+                        changed += 1
+                        continue
                     detail: dict[str, Any] | None = None
                     metadata_error: str | None = None
                     try:
@@ -464,6 +559,21 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                         metadata_error = str(exc)[:500]
 
                     source = detail if detail is not None else item
+                    if detail is None and existing is not None:
+                        source = {
+                            "title": existing.title,
+                            "description": existing.description,
+                            "duration": existing.duration_seconds,
+                            "play": existing.view_count,
+                            **item,
+                        }
+                        # Preserve canonical text when the listing is only a prefix,
+                        # but allow an edited listing description to qualify a video.
+                        listed_description = item.get("description")
+                        if not isinstance(listed_description, str) or (
+                            existing.description or ""
+                        ).startswith(listed_description):
+                            source["description"] = existing.description
                     title = str(source.get("title") or "Untitled video")[:500]
                     description = (
                         str(source.get("desc") or source.get("description") or "")[
@@ -486,9 +596,9 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                             metadata_resolved = False
                             metadata_error = str(exc)[:500]
 
-                    is_kz_video = (
-                        classification.is_kz_video if metadata_resolved else False
-                    )
+                    # Positive text matches in the upload listing remain valid even
+                    # when canonical enrichment is temporarily blocked.
+                    is_kz_video = classification.is_kz_video
                     if (
                         not metadata_resolved
                         and existing is not None
@@ -503,7 +613,7 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                     thumbnail_url = (
                         existing.thumbnail_url if existing is not None else None
                     )
-                    if is_kz_video:
+                    if is_kz_video and thumbnail_url is None:
                         thumbnail_url = await cache_bilibili_thumbnail(
                             bvid=bvid, raw_url=source.get("pic")
                         )
@@ -531,6 +641,7 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                         ),
                         "available": True,
                         "last_checked_at": now,
+                        "metadata_checked_at": now if metadata_resolved else None,
                         "last_error": metadata_error,
                     }
                     statement = (
@@ -554,6 +665,7 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                                     "duration_seconds",
                                     "available",
                                     "last_checked_at",
+                                    "metadata_checked_at",
                                     "last_error",
                                 )
                             },
@@ -561,6 +673,10 @@ async def sync_bilibili_media_once(session: AsyncSession | None = None) -> int:
                     )
                     await session.exec(statement)
                     changed += 1
+            except BilibiliBackoffError:
+                # Upload/key endpoints are shared by all creators. The first
+                # rejection pauses this poll; already-processed posts still commit.
+                break
             except Exception as exc:
                 logger.warning(
                     "Bilibili media sync failed",

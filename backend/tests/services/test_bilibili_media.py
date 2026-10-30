@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import httpx
 import pytest
 from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -11,10 +12,16 @@ from app.services import bilibili_media
 from tests.utils.utils import random_steamid64
 
 
+@pytest.fixture(autouse=True)
+def _reset_backoff(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(bilibili_media, "_request_backoffs", {})
+
+
 class _Response:
     def __init__(self, payload: dict[str, Any], *, status_code: int = 200) -> None:
         self.payload = payload
         self.status_code = status_code
+        self.headers: dict[str, str] = {}
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
@@ -63,7 +70,7 @@ def test_parse_view_count_normalizes_bilibili_upload_values() -> None:
 
 
 @pytest.mark.asyncio
-async def test_fetch_bilibili_posts_retries_anti_bot_response_with_fresh_wbi_keys(
+async def test_fetch_bilibili_posts_backs_off_before_retrying_anti_bot_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[tuple[str, dict[str, object] | None]] = []
@@ -124,6 +131,14 @@ async def test_fetch_bilibili_posts_retries_anti_bot_response_with_fresh_wbi_key
     monkeypatch.setattr(bilibili_media, "_wbi_keys_fetched_at", None)
     monkeypatch.setattr(bilibili_media.httpx, "AsyncClient", _client_factory)
 
+    now = datetime.now(UTC)
+    monkeypatch.setattr(bilibili_media, "get_datetime_utc", lambda: now)
+    with pytest.raises(bilibili_media.BilibiliBackoffError):
+        await bilibili_media.fetch_bilibili_posts(123, page_size=30)
+    with pytest.raises(bilibili_media.BilibiliBackoffError):
+        await bilibili_media.fetch_bilibili_posts(123, page_size=30)
+    assert upload_attempts == 1
+    now += timedelta(minutes=15)
     posts = await bilibili_media.fetch_bilibili_posts(123, page_size=30)
 
     assert posts == [{"bvid": "BV1test", "created": 1_700_000_000}]
@@ -132,7 +147,6 @@ async def test_fetch_bilibili_posts_retries_anti_bot_response_with_fresh_wbi_key
     assert [url for url, _ in calls] == [
         bilibili_media.BILIBILI_WBI_KEYS_URL,
         bilibili_media.BILIBILI_UPLOADS_URL,
-        bilibili_media.BILIBILI_WBI_KEYS_URL,
         bilibili_media.BILIBILI_UPLOADS_URL,
     ]
 
@@ -216,17 +230,20 @@ async def test_sync_bilibili_media_creates_posts_for_verified_links(
     db.add(link)
     await db.commit()
 
+    upload_title = "Recent KZ run"
+    upload_views = 42
+
     async def _fetch_posts(_: int, *, cutoff: datetime) -> list[dict[str, Any]]:
-        assert cutoff < datetime.now(UTC)
+        assert cutoff <= bilibili_media.get_datetime_utc()
         return [
             {
                 "bvid": "BV1media",
                 "created": 1_786_032_000,
-                "title": "Recent KZ run",
+                "title": upload_title,
                 "description": "A precise run",
                 "pic": "https://example.com/thumb.jpg",
                 "length": "1:42",
-                "play": 42,
+                "play": upload_views,
             }
         ]
 
@@ -235,9 +252,12 @@ async def test_sync_bilibili_media_creates_posts_for_verified_links(
         assert raw_url == "https://example.com/thumb.jpg"
         return str(raw_url)
 
-    async def _fetch_detail(_: str) -> dict[str, Any]:
+    detail_calls: list[str] = []
+
+    async def _fetch_detail(bvid: str) -> dict[str, Any]:
+        detail_calls.append(bvid)
         return {
-            "title": "Recent KZ run",
+            "title": upload_title,
             "desc": "A precise run",
             "pic": "https://example.com/thumb.jpg",
             "duration": 102,
@@ -258,6 +278,36 @@ async def test_sync_bilibili_media_creates_posts_for_verified_links(
     assert post.view_count == 42
     assert post.tags is None
     assert post.is_kz_video is True
+
+    async def _unexpected_thumbnail(**_: object) -> str:
+        pytest.fail("Unchanged videos must reuse their cached thumbnail")
+
+    monkeypatch.setattr(
+        bilibili_media, "cache_bilibili_thumbnail", _unexpected_thumbnail
+    )
+    upload_views = 43
+    metadata_checked_at = post.metadata_checked_at
+    # View-count failures must not invalidate successful canonical metadata.
+    post.last_error = "View-count refresh failed"
+    await db.commit()
+    await bilibili_media.sync_bilibili_media_once(session=db)
+    await db.refresh(post)
+    assert detail_calls == ["BV1media"]
+    assert post.view_count == 43
+    assert post.metadata_checked_at == metadata_checked_at
+
+    now = datetime.now(UTC) + timedelta(hours=25)
+    # A view refresh must not postpone the independent metadata refresh.
+    post.last_checked_at = now
+    await db.commit()
+    monkeypatch.setattr(bilibili_media, "get_datetime_utc", lambda: now)
+    await bilibili_media.sync_bilibili_media_once(session=db)
+    assert detail_calls == ["BV1media", "BV1media"]
+    upload_title = "Updated KZ run"
+    await bilibili_media.sync_bilibili_media_once(session=db)
+    await db.refresh(post)
+    assert detail_calls == ["BV1media"] * 3
+    assert post.title == "Updated KZ run"
 
 
 @pytest.mark.asyncio
@@ -323,3 +373,154 @@ async def test_sync_bilibili_media_retries_failed_tags_and_promotes_hidden_post(
     assert post.is_kz_video is True
     assert post.thumbnail_url == "https://example.com/thumb.jpg"
     assert cached == ["BVtag"]
+
+
+@pytest.mark.asyncio
+async def test_sync_bilibili_keeps_title_matches_visible_when_details_are_blocked(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    player = Player(steamid64=random_steamid64(), name="Blocked metadata")
+    db.add(player)
+    await db.flush()
+    link = PlayerSocialLink(
+        player_steamid64=player.steamid64,
+        platform=PlayerSocialPlatform.BILIBILI,
+        account_identifier="7654321",
+        verified=True,
+    )
+    db.add(link)
+    await db.commit()
+
+    async def _posts(_: int, *, cutoff: datetime) -> list[dict[str, Any]]:
+        assert cutoff < datetime.now(UTC)
+        return [
+            {
+                "bvid": bvid,
+                "title": title,
+                "created": int(datetime.now(UTC).timestamp()),
+                "length": "1:42",
+            }
+            for bvid, title in [
+                ("BVblocked", "【GOKZ】New run"),
+                ("BVsecond", "KZ run"),
+                ("BVhidden", "Cooking"),
+            ]
+        ]
+
+    detail_requests = 0
+
+    def _response(request: httpx.Request) -> httpx.Response:
+        nonlocal detail_requests
+        detail_requests += 1
+        return httpx.Response(412, text="Blocked HTML response", request=request)
+
+    client_type = httpx.AsyncClient
+    monkeypatch.setattr(
+        bilibili_media.httpx,
+        "AsyncClient",
+        lambda **kw: client_type(**kw, transport=httpx.MockTransport(_response)),
+    )
+    monkeypatch.setattr(bilibili_media, "fetch_bilibili_posts", _posts)
+    for _ in range(2):
+        await bilibili_media.sync_bilibili_media_once(session=db)
+    posts = (
+        await db.exec(select(MediaPost).order_by(MediaPost.external_video_id))
+    ).all()
+    assert len(posts) == 3
+    assert {p.external_video_id for p in posts if p.is_kz_video} == {
+        "BVblocked",
+        "BVsecond",
+    }
+    assert all(p.last_error is not None for p in posts)
+    assert all(p.metadata_checked_at is None for p in posts)
+    assert all(p.duration_seconds == 102 for p in posts)
+    assert detail_requests == 1  # Shared cooldown prevents a request per video/cycle.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "status,payload", [(412, {}), (429, {}), (200, {"code": -412})]
+)
+async def test_detail_requests_back_off_without_retries_and_recover(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    payload: dict[str, Any],
+) -> None:
+    now = datetime(2026, 10, 30, tzinfo=UTC)
+    calls = 0
+    blocked = True
+
+    def _response(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        if blocked:
+            return httpx.Response(status, json=payload, request=request)
+        return httpx.Response(
+            200, json={"code": 0, "data": {"title": "KZ run"}}, request=request
+        )
+
+    client_type = httpx.AsyncClient
+    monkeypatch.setattr(
+        bilibili_media.httpx,
+        "AsyncClient",
+        lambda **kw: client_type(**kw, transport=httpx.MockTransport(_response)),
+    )
+    monkeypatch.setattr(bilibili_media, "get_datetime_utc", lambda: now)
+    monkeypatch.setattr(bilibili_media, "_request_backoffs", {})
+    for _ in range(2):
+        with pytest.raises(bilibili_media.BilibiliBackoffError):
+            await bilibili_media.fetch_bilibili_video_detail("BVtest")
+    assert calls == 1
+    now += timedelta(minutes=15)
+    with pytest.raises(bilibili_media.BilibiliBackoffError):
+        await bilibili_media.fetch_bilibili_video_detail("BVtest")
+    assert calls == 2
+    now += timedelta(minutes=15)
+    with pytest.raises(bilibili_media.BilibiliBackoffError):
+        await bilibili_media.fetch_bilibili_video_detail("BVtest")
+    assert calls == 2  # Second rejection doubles the cooldown to 30 minutes.
+    now += timedelta(minutes=15)
+    blocked = False
+    assert await bilibili_media.fetch_bilibili_video_detail("BVtest") == {
+        "title": "KZ run"
+    }
+    assert calls == 3
+    assert not bilibili_media._request_backoffs
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("retry_after", ["7200", "Fri, 30 Oct 2026 02:00:00 GMT"])
+async def test_backoff_respects_retry_after_and_is_shared_with_view_refresh(
+    monkeypatch: pytest.MonkeyPatch,
+    retry_after: str,
+) -> None:
+    now = datetime(2026, 10, 30, tzinfo=UTC)
+    calls = 0
+
+    def _response(request: httpx.Request) -> httpx.Response:
+        nonlocal calls
+        calls += 1
+        return httpx.Response(
+            412,
+            text="blocked HTML response",
+            headers={"Retry-After": retry_after},
+            request=request,
+        )
+
+    client_type = httpx.AsyncClient
+    monkeypatch.setattr(
+        bilibili_media.httpx,
+        "AsyncClient",
+        lambda **kw: client_type(**kw, transport=httpx.MockTransport(_response)),
+    )
+    monkeypatch.setattr(bilibili_media, "get_datetime_utc", lambda: now)
+    with pytest.raises(bilibili_media.BilibiliBackoffError):
+        await bilibili_media.fetch_bilibili_video_detail("BVtest")
+    now += timedelta(minutes=60)
+    with pytest.raises(bilibili_media.BilibiliBackoffError):
+        await bilibili_media.fetch_bilibili_video_view_counts(["BVother"])
+    assert calls == 1
+    assert bilibili_media._request_backoffs[
+        bilibili_media.BILIBILI_VIDEO_VIEW_URL
+    ].retry_at == datetime(2026, 10, 30, 2, tzinfo=UTC)

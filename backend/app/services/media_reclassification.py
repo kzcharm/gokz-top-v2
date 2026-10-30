@@ -176,6 +176,7 @@ async def reclassify_media_posts(
         post.tags = bilibili_tags
         post.is_kz_video = classification.is_kz_video
         post.last_error = None
+        post.metadata_checked_at = get_datetime_utc()
 
     if not dry_run:
         await session.commit()

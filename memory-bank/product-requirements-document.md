@@ -2,7 +2,7 @@
 
 - Status: Draft
 - Owner: gokz-top-v2 team
-- Last Updated: 2026-10-24
+- Last Updated: 2026-10-30
 - Related Docs:
   - `memory-bank/gokz-top-v1.md`
   - `memory-bank/gokz-top-v2-prd.md`
@@ -106,6 +106,7 @@ Scope model:
 - Map-top admin mode provides a right-click action to soft-invalidate all strictly faster historical runs for all players within the same map/course, mode scope, and NUB/PRO category. Country/region filters and pagination do not restrict it. The confirmation previews affected runs in collapsed player groups using `PlayerDisplay`, with counts and time ranges; expanding shows individual runs. Preview failures or empty results block deletion, and changed records require renewed confirmation. Admin deletion invalidates raw runs and removes referencing PB entries without waiting for fallback PBs, points, WRs, or cache rebuilds. Admin invalidations notify each reporter once per exact reported record; sync/import/backfill invalidations do not notify.
 - `/live` lists player-centric verified stream cards sourced from verified Bilibili and Twitch links, with filters for live versus previously streamed players.
 - `/media` lists only positively classified KZ-related uploads from verified YouTube and Bilibili links. Exact `KZ`, `GOKZ`, `Kreedz`, and `CS2KZ` tags, standalone title/description keywords, and standalone `kz_`, `bkz_`, `kzpro_`, or `xc_` map-shaped tokens qualify; map tokens do not need to exist in the local catalog. Rejected and unresolved uploads remain internal for the 90-day retention window, and temporary metadata failures must not hide an already-positive upload. Bilibili ingestion must use signed creator-upload polling with an optional server-only dedicated-account session cookie so anti-bot responses do not prevent the public feed from updating.
+- Bilibili discovery must reuse unchanged successful metadata for 24 hours independently of view-count updates, reuse existing thumbnails, and continue showing positive upload-list text matches when canonical details are unavailable. Failed metadata remains retryable without demoting existing positive classifications. Per-process endpoint backoff after HTTP 412/429 or anti-bot responses starts at 15 minutes and doubles to six hours, respects longer Retry-After values, and covers manual/view-count requests as well as polling; blocked detail requests must not stop creator-upload discovery.
 - Offline `/live` cards must show the most recently observed stream across a player's enabled platforms, so future multi-platform support can prefer the newest Twitch/YouTube/Bilibili activity rather than a fixed platform order.
 - When Cloudflare R2 is configured, `/live` stores each changed Bilibili and Twitch stream keyframe at a new immutable UUIDv7 URL, skips uploads when the image hash is unchanged, and uses the last saved image for offline stream cards. Superseded objects are removed after the replacement is committed, while an hourly sweep removes unreferenced keyframes older than 24 hours.
 - Historical performance slices (records, jumpstats, replays, trend-oriented data).
