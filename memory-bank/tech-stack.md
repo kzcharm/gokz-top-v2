@@ -310,7 +310,7 @@ If a rating batch encounters a PostgreSQL deadlock or serialization conflict, th
 
 ## Shared QQ and Discord Bot
 
-- The `qqbot/` submodule runs one NoneBot application with independently configurable QQ and Discord adapters. A shared Alconna catalog defines commands, aliases, help, QQ command panels, and Discord slash options; shared services return platform-independent results for Chinese QQ Markdown/keyboards and English Discord embeds/buttons.
+- The `qqbot/` submodule runs one NoneBot application with independently configurable QQ and Discord adapters. Discord uses the Alconna catalog and structured services for English slash commands and embeds/buttons. QQ retains the pre-refactor handlers and presentation helpers, including its original help image, command-panel discovery, Chinese Markdown, keyboards, aliases, selectors, and voice replies. Adapter-specific registration prevents duplicate execution while preserving shared API and SQLite infrastructure. QQ presentation definitions are checked against the pre-refactor baseline in regression tests.
 - Both platforms verify the existing website-issued `KZTOP` binding codes locally with `QQ_BOT_SECRET`; no new website endpoint or deployment is needed. Discord bindings/preferences use `bot_platform_preferences`, keyed by `discord:<user-id>`, while existing QQ rows are preserved. Daily picks remain independent across platforms. The website's Discord social-link verification is separate.
 - SQLite upgrades run transactionally before ancillary table initialization. Deployment backs up SQLite and records the previous image, then checks both adapter connections. Discord omits automatic voice compliments. The existing image name, Compose project, service, and persistent SQLite path remain unchanged.
 
