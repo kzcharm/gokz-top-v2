@@ -338,7 +338,7 @@ After changing these limits or the formula, run `kztop build rating` across all 
 
 ## Shared QQ and Discord Bot
 
-- QQ and Discord expose GOKZ command features through one NoneBot application. Discord uses Alconna; QQ preserves its original response handlers, help image, command panel, Chinese Markdown, keyboards, aliases, and button actions exactly as before the refactor. Discord uses English slash commands, embeds, buttons, and player cards. QQ-only rendering diagnostics and automatic voice compliments remain platform-specific.
+- QQ and Discord expose GOKZ command features through one NoneBot application. Both use one feature executor for queries, calculations, validation, and writes. Discord uses Alconna; QQ keeps presentation-only compatibility handlers that preserve its original help image, command panel, Chinese Markdown, keyboards, aliases, and button actions. Adding a catalog feature does not require a second platform-specific feature implementation. Discord uses English slash commands, embeds, buttons, and player cards. QQ-only rendering diagnostics and automatic voice compliments remain platform-specific.
 - Discord users initially bind using the existing website binding-code page and `/bind code:<code>`, with a private reply. This is independent of website Discord social links and requires no website deployment. Preferences and daily maps remain independent per platform account.
 - Discord interactive controls are restricted to the requesting user and expire after ten minutes or restart. Discord acknowledges slow commands immediately; binding and account-connection errors remain private. Root identities are platform-qualified, and server defaults apply to QQ groups or Discord guilds.
 
