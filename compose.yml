@@ -2,6 +2,8 @@ services:
 
   db:
     image: postgres:18
+    # Parallel ranking aggregates exceed Docker's 64 MiB default.
+    shm_size: ${POSTGRES_SHM_SIZE:-512m}
     restart: always
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
