@@ -4,6 +4,7 @@ import uuid
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from starlette.requests import ClientDisconnect
 
 from app.api.deps import SessionDep
 from app.api.v1.player_sessions import _get_server_group_from_api_key
@@ -68,8 +69,15 @@ async def upload_replay(
     await session.commit()
     # Bound both chunked and Content-Length uploads. No unbounded request.body().
     data = bytearray()
-    async for chunk in request.stream():
-        if len(data) + len(chunk) > 256 * 1024 * 1024:
-            raise HTTPException(413, "Replay exceeds the 256 MiB upload limit")
-        data.extend(chunk)
+    try:
+        async for chunk in request.stream():
+            if len(data) + len(chunk) > 256 * 1024 * 1024:
+                raise HTTPException(413, "Replay exceeds the 256 MiB upload limit")
+            data.extend(chunk)
+    except ClientDisconnect:
+        # The accepted record and private replay remain retryable. Never pass a
+        # partial body to validation/storage or turn a lost client into an ASGI error.
+        raise HTTPException(
+            408, "Replay upload interrupted; retry the same record UUID"
+        )
     return await accept_replay(session, group, record_uuid, bytes(data))
