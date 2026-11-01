@@ -555,7 +555,7 @@ export const en = {
       filters: {
         map: "Filter WRs by map",
         tier: "Tier",
-        type: "Toggle NUB or PRO WRs",
+        type: "World record type",
         noMaps: "No maps found.",
       },
     },
@@ -1363,7 +1363,7 @@ export const en = {
     },
     personal: {
       sort: "My Runs",
-      type: "Use PRO personal bests",
+      type: "Personal best type",
       completion: "Filter maps by completion",
       all: "All maps",
       finished: "Finished",
@@ -1607,12 +1607,13 @@ export const en = {
   },
   compare: {
     winningMaps: "Winning maps · filtered",
-    winningMapsHint: "Faster finishes on maps completed by both players. Ties are excluded.",
+    winningMapsHint:
+      "Faster finishes on maps completed by both players. Ties are excluded.",
 
     gapDisplay: "Time comparison",
     difference: "Difference",
     ratio: "Ratio",
-    completionType: "Show PRO completion",
+    completionType: "Completion type",
     skillsAria: "Skill comparison between {{player1}} and {{player2}}",
     skillsMissing:
       "Players with unavailable skill ratings are omitted from the chart.",

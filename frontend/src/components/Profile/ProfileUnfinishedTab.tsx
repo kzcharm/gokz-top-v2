@@ -10,9 +10,9 @@ import {
   useState,
 } from "react"
 import { useTranslation } from "react-i18next"
-
 import type { MapPublic, RecordPublic } from "@/client"
 import { MapDisplay } from "@/components/Common/MapDisplay"
+import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import {
   TierSelector,
   type TierSelectorValue,
@@ -23,9 +23,7 @@ import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Switch } from "@/components/ui/switch"
 import {
   Table,
   TableBody,
@@ -582,18 +580,11 @@ export function ProfileUnfinishedTab({
           />
         </div>
         {!isSplitLayout ? (
-          <Label
-            htmlFor="profile-unfinished-pro-only"
-            className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
-          >
-            <Switch
-              id="profile-unfinished-pro-only"
-              checked={isProOnly}
-              onCheckedChange={onIsProOnlyChange}
-              className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
-            />
-            <span>{isProOnly ? "PRO" : "NUB"}</span>
-          </Label>
+          <RecordTypeTabs
+            id="profile-unfinished-pro-only"
+            isProOnly={isProOnly}
+            onCheckedChange={onIsProOnlyChange}
+          />
         ) : null}
       </div>
 

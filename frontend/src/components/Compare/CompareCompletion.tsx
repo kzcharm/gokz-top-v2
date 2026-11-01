@@ -7,7 +7,7 @@ import {
   type PlayerComparisonPublic,
   type RecordPublic,
 } from "@/client"
-import { RecordTypeToggle } from "@/components/Common/RecordTypeToggle"
+import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import { TROPHY_ASSETS } from "@/components/Common/trophy-assets"
 import {
   buildProfileCompletionData,
@@ -88,8 +88,9 @@ export function CompareCompletion({
           <h3 className="text-xs font-semibold uppercase tracking-[0.22em] text-muted-foreground">
             {t(`profile.completion.${type}Title`)}
           </h3>
-          <RecordTypeToggle
+          <RecordTypeTabs
             id="compare-completion-type"
+            size="sm"
             isProOnly={type === "pro"}
             onCheckedChange={(checked) => setType(checked ? "pro" : "nub")}
             ariaLabel={t("compare.completionType")}

@@ -1184,7 +1184,7 @@ test("Maps catalog supports search, sorting, pagination, and map detail navigati
   await page.getByRole("button", { name: "Find Me", exact: true }).click()
   await expect(myRow).toHaveClass(/leaderboard-self-spotlight/)
 
-  await page.getByRole("button", { name: "NUB", exact: true }).click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await expect
     .poll(() =>
       leaderboardRequests.some(
@@ -1772,7 +1772,7 @@ test("Map WR history shows WR events and switches record type", async ({
     fullPage: true,
   })
 
-  await page.getByRole("button", { name: "NUB", exact: true }).click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await expect.poll(() => historyRequests.at(-1)).toContain("type=PRO")
   await expect(page.getByTestId("map-wr-history-table")).toContainText(
     "Pro Holder",

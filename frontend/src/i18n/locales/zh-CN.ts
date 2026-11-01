@@ -541,7 +541,7 @@ export const zhCN = {
       filters: {
         map: "按地图筛选 WR",
         tier: "难度",
-        type: "切换 NUB/PRO WR",
+        type: "世界纪录类别",
         noMaps: "未找到地图。",
       },
     },
@@ -1322,7 +1322,7 @@ export const zhCN = {
     },
     personal: {
       sort: "我的跑图纪录",
-      type: "使用 PRO 个人最佳纪录",
+      type: "个人最佳纪录类别",
       completion: "按完成状态筛选地图",
       all: "全部地图",
       finished: "已完成",
@@ -1561,7 +1561,7 @@ export const zhCN = {
     gapDisplay: "用时对比方式",
     difference: "差值",
     ratio: "倍数",
-    completionType: "显示 PRO 完成度",
+    completionType: "完成度类别",
     skillsAria: "{{player1}} 与 {{player2}} 的技能对比",
     skillsMissing: "技能评分不可用的玩家不会显示在图表中。",
     sortBy: "排序依据",

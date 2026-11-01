@@ -30,6 +30,7 @@ import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapNameContextMenu } from "@/components/Common/MapDisplay"
 import NotFound from "@/components/Common/NotFound"
+import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { RowContextMenuItem } from "@/components/Common/RowContextMenu"
 import { formatRecordTime } from "@/components/Records/utils"
@@ -1086,40 +1087,20 @@ export function MapDetailPage({
                       <LocateFixed />
                       {t("maps.findMe")}
                     </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      aria-pressed={isProOnly}
-                      className={cn(
-                        "border-border/70 bg-background/80",
-                        isProOnly
-                          ? "border-[#3598db] bg-[#3598db] text-white hover:bg-[#2c84bf] hover:text-white dark:border-[#3598db] dark:bg-[#3598db] dark:text-white"
-                          : "border-[#f3c40f] bg-[#f3c40f] text-white hover:bg-[#d8ad0d] hover:text-white dark:border-[#f3c40f] dark:bg-[#f3c40f] dark:text-white",
-                      )}
-                      onClick={() => {
-                        setIsProOnly((currentValue) => !currentValue)
+                    <RecordTypeTabs
+                      isProOnly={isProOnly}
+                      onCheckedChange={(checked) => {
+                        setIsProOnly(checked)
                         setPendingSpotlightSteamid64(null)
                       }}
-                    >
-                      {isProOnly ? "PRO" : "NUB"}
-                    </Button>
+                    />
                   </div>
                 </div>
               ) : activeTab === "wrHistory" ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  aria-pressed={isProOnly}
-                  className={cn(
-                    "border-border/70 bg-background/80",
-                    isProOnly
-                      ? "border-[#3598db] bg-[#3598db] text-white hover:bg-[#2c84bf] hover:text-white dark:border-[#3598db] dark:bg-[#3598db] dark:text-white"
-                      : "border-[#f3c40f] bg-[#f3c40f] text-white hover:bg-[#d8ad0d] hover:text-white dark:border-[#f3c40f] dark:bg-[#f3c40f] dark:text-white",
-                  )}
-                  onClick={() => setIsProOnly((currentValue) => !currentValue)}
-                >
-                  {isProOnly ? "PRO" : "NUB"}
-                </Button>
+                <RecordTypeTabs
+                  isProOnly={isProOnly}
+                  onCheckedChange={setIsProOnly}
+                />
               ) : activeTab === "reviews" ? (
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
                   <Label

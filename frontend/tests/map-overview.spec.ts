@@ -253,7 +253,7 @@ test("map-wide metrics ignore table filters and use the NUB WR in PRO view", asy
   expect(wrRequests.some((url) => url.searchParams.get("type") === "PRO")).toBe(
     true,
   )
-  await page.getByRole("button", { name: "PRO", exact: true }).click()
+  await page.getByRole("tab", { name: "NUB", exact: true }).click()
   await page.getByRole("combobox").filter({ hasText: "Main" }).click()
   await page.getByRole("option", { name: "Bonus 1", exact: true }).click()
   await page.getByRole("button", { name: "Friends", exact: true }).click()

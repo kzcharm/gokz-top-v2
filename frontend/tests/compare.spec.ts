@@ -378,7 +378,7 @@ test("completion toggles one mirrored profile-style chart and highlights a playe
   await expect(
     page.locator('[data-compare-metric="player2"]').first(),
   ).toHaveCSS("opacity", "0.3")
-  await page.getByRole("switch", { name: "Show PRO completion" }).click()
+  await chart.getByRole("tab", { name: "PRO", exact: true }).click()
   await expect(
     chart.getByRole("heading", { name: /^PRO completion$/i }),
   ).toBeVisible()
@@ -386,7 +386,7 @@ test("completion toggles one mirrored profile-style chart and highlights a playe
     chart.getByRole("progressbar", { name: "Alpha: PRO T1", exact: true }),
   ).toHaveAttribute("aria-valuenow", "0")
   await expect(chart.getByRole("progressbar", { name: /NUB/ })).toHaveCount(0)
-  await page.getByRole("switch", { name: "Show PRO completion" }).click()
+  await chart.getByRole("tab", { name: "NUB", exact: true }).click()
   await expect(
     chart.getByRole("progressbar", { name: "Alpha: NUB T1", exact: true }),
   ).toHaveAttribute("aria-valuenow", "12")

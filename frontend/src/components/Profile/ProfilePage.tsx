@@ -17,7 +17,7 @@ import {
 import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
-import { RecordTypeToggle } from "@/components/Common/RecordTypeToggle"
+import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -774,11 +774,7 @@ export function ProfilePage({
   const profileTabsTrailingContent =
     activeTab === "records" ? (
       <div className="flex flex-wrap items-center gap-2">
-        <RecordTypeToggle
-          id="profile-records-pro-only"
-          isProOnly={isProOnly}
-          onCheckedChange={setIsProOnly}
-        />
+        <RecordTypeTabs isProOnly={isProOnly} onCheckedChange={setIsProOnly} />
         <Label
           htmlFor="profile-records-bonus"
           className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"

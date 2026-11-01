@@ -230,8 +230,8 @@ test("one PB type drives overlay, completion, and full-catalog sorting", async (
   await expect(page.getByTestId("map-pb-1")).toHaveText("PB: 0:30.000")
   await expect(page.getByLabel("Filter maps by tier")).toContainText("Tier")
   await expect(
-    page.getByRole("button", { name: "Use PRO personal bests" }),
-  ).toHaveText("NUB")
+    page.getByRole("tab", { name: "NUB", exact: true }),
+  ).toHaveAttribute("aria-selected", "true")
   await expect(page.getByTestId("map-pb-3")).toHaveText("Unfinished")
   await page.getByRole("button", { name: "My Runs", exact: true }).click()
   await page.getByRole("button", { name: "PB Time", exact: true }).click()
@@ -240,7 +240,7 @@ test("one PB type drives overlay, completion, and full-catalog sorting", async (
   ).toHaveAttribute("data-testid", "map-card-kz_pick_27")
   await completion(page, "Finished")
   await order(page, ["kz_pick_27", "kz_pick_01", "kz_pick_00"])
-  await page.getByRole("button", { name: "Use PRO personal bests" }).click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await order(page, ["kz_pick_01"])
   await expect(page.getByTestId("map-pb-2")).toHaveText("PB: 0:25.000")
   await completion(page, "Unfinished")
@@ -317,9 +317,9 @@ test("public metrics explain values, sort gaps, and persist card options", async
 }) => {
   const requests = await install(page, { guest: true })
   await page.goto("/maps")
-  await expect(
-    page.getByRole("button", { name: "Use PRO personal bests" }),
-  ).toHaveCount(0)
+  await expect(page.getByRole("tab", { name: "PRO", exact: true })).toHaveCount(
+    0,
+  )
   await page.getByRole("button", { name: "Metrics", exact: true }).click()
   await expect(
     page.getByRole("button", { name: "Metrics", exact: true }).locator("svg"),
@@ -529,7 +529,7 @@ test("unfinished waits for PBs and follows the PRO eligibility preference", asyn
   await expect(page.locator('[data-testid^="map-card-"]')).toHaveCount(0)
   release()
   await expect(page.getByText("27 / 30", { exact: true })).toBeVisible()
-  await page.getByRole("button", { name: "Use PRO personal bests" }).click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await expect(page.getByText("29 / 30", { exact: true })).toBeVisible()
 })
 
@@ -542,7 +542,7 @@ test.describe("touch controls", () => {
     await install(page)
     await page.goto("/maps")
     await expect(page.getByTestId("map-pb-1")).toHaveText("PB: 0:30.000")
-    await page.getByRole("button", { name: "Use PRO personal bests" }).tap()
+    await page.getByRole("tab", { name: "PRO", exact: true }).tap()
     await expect(page.getByTestId("map-pb-1")).toHaveText("Unfinished")
     await expect(page.getByTestId("map-pb-2")).toHaveText("PB: 0:25.000")
     await page.getByRole("button", { name: "Metrics", exact: true }).tap()
@@ -596,7 +596,7 @@ for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: 900 })
     await install(page)
     await page.goto("/maps")
-    await page.getByRole("button", { name: "Use PRO personal bests" }).click()
+    await page.getByRole("tab", { name: "PRO", exact: true }).click()
     await completion(page, "Unfinished")
     await page.getByRole("button", { name: "Metrics", exact: true }).click()
     await page
@@ -625,8 +625,8 @@ for (const width of [1280, 390]) {
       page.getByRole("textbox", { name: "Search maps by name" }),
     ).toHaveValue("")
     await expect(
-      page.getByRole("button", { name: "Use PRO personal bests" }),
-    ).toHaveText("NUB")
+      page.getByRole("tab", { name: "NUB", exact: true }),
+    ).toHaveAttribute("aria-selected", "true")
     await expect(page.getByLabel("Review summary").first()).toBeVisible()
     await page.getByRole("button", { name: "Presets", exact: true }).click()
     await page.getByRole("menuitem", { name: "Apply preset My maps" }).click()
@@ -634,8 +634,8 @@ for (const width of [1280, 390]) {
       page.getByRole("textbox", { name: "Search maps by name" }),
     ).toHaveValue("kz_pick_00")
     await expect(
-      page.getByRole("button", { name: "Use PRO personal bests" }),
-    ).toHaveText("PRO")
+      page.getByRole("tab", { name: "PRO", exact: true }),
+    ).toHaveAttribute("aria-selected", "true")
     await expect(
       page.getByRole("button", { name: "Unfinished", exact: true }),
     ).toHaveAttribute("aria-pressed", "true")
@@ -711,7 +711,7 @@ test("maps default view overrides session state until cleared", async ({
   await page
     .getByRole("textbox", { name: "Search maps by name" })
     .fill("kz_pick_02")
-  await page.getByRole("button", { name: "Use PRO personal bests" }).click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await page.getByRole("button", { name: "Select record scope" }).click()
   await page.getByRole("menuitemradio", { name: "SKZ" }).click()
   await page.getByRole("button", { name: "Presets", exact: true }).click()
@@ -731,8 +731,8 @@ test("maps default view overrides session state until cleared", async ({
     page.getByRole("textbox", { name: "Search maps by name" }),
   ).toHaveValue("kz_pick_02")
   await expect(
-    page.getByRole("button", { name: "Use PRO personal bests" }),
-  ).toHaveText("PRO")
+    page.getByRole("tab", { name: "PRO", exact: true }),
+  ).toHaveAttribute("aria-selected", "true")
   await expect(
     page.getByRole("button", { name: "Select record scope" }),
   ).toHaveText("SKZ")
@@ -750,8 +750,8 @@ test("maps default view overrides session state until cleared", async ({
     page.getByRole("textbox", { name: "Search maps by name" }),
   ).toHaveValue("")
   await expect(
-    page.getByRole("button", { name: "Use PRO personal bests" }),
-  ).toHaveText("NUB")
+    page.getByRole("tab", { name: "NUB", exact: true }),
+  ).toHaveAttribute("aria-selected", "true")
   await page.getByRole("button", { name: "Presets", exact: true }).click()
   await expect(
     page.getByRole("menuitem", { name: "Clear default view", exact: true }),

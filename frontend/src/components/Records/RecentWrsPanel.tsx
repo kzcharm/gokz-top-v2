@@ -8,7 +8,6 @@ import { Link } from "@tanstack/react-router"
 import { X } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   ApiError,
   type MapPublic,
@@ -25,6 +24,7 @@ import {
   getPlayerDisplayName,
   PlayerDisplay,
 } from "@/components/Common/PlayerDisplay"
+import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import {
   TierSelector,
   type TierSelectorValue,
@@ -549,23 +549,12 @@ export function RecentWrsPanel() {
           showAllLabelInTrigger
           triggerClassName="h-9 w-full min-w-24 border-border/70 bg-background/80 px-3 text-sm sm:w-auto"
         />
-        <Button
-          type="button"
-          variant="outline"
-          aria-pressed={type === "PRO"}
-          aria-label={t("dashboard.wrs.filters.type")}
-          className={cn(
-            "w-full border-border/70 bg-background/80 sm:w-auto",
-            type === "PRO"
-              ? "border-[#3598db] bg-[#3598db] text-white hover:bg-[#2c84bf] hover:text-white dark:border-[#3598db] dark:bg-[#3598db] dark:text-white"
-              : "border-[#f3c40f] bg-[#f3c40f] text-white hover:bg-[#d8ad0d] hover:text-white dark:border-[#f3c40f] dark:bg-[#f3c40f] dark:text-white",
-          )}
-          onClick={() => {
-            setType((currentType) => (currentType === "PRO" ? "NUB" : "PRO"))
-          }}
-        >
-          {type}
-        </Button>
+        <RecordTypeTabs
+          isProOnly={type === "PRO"}
+          onCheckedChange={(checked) => setType(checked ? "PRO" : "NUB")}
+          ariaLabel={t("dashboard.wrs.filters.type")}
+          className="w-full sm:w-auto [&_[role=tablist]]:w-full"
+        />
       </div>
 
       {isPreparing ? (

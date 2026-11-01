@@ -3,9 +3,9 @@ import type { EChartsOption, EChartsType } from "echarts"
 import * as echarts from "echarts"
 import { LineChart } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
-
 import type { RecordPublic, RecordRunHistoryEntryPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
+import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import type { AppScope } from "@/components/scope-provider"
 import { useTheme } from "@/components/theme-provider"
@@ -659,20 +659,13 @@ export function RecordRunHistoryDialog({
               />
               <span>Best/day</span>
             </Label>
-            <Label
-              htmlFor="record-run-history-pro-only"
-              className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
-            >
-              <Switch
-                id="record-run-history-pro-only"
-                checked={recordType === "PRO"}
-                onCheckedChange={(checked) => {
-                  setRecordType(checked ? "PRO" : "NUB")
-                }}
-                className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
-              />
-              <span>{recordType}</span>
-            </Label>
+            <RecordTypeTabs
+              id="record-run-history-pro-only"
+              isProOnly={recordType === "PRO"}
+              onCheckedChange={(checked) =>
+                setRecordType(checked ? "PRO" : "NUB")
+              }
+            />
           </div>
         </div>
 

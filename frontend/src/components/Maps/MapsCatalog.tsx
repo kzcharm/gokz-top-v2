@@ -36,7 +36,7 @@ import {
   type RecordPublic,
 } from "@/client"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
-import { RecordTypeToggle } from "@/components/Common/RecordTypeToggle"
+import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import {
   TierSelector,
   type TierSelectorValue,
@@ -2092,9 +2092,8 @@ export function MapsCatalog() {
                 ) : null}
               </Button>
               {user ? (
-                <RecordTypeToggle
+                <RecordTypeTabs
                   id="maps-pro-only"
-                  variant="button"
                   isProOnly={isProOnly}
                   ariaLabel={t("maps.personal.type")}
                   onCheckedChange={(checked) => {

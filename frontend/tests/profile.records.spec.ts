@@ -698,7 +698,7 @@ test("First completion is temporary and saved sorts cannot enable its query", as
     ).toBeEnabled()
   }
   await enable()
-  await page.locator("#profile-records-pro-only").click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await expect.poll(() => requests.at(-1)?.searchParams.get("type")).toBe("PRO")
   await page.locator("#profile-records-bonus").click()
   await expect
@@ -777,7 +777,7 @@ test("Profile PB ranks are opt-in, scoped, sortable, and remembered", async ({
   await page.reload()
   await expect(page.getByTestId("pb-record-rank")).toHaveCount(2)
   expect(rankedRequests).toHaveLength(2)
-  await page.locator("#profile-records-pro-only").click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await expect
     .poll(() => rankedRequests.at(-1)?.searchParams.get("type"))
     .toBe("PRO")
@@ -998,6 +998,25 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
     "active",
   )
 
+  const nubTab = page.getByRole("tab", { name: "NUB", exact: true })
+  const proTab = page.getByRole("tab", { name: "PRO", exact: true })
+  await expect(nubTab).toHaveAttribute("aria-selected", "true")
+  await expect(nubTab).toHaveCSS("background-color", "rgb(243, 196, 15)")
+  await expect(page.getByRole("tablist", { name: "Run type" })).toHaveCSS(
+    "border-top-width",
+    "1px",
+  )
+  await proTab.click()
+  await expect(proTab).toHaveAttribute("aria-selected", "true")
+  await expect(proTab).toHaveCSS("background-color", "rgb(53, 152, 219)")
+  await expect(nubTab).not.toHaveCSS("background-color", "rgb(243, 196, 15)")
+  await expect(nubTab).toHaveAttribute("aria-selected", "false")
+  await expect.poll(() => pbRequests.at(-1)?.isProOnly).toBe("true")
+  await expect(page.getByText("kz_seed_beta")).toHaveCount(0)
+  await proTab.press("ArrowLeft")
+  await expect(nubTab).toHaveAttribute("aria-selected", "true")
+  await expect(proTab).toHaveAttribute("aria-selected", "false")
+
   await expect(page.getByRole("columnheader", { name: "Map" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Mode" })).toBeVisible()
   await expect(page.getByRole("columnheader", { name: "Tier" })).toBeVisible()
@@ -1097,7 +1116,7 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
 
   await page.getByLabel("Search server").fill("")
 
-  await page.getByRole("switch", { name: "Nub" }).click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
 
   await expect(page.getByText("kz_seed_alpha")).toBeVisible()
   await expect(page.getByText("kz_seed_beta")).toHaveCount(0)
@@ -1389,7 +1408,7 @@ test("Profile records presets persist and restore filters and sort", async ({
   })
 
   await page.goto(`/profile/${steamid64}/runs`)
-  await page.getByRole("switch", { name: "NUB" }).click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await page.getByLabel("Search map name").fill("alpha")
   await page.getByLabel("Filter by points range").click()
   await page.getByRole("spinbutton", { name: "Minimum points" }).fill("300")
@@ -1418,14 +1437,18 @@ test("Profile records presets persist and restore filters and sort", async ({
 
   await page.getByRole("button", { name: "Presets" }).click()
   await page.getByText("Reset view").click()
-  await expect(page.getByRole("switch", { name: "NUB" })).not.toBeChecked()
+  await expect(
+    page.getByRole("tab", { name: "NUB", exact: true }),
+  ).toHaveAttribute("aria-selected", "true")
   await expect(page.getByLabel("Search map name")).toHaveValue("")
 
   await page.reload()
   await page.getByRole("button", { name: "Presets" }).click()
   await page.getByRole("button", { name: "Apply preset Focused PRO" }).click()
 
-  await expect(page.getByRole("switch", { name: "PRO" })).toBeChecked()
+  await expect(
+    page.getByRole("tab", { name: "PRO", exact: true }),
+  ).toHaveAttribute("aria-selected", "true")
   await expect(page.getByLabel("Search map name")).toHaveValue("alpha")
   await page.getByLabel("Filter by points range").click()
   await expect(
@@ -1829,7 +1852,7 @@ test("profile Runs default view persists until cleared", async ({ page }) => {
     route.fulfill({ json: ovrRecords }),
   )
   await page.goto(`/profile/${steamid64}/runs`)
-  await page.getByRole("switch", { name: "NUB" }).click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await page.getByLabel("Search map name").fill("alpha")
   await page.getByRole("button", { name: "Points", exact: true }).click()
   await page.getByRole("button", { name: "Presets", exact: true }).click()
@@ -1838,7 +1861,9 @@ test("profile Runs default view persists until cleared", async ({ page }) => {
     .click()
   await page.getByLabel("Search map name").fill("changed")
   await page.reload()
-  await expect(page.getByRole("switch", { name: "PRO" })).toBeChecked()
+  await expect(
+    page.getByRole("tab", { name: "PRO", exact: true }),
+  ).toHaveAttribute("aria-selected", "true")
   await expect(page.getByLabel("Search map name")).toHaveValue("alpha")
   await expect(
     page
@@ -1850,7 +1875,9 @@ test("profile Runs default view persists until cleared", async ({ page }) => {
     .getByRole("menuitem", { name: "Clear default view", exact: true })
     .click()
   await page.reload()
-  await expect(page.getByRole("switch", { name: "NUB" })).not.toBeChecked()
+  await expect(
+    page.getByRole("tab", { name: "NUB", exact: true }),
+  ).toHaveAttribute("aria-selected", "true")
   await expect(page.getByLabel("Search map name")).toHaveValue("")
   await page.getByRole("button", { name: "Presets", exact: true }).click()
   await expect(

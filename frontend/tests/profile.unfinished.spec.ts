@@ -501,7 +501,7 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
   await expectRowOrder(page, "pro", [])
 })
 
-test("Profile unfinished tab keeps the NUB PRO switch on mobile widths", async ({
+test("Profile unfinished tab keeps the NUB PRO tabs on mobile widths", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 390, height: 844 })
@@ -509,12 +509,12 @@ test("Profile unfinished tab keeps the NUB PRO switch on mobile widths", async (
 
   await page.goto(`/profile/${steamid64}/unfinished`)
 
-  await expect(page.getByRole("switch")).toBeVisible()
+  await expect(page.getByRole("tablist", { name: "Run type" })).toBeVisible()
   await expect(page.getByTestId("profile-unfinished-column-nub")).toBeVisible()
   await expect(page.getByTestId("profile-unfinished-column-pro")).toHaveCount(0)
 
   await expectRowOrder(page, "nub", ["kz_beta", "kz_delta", "kz_gamma"])
-  await page.getByRole("switch").click()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await expect(page.getByTestId("profile-unfinished-column-pro")).toBeVisible()
   await expectRowOrder(page, "pro", ["kz_delta", "kz_gamma"])
 })

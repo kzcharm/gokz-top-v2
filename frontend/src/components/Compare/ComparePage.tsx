@@ -6,10 +6,10 @@ import { ArrowLeftRight, LoaderCircle } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { PlayerComparisonPublic } from "@/client"
-
 import { PlayersService } from "@/client"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
 import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
+import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import {
   formatRating,
   getProfilePointsStandingQueryOptions,
@@ -625,20 +625,13 @@ export function ComparePage({
             <CompareRunsTable
               headerControls={
                 <div className="flex flex-wrap items-center gap-2">
-                  <Label
-                    htmlFor="compare-runs-pro-only"
-                    className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80 uppercase"
-                  >
-                    <Switch
-                      id="compare-runs-pro-only"
-                      checked={runType === "PRO"}
-                      onCheckedChange={(checked) =>
-                        setRunType(checked ? "PRO" : "NUB")
-                      }
-                      className="data-[state=unchecked]:bg-[#f3c40f] data-[state=unchecked]:shadow-[#f3c40f]/35 data-[state=checked]:bg-[#3598db] data-[state=checked]:shadow-[#3598db]/35 dark:data-[state=checked]:bg-[#3598db]"
-                    />
-                    <span>{runType}</span>
-                  </Label>
+                  <RecordTypeTabs
+                    id="compare-runs-pro-only"
+                    isProOnly={runType === "PRO"}
+                    onCheckedChange={(checked) =>
+                      setRunType(checked ? "PRO" : "NUB")
+                    }
+                  />
                   <Label
                     htmlFor="compare-runs-only-both"
                     className="flex h-9 w-fit items-center justify-start gap-2 rounded-lg border border-border/70 bg-background/80 px-3 text-[11px] font-medium tracking-[0.08em] text-foreground/80"
