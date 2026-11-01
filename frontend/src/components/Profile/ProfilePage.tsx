@@ -381,13 +381,13 @@ export function ProfilePage({
     }),
   )
   const pinnedRecordCandidates = pinnedRecordsQuery.data ?? []
-  const pinnedRecordUuids = useMemo(
-    () => pinnedRecordCandidates.map((entry) => entry.record.uuid),
+  const pinnedRankRecords = useMemo(
+    () => pinnedRecordCandidates.map((entry) => entry.record),
     [pinnedRecordCandidates],
   )
   const pinnedRecordRanksQuery = useQuery(
     getProfileRecordRanksQueryOptions({
-      recordUuids: pinnedRecordUuids,
+      records: pinnedRankRecords,
       scope,
     }),
   )

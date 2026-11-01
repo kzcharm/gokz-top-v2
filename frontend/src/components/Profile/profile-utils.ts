@@ -1027,35 +1027,43 @@ export async function unpinProfileRecord({
 }
 
 export function getProfileRecordRanksQueryOptions({
-  recordUuids,
+  records,
   scope,
 }: {
-  recordUuids: string[]
+  records: Pick<RecordPublic, "uuid" | "teleports">[]
   scope: AppScope
 }) {
+  const buckets = (["NUB", "PRO"] as const).map((type) => ({
+    type,
+    uuids: records
+      .filter((record) => (record.teleports === 0 ? "PRO" : "NUB") === type)
+      .map((record) => record.uuid),
+  }))
+
   return queryOptions({
-    queryKey: ["profile-record-ranks", scope, ...recordUuids],
+    queryKey: ["profile-record-ranks", scope, buckets],
     queryFn: async () => {
-      if (recordUuids.length === 0) {
-        return new Map<
-          string,
-          { rank: number | null; totalCount: number | null }
-        >()
-      }
-      const data = (await RecordsService.readRecordRanks({
-        uuidList: recordUuids,
-        scope,
-        type: "NUB",
-      })) as unknown as {
-        data?: Array<{
-          record_uuid: string
-          rank?: number | null
-          total_count?: number | null
-        }>
-      }
+      const results = await Promise.all(
+        buckets
+          .filter((bucket) => bucket.uuids.length > 0)
+          .map(async (bucket) => {
+            const data = (await RecordsService.readRecordRanks({
+              uuidList: bucket.uuids,
+              scope,
+              type: bucket.type,
+            })) as unknown as {
+              data?: Array<{
+                record_uuid: string
+                rank?: number | null
+                total_count?: number | null
+              }>
+            }
+            return data.data ?? []
+          }),
+      )
 
       return new Map(
-        (data.data ?? []).map((entry) => [
+        results.flat().map((entry) => [
           entry.record_uuid,
           {
             rank: entry.rank ?? null,
@@ -1064,7 +1072,7 @@ export function getProfileRecordRanksQueryOptions({
         ]),
       )
     },
-    enabled: recordUuids.length > 0,
+    enabled: records.length > 0,
     ...PROFILE_SESSION_QUERY_CONFIG,
   })
 }

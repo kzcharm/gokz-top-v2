@@ -704,7 +704,9 @@ test("Profile home renders live pinned records with points badges and absolute d
   await expect(page.getByText("WR", { exact: true })).toHaveCount(0)
   await expect(page.getByText("Top 10", { exact: true })).toHaveCount(0)
   await expect(page.getByText("960")).toBeVisible()
-  await expect(page.getByText("920")).toHaveCount(2)
+  await expect(
+    page.getByTestId("pinned-record-card").getByText("920", { exact: true }),
+  ).toHaveCount(2)
 
   await expect(page.getByText("#1", { exact: true })).toBeVisible()
   await expect(page.getByText("#2", { exact: true })).toBeVisible()
@@ -713,8 +715,12 @@ test("Profile home renders live pinned records with points badges and absolute d
     page.getByText("Rank unavailable", { exact: true }),
   ).toBeVisible()
 
-  await expect(page.getByText(/^2026-03-31 \d{2}:00$/)).toBeVisible()
-  await expect(page.getByText(/^2026-03-30 \d{2}:15$/)).toBeVisible()
+  await expect(
+    page.getByTestId("pinned-record-card").getByText("2026-03-31", { exact: true }),
+  ).toBeVisible()
+  await expect(
+    page.getByTestId("pinned-record-card").getByText("2026-03-30", { exact: true }),
+  ).toBeVisible()
 
   expect(requestedRankUuids).toEqual([
     nubRecords[0].uuid,
@@ -724,6 +730,62 @@ test("Profile home renders live pinned records with points badges and absolute d
     nubRecords[4].uuid,
     nubRecords[5].uuid,
   ])
+})
+
+test("Pinned PRO records use PRO ranks alongside NUB records", async ({
+  page,
+}) => {
+  await installProfileHomeRoutes(page)
+  const records = [{ ...nubRecords[0], teleports: 0 }, nubRecords[1]]
+  await page.route(
+    /\/v1\/players\/[^/]+\/pinned-records(\?.*)?$/,
+    async (route) => {
+      await route.fulfill({
+        json: {
+          data: records.map((record, index) => ({
+            id: `019e0000-0000-7000-8000-00000000000${index}`,
+            player_steamid64: steamid64,
+            map_id: record.map_id,
+            stage: record.stage,
+            // Zero-teleport PBs can also be pinned from the NUB bucket.
+            type: "NUB",
+            record,
+          })),
+          count: records.length,
+        },
+      })
+    },
+  )
+  const requests: Array<{ type: string | null; uuids: string[] }> = []
+  await page.route(/\/v1\/records\/rank(\?.*)?$/, async (route) => {
+    const url = new URL(route.request().url())
+    const type = url.searchParams.get("type")
+    const uuids = url.searchParams.getAll("uuid_list")
+    requests.push({ type, uuids })
+    await route.fulfill({
+      json: {
+        data: uuids.map((uuid) => ({
+          record_uuid: uuid,
+          rank: uuid === records[0].uuid ? (type === "PRO" ? 7 : null) : 12,
+          total_count: type === "PRO" ? 50 : 100,
+        })),
+        count: uuids.length,
+      },
+    })
+  })
+
+  await page.goto(`/profile/${steamid64}`)
+  const cards = page.getByTestId("pinned-record-card")
+  await expect(cards.filter({ hasText: "kz_alpha" })).toContainText("PRO")
+  await expect(cards.filter({ hasText: "kz_alpha" })).toContainText("#7 / 50")
+  await expect(cards.filter({ hasText: "kz_beta" })).toContainText("#12 / 100")
+  expect(requests).toHaveLength(2)
+  expect(requests).toEqual(
+    expect.arrayContaining([
+      { type: "PRO", uuids: [records[0].uuid] },
+      { type: "NUB", uuids: [records[1].uuid] },
+    ]),
+  )
 })
 
 test("Profile floors displayed ratings at two decimals", async ({ page }) => {
