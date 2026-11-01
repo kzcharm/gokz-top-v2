@@ -950,7 +950,7 @@ export const ru = {
       daysPlayed_many: "{{count}} дней {{duration}}",
       daysPlayed_other: "{{count}} дня {{duration}}",
       latest: "Недавнее",
-      calendarYear: "Календарный год",
+      calendarYear: "Год",
       latestRange: "последние 365 дней",
       loadFailed: "Сейчас не удаётся загрузить дневную активность.",
       emptyState: "В период {{range}} активности не было.",

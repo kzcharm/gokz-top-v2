@@ -926,7 +926,7 @@ export const en = {
       daysPlayed_one: "{{count}} day {{duration}}",
       daysPlayed_other: "{{count}} days {{duration}}",
       latest: "Recent",
-      calendarYear: "Calendar year",
+      calendarYear: "Year",
       latestRange: "the latest 365 days",
       loadFailed: "Unable to load daily activity right now.",
       emptyState: "No activity found in {{range}}.",
