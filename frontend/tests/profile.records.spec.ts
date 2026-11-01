@@ -171,6 +171,7 @@ const ovrRecords = [
     steam_id: null,
     server_id: 980300,
     server_name: "Seed Server",
+    native_server_name: "Seed Server · Exact Hostname",
     server_group: {
       id: "11111111-1111-4111-8111-111111111111",
       name: "Seed Server Group",
@@ -1050,6 +1051,12 @@ test("Profile records page renders sidebar, filters, and scope-aware PB rows", a
   await expect(
     page.getByRole("link", { name: "Seed Server Group" }),
   ).toHaveAttribute("href", "/servers/group/seed-server-group")
+  await expect(
+    page.getByRole("link", { name: "Seed Server Group" }),
+  ).toHaveAttribute(
+    "title",
+    "Seed Server Group\nSeed Server\nSeed Server · Exact Hostname",
+  )
   await expect(page.getByText("Seed Server", { exact: true })).toHaveCount(0)
   await expect(page.getByText("kz_seed_beta")).toBeVisible()
   await expect(page.getByText("kz_seed_gamma")).toBeVisible()

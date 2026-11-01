@@ -9517,6 +9517,17 @@ export const RecordPublicSchema = {
             type: 'string',
             title: 'Server Name'
         },
+        native_server_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Native Server Name'
+        },
         server_group: {
             anyOf: [
                 {

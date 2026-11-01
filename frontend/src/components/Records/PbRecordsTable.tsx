@@ -294,6 +294,7 @@ function PbRecordTableRow({
         <TableCell>
           <RecordServerDisplay
             serverName={record.server_name}
+            nativeServerName={record.native_server_name}
             serverGroup={record.server_group}
             className="max-w-full"
           />

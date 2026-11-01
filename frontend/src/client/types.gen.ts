@@ -1917,6 +1917,7 @@ export type RecordPublic = {
     server_id?: (number | null);
     native_server_id?: (string | null);
     server_name: string;
+    native_server_name?: (string | null);
     server_group?: (ServerGroupSummary | null);
     map_id: number;
     map_name: string;

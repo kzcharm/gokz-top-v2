@@ -1930,6 +1930,7 @@ def to_record_public(
         steam_id=None,
         server_id=record.server_id,
         native_server_id=record.native_server_id,
+        native_server_name=record.native_server_name,
         server_name=(server.name if server else record.native_server_name) or "",
         server_group=_to_server_group_summary(group=server_group),
         map_id=record.map_id,
@@ -3196,15 +3197,16 @@ async def get_pb_record_publics(
         else {}
     )
     replay_uuids = await available_record_uuids(session, [row[0] for row in rows])
-    native_ids = dict(
-        (
+    native_servers = {
+        row[0]: (row[1], row[2])
+        for row in (
             await session.exec(
-                select(Record.uuid, Record.native_server_id).where(
-                    col(Record.uuid).in_([row[0] for row in rows])
-                )
+                select(
+                    Record.uuid, Record.native_server_id, Record.native_server_name
+                ).where(col(Record.uuid).in_([row[0] for row in rows]))
             )
         ).all()
-    )
+    }
     return [
         RecordPublic(
             uuid=record_uuid,
@@ -3216,7 +3218,8 @@ async def get_pb_record_publics(
             },
             steam_id=None,
             server_id=server_id,
-            native_server_id=native_ids.get(record_uuid),
+            native_server_id=native_servers[record_uuid][0],
+            native_server_name=native_servers[record_uuid][1],
             server_name=server_name or "",
             server_group=_to_server_group_summary_from_values(
                 group_id=server_group_id,

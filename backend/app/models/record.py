@@ -655,6 +655,7 @@ class RecordPublic(SQLModel):
     server_id: int | None = None
     native_server_id: UUID | None = None
     server_name: str
+    native_server_name: str | None = None
     server_group: ServerGroupSummary | None = None
     map_id: int
     map_name: str

@@ -4,6 +4,7 @@ import type { ServerGroupSummary } from "@/client"
 import { cn, truncateText } from "@/lib/utils"
 
 interface RecordServerDisplayProps {
+  nativeServerName?: string | null
   serverName: string
   serverGroup?: ServerGroupSummary | null
   className?: string
@@ -12,12 +13,19 @@ interface RecordServerDisplayProps {
 
 export function RecordServerDisplay({
   serverName,
+  nativeServerName,
   serverGroup,
   className,
   maxLength = 32,
 }: RecordServerDisplayProps) {
   const label = serverGroup?.name?.trim() || serverName
-  const title = label || serverName
+  const title = [
+    serverGroup?.name?.trim(),
+    serverName,
+    nativeServerName !== serverName ? nativeServerName : null,
+  ]
+    .filter(Boolean)
+    .join("\n")
   const content = truncateText(label, maxLength)
 
   if (serverGroup) {
