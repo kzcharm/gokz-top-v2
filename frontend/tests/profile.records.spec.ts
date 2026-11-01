@@ -266,6 +266,35 @@ test("Development profile routes use regular modules instead of virtual split im
   }
 })
 
+for (const alias of ["Seed Alias", null, "   "]) {
+  test(`Profile runs title uses ${alias?.trim() ? "the alias" : `the name when alias is ${JSON.stringify(alias)}`}`, async ({
+    page,
+  }) => {
+    await installProfileShellRoutes(page)
+    await page.route(/\/v1\/players\/[^/]+$/, (route) =>
+      route.fulfill({ json: { ...seededPlayer, alias } }),
+    )
+    await page.route(/\/v1\/records\/pb(\?.*)?$/, (route) =>
+      route.fulfill({ json: [] }),
+    )
+
+    await page.goto(`/profile/${steamid64}/runs`)
+
+    const title = alias?.trim() || seededPlayer.name
+    await expect(page.getByTestId("navbar-page-title")).toHaveText(title)
+    await expect(page).toHaveTitle(`GOKZ.TOP - ${title}`)
+
+    await page.getByRole("tab", { name: "Stats", exact: true }).click()
+    await expect(page).toHaveURL(`/profile/${steamid64}/stats`)
+    await expect(page.getByTestId("navbar-page-title")).toHaveText(title)
+    await expect(page).toHaveTitle(`GOKZ.TOP - ${title}`)
+
+    await page.goto("/maps")
+    await expect(page.getByTestId("navbar-page-title")).toHaveText("Maps")
+    await expect(page).toHaveTitle("GOKZ.TOP - Maps")
+  })
+}
+
 test("Profile runs switch between automatic loading and remembered pagination", async ({
   page,
 }) => {

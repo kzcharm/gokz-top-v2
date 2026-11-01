@@ -1,7 +1,10 @@
+import { skipToken, useQuery } from "@tanstack/react-query"
 import { useRouterState } from "@tanstack/react-router"
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 
+import type { PlayerDetailPublic } from "@/client"
+import { getPlayerDisplayName } from "@/components/Common/PlayerDisplay"
 import { getPageTitle } from "@/lib/site"
 
 function getRouteTitleKey(pathname: string) {
@@ -48,6 +51,18 @@ export function useCurrentPageTitle() {
     select: (state) => state.location.pathname,
   })
   const { t } = useTranslation()
+  const profileMatch = pathname.match(/^\/profile\/([^/]+)(?:\/|$)/)
+  const identifier = profileMatch
+    ? decodeURIComponent(profileMatch[1])
+    : undefined
+  const { data: player } = useQuery<PlayerDetailPublic>({
+    queryKey: ["profile-player", identifier],
+    queryFn: skipToken,
+  })
+
+  if (profileMatch && player) {
+    return getPlayerDisplayName(player)
+  }
 
   if (pathname.startsWith("/maps/")) {
     return decodeURIComponent(pathname.split("/maps/")[1] ?? "")
@@ -59,13 +74,22 @@ export function useCurrentPageTitle() {
 
 export function DocumentTitleSync() {
   const pageTitle = useCurrentPageTitle()
+  const routeTitle = useRouterState({
+    select: (state) =>
+      state.matches
+        .flatMap((match) => match.meta ?? [])
+        .reverse()
+        .find((meta) => meta?.title)?.title,
+  })
   const { i18n } = useTranslation()
 
+  // Route metadata can replace the title after the location has already changed.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: Reapply the player title when route metadata commits.
   useEffect(() => {
     document.documentElement.lang = i18n.resolvedLanguage ?? "en"
 
     document.title = getPageTitle(pageTitle)
-  }, [i18n.resolvedLanguage, pageTitle])
+  }, [i18n.resolvedLanguage, pageTitle, routeTitle])
 
   return null
 }
