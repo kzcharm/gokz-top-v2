@@ -596,23 +596,23 @@ test("Profile activity counts days played within the selected period", async ({
   await page.goto(`/profile/${steamid64}`)
 
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
-    "4 days 1.1%",
+    "4 days 9.0 hours",
   )
   await expect(page.getByTestId("profile-activity-year-input")).toBeHidden()
   await page.getByTestId("profile-activity-view-calendar-year").click()
   await page.getByTestId("profile-activity-year-input").fill("2026")
   await page.getByTestId("profile-activity-year-input").press("Enter")
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
-    "3 days 0.8%",
+    "3 days 7.0 hours",
   )
 
   await page.getByTestId("profile-activity-previous-year").click()
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
-    "1 day 0.3%",
+    "1 day 2.0 hours",
   )
   await page.getByTestId("profile-activity-view-last-365-days").click()
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
-    "4 days 1.1%",
+    "4 days 9.0 hours",
   )
   await expect(page.getByTestId("profile-activity-year-input")).toBeHidden()
   await page.getByTestId("profile-activity-view-calendar-year").click()
@@ -837,7 +837,7 @@ test("Profile home activity card shows empty-year message for players without ac
     page.getByText("No activity found in the latest 365 days."),
   ).toBeVisible()
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
-    "0 days 0.0%",
+    "0 days 0.0 hours",
   )
   await expect(
     page.getByTestId(/profile-activity-cell-.+/).first(),
@@ -1256,7 +1256,7 @@ test("Profile activity uses session hours and view-relative quartiles", async ({
       daily_activity: {
         updated_at: playerStats.daily_activity.updated_at,
         days: [
-          { date: "2025-12-31", count: 0, total_seconds: 36000 },
+          { date: "2025-12-31", count: 0, total_seconds: 37800 },
           { date: "2026-01-01", count: 99, total_seconds: 1 },
           { date: "2026-03-30", count: 0, total_seconds: 3600 },
           { date: "2026-03-31", count: 0, total_seconds: 3600 },
@@ -1269,7 +1269,7 @@ test("Profile activity uses session hours and view-relative quartiles", async ({
   const sessionDay = page.getByTestId("profile-activity-cell-2026-03-31")
   await expect(sessionDay).toHaveAttribute("data-activity-level", "3")
   await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
-    "4 days 1.1%",
+    "4 days 12.5 hours",
   )
   await sessionDay.hover()
   await expect(
@@ -1290,3 +1290,26 @@ test("Profile activity uses session hours and view-relative quartiles", async ({
     page.getByTestId("profile-activity-cell-2026-04-01"),
   ).toHaveAttribute("data-activity-level", "0")
 })
+
+for (const { hours, expected } of [
+  { hours: 99.94, expected: "99.9 hours" },
+  { hours: 100, expected: "100 hours" },
+  { hours: 100.6, expected: "101 hours" },
+]) {
+  test(`Profile activity formats ${hours} hours as ${expected}`, async ({ page }) => {
+    await page.clock.setFixedTime(new Date("2026-04-03T12:00:00Z"))
+    await installProfileHomeRoutes(page, {
+      stats: {
+        ...playerStats,
+        daily_activity: {
+          ...playerStats.daily_activity,
+          days: [{ date: "2026-03-31", count: 1, total_seconds: hours * 3600 }],
+        },
+      },
+    })
+    await page.goto(`/profile/${steamid64}`)
+    await expect(page.getByTestId("profile-activity-days-played")).toHaveText(
+      `1 day ${expected}`,
+    )
+  })
+}

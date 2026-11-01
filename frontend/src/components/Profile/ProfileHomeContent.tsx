@@ -257,8 +257,10 @@ function buildActivityCalendar({
   )
 
   return {
-    totalDays:
-      Math.round((endDate.getTime() - startDate.getTime()) / 86_400_000) + 1,
+    totalSeconds: Array.from(countsByDate.values()).reduce(
+      (total, day) => total + (day.total_seconds ?? 0),
+      0,
+    ),
     monthLabels: spacedMonthLabels,
     weeks,
     daysPlayed: Array.from(countsByDate.values()).filter(
@@ -309,7 +311,7 @@ function ActivityCard({
 
   const {
     daysPlayed,
-    totalDays,
+    totalSeconds,
     monthLabels,
     weeks,
     emptyStateLabel,
@@ -546,11 +548,13 @@ function ActivityCard({
                 >
                   {t("profile.activity.daysPlayed", {
                     count: daysPlayed,
-                    percentage: new Intl.NumberFormat(locale, {
-                      style: "percent",
-                      minimumFractionDigits: 1,
-                      maximumFractionDigits: 1,
-                    }).format(daysPlayed / totalDays),
+                    duration: new Intl.NumberFormat(locale, {
+                      style: "unit",
+                      unit: "hour",
+                      unitDisplay: "long",
+                      minimumFractionDigits: totalSeconds < 360000 ? 1 : 0,
+                      maximumFractionDigits: totalSeconds < 360000 ? 1 : 0,
+                    }).format(totalSeconds / 3600),
                   })}
                 </span>
               ) : null}

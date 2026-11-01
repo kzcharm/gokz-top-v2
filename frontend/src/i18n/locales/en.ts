@@ -923,8 +923,8 @@ export const en = {
     },
     activity: {
       title: "Activity",
-      daysPlayed_one: "{{count}} day {{percentage}}",
-      daysPlayed_other: "{{count}} days {{percentage}}",
+      daysPlayed_one: "{{count}} day {{duration}}",
+      daysPlayed_other: "{{count}} days {{duration}}",
       latest: "Recent",
       calendarYear: "Calendar year",
       latestRange: "the latest 365 days",
