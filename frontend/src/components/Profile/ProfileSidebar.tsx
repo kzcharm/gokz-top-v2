@@ -103,7 +103,7 @@ function ProfileIdentityText({
   )
 
   return (
-    <span ref={ref} className="block truncate" title={text}>
+    <span ref={ref} className="block [overflow-wrap:anywhere]">
       {text}
     </span>
   )
@@ -427,11 +427,11 @@ function ProfileIdentityCard({
 
               <div className="w-full min-w-0 space-y-2">
                 <div className="space-y-1.5 pt-1">
-                  <div className="flex min-w-0 items-center justify-center gap-2">
+                  <div className="flex min-w-0 items-start justify-center gap-2">
                     <CountryFlag
                       countryCode={player.country}
-                      className="h-5 w-7 shrink-0 rounded-[4px]"
-                      fallbackClassName="h-5 w-7 shrink-0 rounded-[4px]"
+                      className="mt-1 h-5 w-7 shrink-0 rounded-[4px]"
+                      fallbackClassName="mt-1 h-5 w-7 shrink-0 rounded-[4px]"
                     />
                     {steamProfileUrl ? (
                       <div className="relative min-w-0 max-w-[calc(100%-2.25rem)]">

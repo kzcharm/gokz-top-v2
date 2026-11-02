@@ -1,6 +1,6 @@
 import { useLayoutEffect, useRef } from "react"
 
-/** Fit a single line to its available width without shrinking below a readable size. */
+/** Prefer a single line, then allow wrapping at the minimum readable size. */
 export function useFitText<T extends HTMLElement>(
   text: string,
   minFontSize: number,
@@ -15,8 +15,12 @@ export function useFitText<T extends HTMLElement>(
     const fit = () => {
       let low = minFontSize
       let high = maxFontSize
+      element.style.whiteSpace = "nowrap"
       element.style.fontSize = `${high}px`
-      if (element.scrollWidth <= element.clientWidth) return
+      if (element.scrollWidth <= element.clientWidth) {
+        element.style.whiteSpace = "normal"
+        return
+      }
 
       // Measure the rendered font, including Unicode glyphs and letter spacing.
       while (high - low > 0.25) {
@@ -26,6 +30,7 @@ export function useFitText<T extends HTMLElement>(
         else low = size
       }
       element.style.fontSize = `${low}px`
+      element.style.whiteSpace = "normal"
     }
 
     fit()
