@@ -47,6 +47,7 @@ class PointsSettings:
 class RankSystemSettings:
     rating: RatingSettings
     points: PointsSettings
+    display_anchors: list[list[int | float]] | None = None
 
 
 def _parse_int_keyed_int_dict(value: object, *, field_name: str) -> dict[int, int]:
@@ -77,6 +78,7 @@ def load_rank_system_settings(
     raw_points = raw_settings["points"]
 
     return RankSystemSettings(
+        display_anchors=raw_rating.get("display_anchors"),
         rating=RatingSettings(
             easy_top_maps=int(raw_rating.get("easy_top_maps", 100)),
             hard_top_maps=int(raw_rating.get("hard_top_maps", 50)),

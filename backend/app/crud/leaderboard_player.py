@@ -346,7 +346,16 @@ async def _load_skill_converters(
 ) -> dict[str, list[list[int | float]]]:
     rows = (
         await session.exec(
-            select(SkillRatingConverter).where(col(SkillRatingConverter.scope) == scope)
+            select(SkillRatingConverter).where(
+                (
+                    (col(SkillRatingConverter.scope) == scope)
+                    & col(SkillRatingConverter.skill).not_in(("easy", "hard"))
+                )
+                | (
+                    (col(SkillRatingConverter.scope) == ModeScope.OVR)
+                    & col(SkillRatingConverter.skill).in_(("easy", "hard"))
+                )
+            )
         )
     ).all()
     return {row.skill: row.anchors for row in rows}

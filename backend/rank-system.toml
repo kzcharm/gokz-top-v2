@@ -1,11 +1,14 @@
 [rating]
-decay = 0.975
+decay = 0.95
 easy_top_maps = 100
 hard_top_maps = 50
 skill_full_portion_decay = 0.9
 skill_top_map_equivalents = 50
 max_map_points = 1000
 target_max_raw_rating = 40000
+# Calibrated from all 104,379 eligible OVR players on 2026-11-02.
+# Shared by every scope; includes every qualifying map in overall rating.
+display_anchors = [[0, 0], [125, 1], [11872, 2], [21511, 3], [28537, 4], [32284, 5], [34086, 6], [35160, 7], [36186, 8], [37085, 9], [37941, 10], [39998, 10.994], [39999, 10.99999]]
 
 [points]
 shared_min_points_by_tier = { "1" = 1, "2" = 50, "3" = 200, "4" = 350, "5" = 500, "6" = 650, "7" = 800, "8" = 950 }

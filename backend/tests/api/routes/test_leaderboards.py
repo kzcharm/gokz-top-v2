@@ -623,7 +623,7 @@ async def test_read_player_leaderboard_exposes_calibrated_skill_rating(
     }
 
 
-async def test_difficulty_ratings_use_independent_curves(
+async def test_difficulty_ratings_share_ovr_curves_across_scopes(
     client: AsyncClient, db: AsyncSession
 ) -> None:
     players = await _seed_leaderboard_data(db)
@@ -633,6 +633,7 @@ async def test_difficulty_ratings_use_independent_curves(
         (ModeScope.KZT, "easy", 3),
         (ModeScope.KZT, "hard", 6),
         (ModeScope.OVR, "easy", 8),
+        (ModeScope.OVR, "hard", 9),
     ]:
         db.add(
             SkillRatingConverter(
@@ -646,8 +647,8 @@ async def test_difficulty_ratings_use_independent_curves(
     detail = await client.get(
         f"{settings.API_V1_STR}/leaderboards/players/alpha", params={"scope": "KZT"}
     )
-    assert detail.json()["rating_easy"] == 3
-    assert detail.json()["rating_hard"] == 6
+    assert detail.json()["rating_easy"] == 8
+    assert detail.json()["rating_hard"] == 9
     listing = await client.get(
         f"{settings.API_V1_STR}/leaderboards/players", params={"scope": "KZT"}
     )
@@ -656,8 +657,8 @@ async def test_difficulty_ratings_use_independent_curves(
         for item in listing.json()["data"]
         if item["player"]["steamid64"] == str(players["alpha"])
     )
-    assert alpha["rating_easy"] == 3
-    assert alpha["rating_hard"] == 6
+    assert alpha["rating_easy"] == 8
+    assert alpha["rating_hard"] == 9
     assert set(alpha["skill_ratings"]) == {
         "boxtech",
         "strafe",

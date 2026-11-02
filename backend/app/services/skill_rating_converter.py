@@ -62,7 +62,7 @@ def calibrate(histogram: list[tuple[int, int]], *, max_raw_rating: int) -> Calib
 
 
 def convert_skill_rating(
-    raw: int, anchors: list[list[int | float]] | None
+    raw: int | float, anchors: list[list[int | float]] | None
 ) -> float | None:
     if raw <= 0 or not anchors or len(anchors) < 2:
         return None

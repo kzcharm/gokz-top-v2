@@ -35,8 +35,11 @@ async def calibrate_skill_converters(
 async def calibrate_difficulty_converters(
     *, scopes: tuple[ModeScope, ...], save: bool = False
 ) -> list[CalibrationResult]:
+    """Calibrate the shared OVR curves for any requested scope selection."""
+    if not scopes:
+        return []
     return await _calibrate_converters(
-        scopes=scopes, save=save, metrics=("easy", "hard")
+        scopes=(ModeScope.OVR,), save=save, metrics=("easy", "hard")
     )
 
 

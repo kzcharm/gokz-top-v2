@@ -10,6 +10,7 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
 
 from app.core.rank_system import get_rank_system_settings
+from app.services.skill_rating_converter import convert_skill_rating
 
 from .player import PlayerRefPublic
 from .record import ModeScope, normalize_mode_scope
@@ -170,6 +171,9 @@ def redistribute_display_rating(value: float) -> float:
 def scale_public_rating(value: float | None) -> float | None:
     if value is None or value <= 0:
         return None
+    anchors = get_rank_system_settings().display_anchors
+    if anchors:
+        return convert_skill_rating(value, anchors)
 
     old_rating = (
         Decimal(str(value)) * _PUBLIC_RATING_SCALE / _PUBLIC_RATING_DIVISOR

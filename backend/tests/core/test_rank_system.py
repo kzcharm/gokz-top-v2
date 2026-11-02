@@ -9,12 +9,14 @@ def test_load_rank_system_settings_parses_current_config() -> None:
 
     assert settings.rating.easy_top_maps == 100
     assert settings.rating.hard_top_maps == 50
-    assert settings.rating.decay == Decimal("0.975")
+    assert settings.rating.decay == Decimal("0.95")
     assert settings.rating.skill_full_portion_decay == Decimal("0.9")
     assert settings.rating.skill_top_map_equivalents == 50
     assert settings.rating.max_map_points == 1000
     assert settings.rating.target_max_raw_rating == 40000
-    assert settings.rating.multiplier == Decimal("1.000")
+    assert settings.rating.multiplier == Decimal("2")
+    assert settings.display_anchors is not None
+    assert settings.display_anchors[-1][1] <= 10.99999
     assert settings.points.shared_min_points_by_tier[4] == 350
     assert settings.points.top_five_bonuses[1] == 0.20
     assert settings.points.dist_weight == 0.875

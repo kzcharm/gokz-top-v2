@@ -1,12 +1,37 @@
+from dataclasses import replace
 from itertools import pairwise
 
 import pytest
 
+from app.core.rank_system import get_rank_system_settings
 from app.models.leaderboard_player import (
     min_raw_rating_for_public_rating,
     redistribute_display_rating,
     scale_public_rating,
 )
+
+
+@pytest.fixture(autouse=True)
+def legacy_display_curve(monkeypatch):
+    settings = replace(get_rank_system_settings(), display_anchors=None)
+    monkeypatch.setattr(
+        "app.models.leaderboard_player.get_rank_system_settings", lambda: settings
+    )
+
+
+def test_shared_ovr_curve_and_rating_filter_use_the_same_thresholds(monkeypatch):
+    settings = get_rank_system_settings()
+    monkeypatch.setattr(
+        "app.models.leaderboard_player.get_rank_system_settings", lambda: settings
+    )
+    assert settings.display_anchors is not None
+    for raw, display in settings.display_anchors[1:]:
+        assert scale_public_rating(raw) == display
+    assert scale_public_rating(40000) == settings.display_anchors[-1][1]
+    for level in range(2, 11):
+        threshold = min_raw_rating_for_public_rating(level)
+        assert scale_public_rating(threshold) >= level
+        assert scale_public_rating(threshold - 1) < level
 
 
 @pytest.mark.parametrize(
