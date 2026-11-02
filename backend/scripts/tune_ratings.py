@@ -89,7 +89,9 @@ RECALCULATE_SOURCE_SQL = """
 """
 
 
-def recalculate_snapshot_points(source: Path, tiers: dict[str, int]) -> np.ndarray:
+def recalculate_snapshot_points(
+    source: Path, tiers: dict[str, int], *, scope_id: int | None = None
+) -> np.ndarray:
     """Recalculate complete PB buckets before selecting eligible rating players.
 
     Low-completion players still affect ranks and percentile points. The SQL
@@ -119,6 +121,7 @@ def recalculate_snapshot_points(source: Path, tiers: dict[str, int]) -> np.ndarr
                         wr_time_ms=wr_time_ms,
                         tier=tiers[course],
                         is_pro_only=kind == "PRO",
+                        scope_id=scope_id,
                     )
                     best[player] = max(best.get(player, 0), points)
             writer.writerows(
@@ -194,7 +197,9 @@ async def snapshot(
                     async for block in copy:
                         destination.write(block)
     if recalculate_points:
-        runs = recalculate_snapshot_points(csv_path, course_tiers)
+        runs = recalculate_snapshot_points(
+            csv_path, course_tiers, scope_id=scope.scope_id
+        )
     elif csv_path.stat().st_size:
         runs = np.atleast_1d(np.loadtxt(csv_path, delimiter=",", dtype=DTYPE))
     else:

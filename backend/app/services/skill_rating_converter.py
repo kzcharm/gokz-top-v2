@@ -2,6 +2,7 @@
 
 from bisect import bisect_right
 from dataclasses import dataclass
+from math import isfinite
 
 TOP_DISPLAY_RATING = 10.99999
 TIED_TOP_DISPLAY_RATING = 10.99
@@ -16,8 +17,21 @@ class Calibration:
     ties: int
 
 
-def calibrate(histogram: list[tuple[int, int]], *, max_raw_rating: int) -> Calibration:
-    """Calibrate levels 2–10 by percentile and the population best near 11."""
+def calibrate(
+    histogram: list[tuple[int, int]],
+    *,
+    max_raw_rating: int,
+    tail_multiplier: float = 1.7,
+) -> Calibration:
+    """Preserve levels through eight, then steepen the last two thresholds.
+
+    Levels 2–8 halve the qualifying tail. Above eight, interpolate the extra
+    rarity geometrically: level 9 uses sqrt(tail_multiplier), level 10 uses
+    tail_multiplier. The default puts level 10 at top 1/870.4 while preserving
+    the original lower thresholds. A multiplier of one restores the old curve.
+    """
+    if not isfinite(tail_multiplier) or tail_multiplier < 1:
+        raise ValueError("tail_multiplier must be finite and at least one")
     histogram = sorted(histogram)
     population = sum(count for _, count in histogram)
     positive = sum(count for raw, count in histogram if raw > 0)
@@ -25,6 +39,10 @@ def calibrate(histogram: list[tuple[int, int]], *, max_raw_rating: int) -> Calib
     if population == 0 or positive == 0:
         raise ValueError("Cannot calibrate a population with no positive ratings")
 
+    level_divisors = [
+        (level, 2 ** (level - 1) * tail_multiplier ** (max(0, level - 8) / 2))
+        for level in range(2, 11)
+    ]
     below = 0
     anchors: list[list[int | float]] = [[0, 0]]
     for raw, count in histogram:
@@ -33,8 +51,8 @@ def calibrate(histogram: list[tuple[int, int]], *, max_raw_rating: int) -> Calib
                 [1]
                 + [
                     level
-                    for level in range(2, 11)
-                    if below * (2 ** (level - 1)) >= population * (2 ** (level - 1) - 1)
+                    for level, divisor in level_divisors
+                    if (population - below) * divisor <= population
                 ]
             )
             if reached > anchors[-1][1]:

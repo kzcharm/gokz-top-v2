@@ -1,7 +1,36 @@
 from decimal import Decimal
 from pathlib import Path
 
-from app.core.rank_system import load_rank_system_settings
+import pytest
+
+from app.core.config import settings as app_settings
+from app.core.rank_system import (
+    clear_rank_system_settings_cache,
+    get_rank_system_settings,
+    load_rank_system_settings,
+)
+
+
+def test_preview_curve_override_is_local_and_opt_in(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    anchors = [[0, 0], [100, 1], [40000, 10.99]]
+    original = load_rank_system_settings().display_anchors
+    monkeypatch.setattr(app_settings, "LOCAL_OVR_RATING_DISPLAY_ANCHORS", anchors)
+    monkeypatch.setattr(app_settings, "LOCAL_OVR_NUB_RANK_POINTS_PREVIEW", True)
+    monkeypatch.setattr(app_settings, "ENVIRONMENT", "local")
+    try:
+        clear_rank_system_settings_cache()
+        assert get_rank_system_settings().display_anchors == anchors
+        monkeypatch.setattr(app_settings, "ENVIRONMENT", "production")
+        clear_rank_system_settings_cache()
+        assert get_rank_system_settings().display_anchors == original
+        monkeypatch.setattr(app_settings, "ENVIRONMENT", "local")
+        monkeypatch.setattr(app_settings, "LOCAL_OVR_NUB_RANK_POINTS_PREVIEW", False)
+        clear_rank_system_settings_cache()
+        assert get_rank_system_settings().display_anchors == original
+    finally:
+        clear_rank_system_settings_cache()
 
 
 def test_load_rank_system_settings_parses_current_config() -> None:

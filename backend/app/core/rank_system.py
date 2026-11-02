@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from decimal import Decimal
 from functools import lru_cache
 from pathlib import Path
+
+from app.core.config import settings as app_settings
 
 _RANK_SYSTEM_CONFIG_PATH = Path(__file__).resolve().parents[2] / "rank-system.toml"
 
@@ -112,7 +114,16 @@ def load_rank_system_settings(
 
 @lru_cache(maxsize=1)
 def get_rank_system_settings() -> RankSystemSettings:
-    return load_rank_system_settings()
+    settings = load_rank_system_settings()
+    if (
+        app_settings.ENVIRONMENT == "local"
+        and app_settings.LOCAL_OVR_NUB_RANK_POINTS_PREVIEW
+        and app_settings.LOCAL_OVR_RATING_DISPLAY_ANCHORS
+    ):
+        return replace(
+            settings, display_anchors=app_settings.LOCAL_OVR_RATING_DISPLAY_ANCHORS
+        )
+    return settings
 
 
 def clear_rank_system_settings_cache() -> None:

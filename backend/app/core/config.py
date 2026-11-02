@@ -54,6 +54,8 @@ class Settings(BaseSettings):
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     ENABLE_TEST_AUTH_HELPERS: bool = False
+    LOCAL_OVR_NUB_RANK_POINTS_PREVIEW: bool = False
+    LOCAL_OVR_RATING_DISPLAY_ANCHORS: list[list[int | float]] | None = None
 
     BACKEND_CORS_ORIGINS: Annotated[
         list[AnyUrl] | Literal["*"], BeforeValidator(parse_cors)

@@ -41,6 +41,7 @@ from app.models import (
 )
 from app.models.leaderboard_player import LeaderboardPlayerSortBy
 from app.models.utils import get_datetime_utc, get_sqlmodel_table, select_row
+from app.services.course_points import is_local_ovr_points_preview
 from app.services.skill_rating import SKILLS, calculate_skill_rating
 from app.services.skill_rating_converter import convert_skill_rating
 
@@ -396,6 +397,7 @@ async def _load_player_pb_rows(
             points=points,
         )
         for course_id, map_id, record_type, record_uuid, points in rows
+        if not (record_type.is_pro and is_local_ovr_points_preview(scope_id=scope_id))
     ]
 
 
@@ -489,7 +491,14 @@ def _build_leaderboard_values(
 def _build_raw_rating_contributions(
     *,
     rows: Sequence[PlayerPbRow],
+    settings: RatingSettings | None = None,
 ) -> dict[tuple[int, RecordType], int]:
+    """Store decayed map points before the aggregate rating multiplier.
+
+    Contributions stay within 0–1000. The weighted rating applies its scale
+    after summing unrounded values; displayed integer contributions truncate
+    individually, so their sum is only an approximation of that total.
+    """
     best_rows_by_course_id: dict[int, PlayerPbRow] = {}
     for row in rows:
         existing = best_rows_by_course_id.get(row.course_id)
@@ -517,7 +526,7 @@ def _build_raw_rating_contributions(
     if not sorted_rows:
         return {}
 
-    settings = get_rank_system_settings().rating
+    settings = settings or get_rank_system_settings().rating
     with localcontext() as ctx:
         ctx.prec = 28
         multiplier = Decimal("1")
@@ -526,7 +535,7 @@ def _build_raw_rating_contributions(
             unrounded_contributions.append(
                 (
                     (row.course_id, row.record_type),
-                    Decimal(row.points) * multiplier * settings.multiplier,
+                    Decimal(row.points) * multiplier,
                 )
             )
             multiplier *= settings.decay
@@ -790,7 +799,11 @@ async def rebuild_leaderboard_players_batch(
     ) in source:
         if contribution:
             old_contributions[player][course, kind] = contribution
-        if stage == 0 and validated:
+        if (
+            stage == 0
+            and validated
+            and not (kind.is_pro and is_local_ovr_points_preview(scope_id=scope_id))
+        ):
             rows_by_player[player].append(
                 PlayerPbRow(course, map_id, kind, record_uuid, points)
             )

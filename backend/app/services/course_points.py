@@ -2,7 +2,9 @@ import math
 import uuid
 from dataclasses import dataclass
 
+from app.core.config import settings as app_settings
 from app.core.rank_system import get_rank_system_settings
+from app.models.mode_scope import ModeScopeId
 
 
 @dataclass(frozen=True, slots=True)
@@ -82,6 +84,14 @@ def calculate_dist_points_portion(
     )
 
 
+def is_local_ovr_points_preview(*, scope_id: int | None) -> bool:
+    return (
+        app_settings.ENVIRONMENT == "local"
+        and app_settings.LOCAL_OVR_NUB_RANK_POINTS_PREVIEW
+        and scope_id == ModeScopeId.OVR
+    )
+
+
 def calculate_course_pb_points(
     *,
     rank: int,
@@ -90,7 +100,15 @@ def calculate_course_pb_points(
     wr_time_ms: int,
     tier: int,
     is_pro_only: bool,
+    scope_id: int | None = None,
 ) -> int:
+    if is_local_ovr_points_preview(scope_id=scope_id):
+        from app.services.rank_points_candidate import rank_points_candidate
+
+        if is_pro_only:
+            return 1
+        if 1 <= tier <= 8:
+            return rank_points_candidate(rank=rank, total=total, tier=tier)
     rank_system_settings = get_rank_system_settings()
     settings = rank_system_settings.points
     max_map_points = rank_system_settings.rating.max_map_points
@@ -114,6 +132,7 @@ def calculate_bucket_points(
     entries: list[CoursePbEntry],
     tier: int,
     is_pro_only: bool,
+    scope_id: int | None = None,
 ) -> dict[uuid.UUID, int]:
     if not entries:
         return {}
@@ -128,6 +147,7 @@ def calculate_bucket_points(
             wr_time_ms=wr_time_ms,
             tier=tier,
             is_pro_only=is_pro_only,
+            scope_id=scope_id,
         )
         for index, entry in enumerate(entries, start=1)
     }
@@ -139,9 +159,11 @@ def calculate_estimated_pb_points(
     entries: list[CoursePbEntry],
     tier: int,
     is_pro_only: bool,
+    scope_id: int | None = None,
 ) -> int:
     return calculate_bucket_points(
         entries=entries,
         tier=tier,
         is_pro_only=is_pro_only,
+        scope_id=scope_id,
     )[winner_record_uuid]

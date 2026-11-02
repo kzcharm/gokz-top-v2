@@ -1,3 +1,4 @@
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 from uuid import UUID
@@ -7,6 +8,7 @@ from sqlmodel import select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
+from app.core.rank_system import get_rank_system_settings
 from app.crud.leaderboard_player import (
     PlayerPbRow,
     _build_leaderboard_values,
@@ -291,15 +293,36 @@ async def test_rating_integer_conversion_truncates_decimal_part() -> None:
     assert _truncate_rating(Decimal("999.99")) == 999
 
 
+async def test_contributions_exclude_scale_but_total_retains_40000_ceiling() -> None:
+    settings = replace(get_rank_system_settings().rating, decay=Decimal("0.95"))
+    rows = [
+        PlayerPbRow(index, index, RecordType.NUB, UUID(int=index), 1000)
+        for index in range(1, 1001)
+    ]
+    contributions = _build_raw_rating_contributions(rows=rows, settings=settings)
+    assert settings.multiplier == 2
+    assert contributions[(1, RecordType.NUB)] == 1000
+    assert contributions[(2, RecordType.NUB)] == 950
+    assert contributions[(1000, RecordType.NUB)] == 0
+    assert all(0 <= value <= 1000 for value in contributions.values())
+    assert crud.calculate_weighted_rating([1000, 1000], settings=settings) == 3900
+    assert (
+        39999
+        <= crud.calculate_weighted_rating([1000] * 1000, settings=settings)
+        <= 40000
+    )
+
+
 async def test_build_raw_rating_contributions_truncates_decimal_part() -> None:
     rows = [
         PlayerPbRow(1, 1, RecordType.NUB, UUID(int=1), 1000),
         PlayerPbRow(2, 2, RecordType.NUB, UUID(int=2), 333),
     ]
 
-    contributions = _build_raw_rating_contributions(rows=rows)
+    settings = replace(get_rank_system_settings().rating, decay=Decimal("0.95"))
+    contributions = _build_raw_rating_contributions(rows=rows, settings=settings)
 
-    assert contributions[(2, RecordType.NUB)] == 324
+    assert contributions[(2, RecordType.NUB)] == 316  # 333 * 0.95 = 316.35
 
 
 async def test_build_leaderboard_values_counts_high_point_records_once_per_map() -> (

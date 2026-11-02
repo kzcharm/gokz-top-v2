@@ -1,6 +1,8 @@
 from decimal import Decimal
 from math import floor
 
+import pytest
+
 from app.services.skill_rating import calculate_skill_rating
 from app.services.skill_rating_converter import (
     RUNNER_UP_DISPLAY_CEILING,
@@ -143,31 +145,31 @@ def test_converter_avoids_splitting_upper_tail_ties() -> None:
 
 def test_converter_maps_population_best_just_below_level_eleven() -> None:
     result = calibrate(
-        [(raw, 1) for raw in range(1024)],
+        [(raw, 1) for raw in range(2048)],
         max_raw_rating=40_000,
     )
 
     assert [anchor for anchor in result.anchors if anchor[1] >= 2] == [
-        [512, 2],
-        [768, 3],
-        [896, 4],
-        [960, 5],
-        [992, 6],
-        [1008, 7],
-        [1016, 8],
-        [1020, 9],
-        [1022, 10],
-        [1023, TOP_DISPLAY_RATING],
+        [1024, 2],
+        [1536, 3],
+        [1792, 4],
+        [1920, 5],
+        [1984, 6],
+        [2016, 7],
+        [2032, 8],
+        [2042, 9],
+        [2046, 10],
+        [2047, TOP_DISPLAY_RATING],
     ]
-    assert convert_skill_rating(1022, result.anchors) == 10
-    assert convert_skill_rating(1023, result.anchors) == TOP_DISPLAY_RATING
+    assert convert_skill_rating(2046, result.anchors) == 10
+    assert convert_skill_rating(2047, result.anchors) == TOP_DISPLAY_RATING
     assert convert_skill_rating(40_000, result.anchors) == TOP_DISPLAY_RATING
-    assert floor((convert_skill_rating(1023, result.anchors) or 0) * 100) / 100 == 10.99
+    assert floor((convert_skill_rating(2047, result.anchors) or 0) * 100) / 100 == 10.99
 
 
 def test_unique_leader_stays_below_eleven_and_floors_to_10_99() -> None:
     result = calibrate(
-        [(raw, 1) for raw in range(1024)] + [(40_000, 1)],
+        [(raw, 1) for raw in range(2048)] + [(40_000, 1)],
         max_raw_rating=40_000,
     )
 
@@ -185,12 +187,72 @@ def test_unique_leader_stays_below_eleven_and_floors_to_10_99() -> None:
 
 
 def test_converter_keeps_tied_population_best_equal() -> None:
-    histogram = [(raw, 1) for raw in range(1023)] + [(1023, 2)]
+    histogram = [(raw, 1) for raw in range(2047)] + [(2047, 2)]
     result = calibrate(histogram, max_raw_rating=40_000)
 
-    assert result.anchors[-1] == [1023, TIED_TOP_DISPLAY_RATING]
-    assert convert_skill_rating(1023, result.anchors) == TIED_TOP_DISPLAY_RATING
-    assert floor((convert_skill_rating(1023, result.anchors) or 0) * 100) / 100 == 10.99
+    assert result.anchors[-1] == [2047, TIED_TOP_DISPLAY_RATING]
+    assert convert_skill_rating(2047, result.anchors) == TIED_TOP_DISPLAY_RATING
+    assert floor((convert_skill_rating(2047, result.anchors) or 0) * 100) / 100 == 10.99
+
+
+def test_curve_preserves_lower_levels_and_steepens_upper_tail() -> None:
+    histogram = [(raw, 1) for raw in range(4096)]
+    previous = calibrate(histogram, max_raw_rating=40000, tail_multiplier=1)
+    current = calibrate(histogram, max_raw_rating=40000)
+    for level in range(2, 11):
+        old_count = sum(
+            n
+            for raw, n in histogram
+            if (convert_skill_rating(raw, previous.anchors) or 0) >= level
+        )
+        new_count = sum(
+            n
+            for raw, n in histogram
+            if (convert_skill_rating(raw, current.anchors) or 0) >= level
+        )
+        if level <= 8:
+            assert new_count == old_count == 4096 // 2 ** (level - 1)
+        elif level == 9:
+            assert new_count == 12  # Between 32 at 8+ and 4 at 10+, geometrically.
+        else:
+            assert new_count == old_count // 2 == 4
+
+    # The entire displayed curve below level eight is unchanged, not only
+    # the integer thresholds. No player identity enters this calculation.
+    for raw in range(4065):
+        assert convert_skill_rating(raw, current.anchors) == convert_skill_rating(
+            raw, previous.anchors
+        )
+
+
+def test_stricter_curve_keeps_boundary_ties_together() -> None:
+    histogram = [(raw, 1) for raw in range(104000)] + [(104000, 379)]
+    result = calibrate(histogram, max_raw_rating=200000)
+    # A tied group larger than the entire qualifying tail cannot be split.
+    assert (convert_skill_rating(104000, result.anchors) or 0) < 10
+
+
+def test_fractional_tail_multiplier_eases_level_ten_without_changing_level_eight() -> (
+    None
+):
+    histogram = [(raw, 1) for raw in range(8704)]
+    previous = calibrate(histogram, max_raw_rating=40000, tail_multiplier=2)
+    current = calibrate(histogram, max_raw_rating=40000)
+
+    def count(anchors: list[list[int | float]], level: int) -> int:
+        return sum(
+            (convert_skill_rating(raw, anchors) or 0) >= level for raw, _ in histogram
+        )
+
+    assert count(previous.anchors, 10) == 8
+    assert count(current.anchors, 10) == 10
+    assert count(previous.anchors, 8) == count(current.anchors, 8) == 68
+
+
+@pytest.mark.parametrize("multiplier", [0, -1, float("nan"), float("inf")])
+def test_converter_rejects_invalid_tail_multiplier(multiplier: float) -> None:
+    with pytest.raises(ValueError, match="tail_multiplier"):
+        calibrate([(100, 10)], max_raw_rating=40000, tail_multiplier=multiplier)
 
 
 def test_converter_does_not_add_maximum_to_sparse_upper_tail() -> None:

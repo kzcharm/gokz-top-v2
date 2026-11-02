@@ -686,6 +686,7 @@ async def _estimate_record_pb_points(
         entries=entries,
         tier=tier,
         is_pro_only=record_type.is_pro,
+        scope_id=scope_id,
     )
 
 
@@ -833,6 +834,7 @@ async def recalculate_estimated_record_pb_points_for_player(
                     wr_time_ms=seconds_to_time_ms(Decimal(wr_time)),
                     tier=tiers_by_course_and_scope[(row.course_id, row.scope)],
                     is_pro_only=row.type.is_pro,
+                    scope_id=row.scope.scope_id,
                 )
             )
 
@@ -1083,6 +1085,7 @@ async def rebuild_record_pb_points_bucket(
         ],
         tier=resolved_tier,
         is_pro_only=record_type.is_pro,
+        scope_id=scope_id,
     )
     updates = [
         (
@@ -1216,6 +1219,7 @@ async def rebuild_record_pb_points_for_course(
             ],
             tier=normalized_tiers[scope.scope_id],
             is_pro_only=row_record_type.is_pro,
+            scope_id=scope.scope_id,
         )
         raw_updates.extend(
             (
