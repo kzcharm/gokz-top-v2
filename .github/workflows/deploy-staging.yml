@@ -128,6 +128,7 @@ jobs:
           FRONTEND_HOST=https://${frontend_hostname}
           ADMINER_HOST=${adminer_host}
           ENVIRONMENT=${ENVIRONMENT}
+          RANK_POINTS_ENABLED=true
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
           BACKEND_CORS_ORIGINS=https://${frontend_hostname},https://${api_host},https://${replay_viewer_hostname}

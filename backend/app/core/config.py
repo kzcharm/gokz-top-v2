@@ -54,6 +54,7 @@ class Settings(BaseSettings):
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     ENABLE_TEST_AUTH_HELPERS: bool = False
+    RANK_POINTS_ENABLED: bool = False
     LOCAL_OVR_NUB_RANK_POINTS_PREVIEW: bool = False
     LOCAL_OVR_PRO_RANK_POINTS_PREVIEW: bool = False
     LOCAL_OVR_PRO_POINTS_PREVIEW_COURSES: list[int] = []

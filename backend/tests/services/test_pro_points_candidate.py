@@ -49,6 +49,30 @@ def test_local_pro_preview_requires_selected_course_and_nub_count(monkeypatch):
     )
 
 
+@pytest.mark.parametrize("environment", ["staging", "production"])
+@pytest.mark.parametrize("scope", list(ModeScope))
+def test_deployed_rank_points_enable_nub_and_pro(monkeypatch, environment, scope):
+    monkeypatch.setattr(settings, "ENVIRONMENT", environment)
+    monkeypatch.setattr(settings, "RANK_POINTS_ENABLED", True)
+    args = {
+        "rank": 2,
+        "total": 10,
+        "time_ms": 20000,
+        "wr_time_ms": 10000,
+        "tier": 6,
+        "scope_id": scope.scope_id,
+    }
+    assert calculate_course_pb_points(**args, is_pro_only=False) == (
+        rank_points_candidate(rank=2, total=10, tier=6)
+    )
+    with pytest.raises(ValueError, match="NUB population"):
+        calculate_course_pb_points(**args, is_pro_only=True)
+    assert calculate_course_pb_points(
+        **args, is_pro_only=True, nub_finishers=100
+    ) == pro_rank_points_candidate(rank=2, pro_finishers=10, nub_finishers=100, tier=6)
+    assert not exclude_pro_from_local_preview(scope_id=scope.scope_id, course_id=43)
+
+
 @pytest.mark.parametrize("tier", range(1, 9))
 def test_everyone_finishing_pro_gets_exactly_zero_rarity_bonus(tier: int) -> None:
     for rank in range(1, 101):

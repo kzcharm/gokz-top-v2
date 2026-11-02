@@ -85,6 +85,9 @@ def calculate_dist_points_portion(
 
 
 def is_local_rank_points_preview(*, scope_id: int | None) -> bool:
+    """Select deployed rank scoring or an explicitly enabled local trial."""
+    if app_settings.RANK_POINTS_ENABLED:
+        return scope_id is not None and scope_id in tuple(ModeScopeId)
     return (
         app_settings.ENVIRONMENT == "local"
         and scope_id is not None
@@ -104,7 +107,9 @@ def is_local_pro_points_preview(*, scope_id: int | None, course_id: int | None) 
         scope_id is not None
         and is_local_rank_points_preview(scope_id=scope_id)
         and (
-            ModeScopeId(scope_id).name in app_settings.LOCAL_RANK_POINTS_PREVIEW_SCOPES
+            app_settings.RANK_POINTS_ENABLED
+            or ModeScopeId(scope_id).name
+            in app_settings.LOCAL_RANK_POINTS_PREVIEW_SCOPES
             or (
                 scope_id == ModeScopeId.OVR
                 and (
@@ -144,7 +149,7 @@ def calculate_course_pb_points(
                 from app.services.pro_points_candidate import pro_rank_points_candidate
 
                 if nub_finishers is None:
-                    raise ValueError("PRO preview requires the eligible NUB population")
+                    raise ValueError("PRO scoring requires the eligible NUB population")
                 return pro_rank_points_candidate(
                     rank=rank,
                     pro_finishers=total,

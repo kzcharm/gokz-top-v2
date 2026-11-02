@@ -235,6 +235,7 @@ jobs:
           API_REDIRECT_HOST=api.kzcharm.com
           FRONTEND_REDIRECT_HOST=kzcharm.com
           ENVIRONMENT=${ENVIRONMENT}
+          RANK_POINTS_ENABLED=true
           PROJECT_NAME=GOKZ.TOP
           STACK_NAME=${STACK_NAME}
           BACKEND_CORS_ORIGINS=${backend_cors_origins}

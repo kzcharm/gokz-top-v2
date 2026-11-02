@@ -1,5 +1,7 @@
 # Tech Stack - GOKZ.TOP v2
 
+Staging and production deployments enable the reviewed rank-based NUB and moderate PRO formulas with `RANK_POINTS_ENABLED=true` for OVR/KZT/SKZ/VNL. The overall curve is committed in `backend/rank-system.toml`; local overrides remain available. First rollout requires a database backup, point and rating rebuilds, and explicit OVR/VNL difficulty and skill calibration.
+
 - Last Updated: 2026-10-30
 - Source of truth: `backend/pyproject.toml`, `frontend/package.json`, `compose.yml`
 
