@@ -50,6 +50,7 @@ import {
 } from "@/components/ui/tooltip"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
+import { useFitText } from "@/hooks/useFitText"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import {
   type GraphqlPlayer,
@@ -87,6 +88,26 @@ import {
   type ProfilePlayer,
   type ProfileSummaryData,
 } from "./profile-utils"
+
+function ProfileIdentityText({
+  text,
+  secondary = false,
+}: {
+  text: string
+  secondary?: boolean
+}) {
+  const ref = useFitText<HTMLSpanElement>(
+    text,
+    secondary ? 12 : 18,
+    secondary ? 14 : 30,
+  )
+
+  return (
+    <span ref={ref} className="block truncate" title={text}>
+      {text}
+    </span>
+  )
+}
 
 function formatJumpDistance(value: number) {
   return new Intl.NumberFormat("en-US", {
@@ -340,7 +361,7 @@ function ProfileIdentityCard({
           <div className="relative flex flex-col items-center gap-4 text-center">
             <div
               className={cn(
-                "relative flex flex-col items-center gap-4 rounded-[24px]",
+                "relative flex w-full min-w-0 flex-col items-center gap-4 rounded-[24px]",
               )}
             >
               <div className="relative">
@@ -404,16 +425,16 @@ function ProfileIdentityCard({
                 />
               </div>
 
-              <div className="space-y-2">
+              <div className="w-full min-w-0 space-y-2">
                 <div className="space-y-1.5 pt-1">
-                  <div className="flex items-center justify-center gap-2">
+                  <div className="flex min-w-0 items-center justify-center gap-2">
                     <CountryFlag
                       countryCode={player.country}
-                      className="h-5 w-7 rounded-[4px]"
-                      fallbackClassName="h-5 w-7 rounded-[4px]"
+                      className="h-5 w-7 shrink-0 rounded-[4px]"
+                      fallbackClassName="h-5 w-7 shrink-0 rounded-[4px]"
                     />
                     {steamProfileUrl ? (
-                      <div className="relative">
+                      <div className="relative min-w-0 max-w-[calc(100%-2.25rem)]">
                         <DropdownMenuTrigger asChild>
                           <span
                             aria-hidden="true"
@@ -432,18 +453,18 @@ function ProfileIdentityCard({
                           onContextMenu={handleIdentityContextMenu}
                           onKeyDown={handleIdentityKeyDown}
                         >
-                          {primaryName}
+                          <ProfileIdentityText text={primaryName} />
                         </a>
                       </div>
                     ) : (
-                      <h1 className="text-3xl font-semibold tracking-tight">
-                        {primaryName}
+                      <h1 className="min-w-0 max-w-[calc(100%-2.25rem)] text-3xl font-semibold tracking-tight">
+                        <ProfileIdentityText text={primaryName} />
                       </h1>
                     )}
                   </div>
                   {secondaryName ? (
                     <p className="text-sm text-muted-foreground">
-                      {secondaryName}
+                      <ProfileIdentityText text={secondaryName} secondary />
                     </p>
                   ) : null}
                   {socialLinks.length > 0 ? (

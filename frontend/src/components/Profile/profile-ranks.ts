@@ -68,7 +68,7 @@ const RATING_RANK_MINIMUMS = [0, 2, 3, 4, 5, 6, 7, 8, 9, 10] as const
 
 export const ratingRankBadgeClasses: Record<RatingRankLevel, string> = {
   1: "border-[#CCCCCC]/70 bg-[#CCCCCC]/20 text-zinc-800 dark:text-[#CCCCCC]",
-  2: "border-[#FFFFFF]/70 bg-[#FFFFFF]/80 text-zinc-950 dark:bg-[#FFFFFF]/15 dark:text-[#FFFFFF]",
+  2: "border-border bg-white/80 text-foreground dark:border-[#FFFFFF]/70 dark:bg-[#FFFFFF]/15 dark:text-[#FFFFFF]",
   3: "border-[#99CCFF]/70 bg-[#99CCFF]/20 text-sky-950 dark:text-[#99CCFF]",
   4: "border-[#99FF99]/70 bg-[#99FF99]/20 text-green-950 dark:text-[#99FF99]",
   5: "border-[#00FF00]/70 bg-[#00FF00]/20 text-green-950 dark:text-[#00FF00]",
