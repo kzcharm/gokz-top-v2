@@ -64,13 +64,10 @@ async def _create_server(db: AsyncSession, *, id: int, name: str) -> None:
     await db.exec(delete(ServerGlobalapi).where(ServerGlobalapi.id == id))
     await db.commit()
     for steamid64 in (76561198000000010, 76561198000000020):
-
         if await db.get(Player, steamid64) is None:
-
             db.add(Player(steamid64=steamid64, name=str(steamid64)))
 
     db.add(
-
         ServerGlobalapi(
             id=id,
             port=27015,
@@ -310,7 +307,8 @@ async def test_upsert_record_notifies_when_kzt_wr_is_beaten(
         for notification in notifications
     )
     assert all(
-        notification.new_record_uuid == new_record.uuid for notification in notifications
+        notification.new_record_uuid == new_record.uuid
+        for notification in notifications
     )
 
 
@@ -550,6 +548,7 @@ async def test_get_recent_record_public_by_uuid_uses_bonus_fallback_zero(
 
 async def test_rebuild_record_pb_points_bucket_updates_real_points(
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     first_player = random_steamid64()
     second_player = random_steamid64()
@@ -628,6 +627,33 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     assert refreshed_rows[1].time == Decimal("12.000")
     assert refreshed_rows[0].updated_at == original_updated_on
     assert refreshed_rows[1].updated_at == original_updated_on
+
+    # WR ownership can move between separate write chunks without violating
+    # the partial unique index or changing PB timestamps.
+    monkeypatch.setattr(record_crud, "_POINT_UPDATE_CHUNK_SIZE", 1)
+    await record_crud._execute_point_updates(
+        session=db,
+        updates=[
+            (
+                record_crud._record_pb_points_update_params(
+                    scope=row.scope,
+                    course_id=row.course_id,
+                    steamid64=row.steamid64,
+                    record_type=row.type,
+                    points=target,
+                    updated_at=row.updated_at,
+                ),
+                row.points,
+                target,
+            )
+            for row, target in zip(refreshed_rows, (850, 1000), strict=True)
+        ],
+    )
+    await db.commit()
+    for row, target in zip(refreshed_rows, (850, 1000), strict=True):
+        await db.refresh(row)
+        assert row.points == target
+        assert row.updated_at == original_updated_on
 
 
 async def test_rebuild_record_pb_points_bucket_excludes_actively_banned_rows(
@@ -1441,8 +1467,9 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
         "INDEX ix_record_pb_scope_course_type_record_uuid"
         in record_pb_course_record_uuid_index[0]
     )
-    assert "(scope, course_id, type, record_uuid)" in (
-        record_pb_course_record_uuid_index[0]
+    assert (
+        "(scope, course_id, type, record_uuid)"
+        in (record_pb_course_record_uuid_index[0])
     )
 
     record_pb_player_record_uuid_index = (
@@ -1462,8 +1489,9 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
         "INDEX ix_record_pb_player_scope_type_course_record_uuid"
         in record_pb_player_record_uuid_index[0]
     )
-    assert "(steamid64, scope, type, course_id, record_uuid)" in (
-        record_pb_player_record_uuid_index[0]
+    assert (
+        "(steamid64, scope, type, course_id, record_uuid)"
+        in (record_pb_player_record_uuid_index[0])
     )
     record_pb_time_order_index = (
         await db.exec(
@@ -1478,12 +1506,10 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
             )
         )
     ).one()
+    assert "INDEX ix_record_pb_bucket_points_lookup" in record_pb_time_order_index[0]
     assert (
-        "INDEX ix_record_pb_bucket_points_lookup"
-        in record_pb_time_order_index[0]
-    )
-    assert "(scope, course_id, type, \"time\", record_uuid)" in (
-        record_pb_time_order_index[0]
+        '(scope, course_id, type, "time", record_uuid)'
+        in (record_pb_time_order_index[0])
     )
 
     record_pb_index = (
@@ -1527,6 +1553,4 @@ async def test_record_pb_wr_unique_index_exists_and_map_wr_cache_removed(
             )
         )
     ).one() == (None, None)
-    assert (
-        await db.exec(text("SELECT to_regclass('cache.map_wrs')"))
-    ).one() == (None,)
+    assert (await db.exec(text("SELECT to_regclass('cache.map_wrs')"))).one() == (None,)

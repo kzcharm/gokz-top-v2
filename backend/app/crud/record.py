@@ -14,7 +14,6 @@ from sqlalchemy import (
     Uuid,
     and_,
     any_,
-    bindparam,
     case,
     delete,
     exists,
@@ -110,20 +109,6 @@ RECENT_RECORD_NOTIFY_CHANNEL = "recent_record_updates"
 RECENT_RECORD_EXACT_COUNT_THRESHOLD = 100_000
 
 _record_pb_table = get_sqlmodel_table(RecordPb)
-
-_RECORD_PB_POINTS_BULK_UPDATE = (
-    update(_record_pb_table)
-    .where(
-        _record_pb_table.c.scope == bindparam("pk_scope"),
-        _record_pb_table.c.course_id == bindparam("pk_course_id"),
-        _record_pb_table.c.steamid64 == bindparam("pk_steamid64"),
-        _record_pb_table.c["type"] == bindparam("pk_type"),
-    )
-    .values(
-        points=bindparam("next_points"),
-        updated_at=bindparam("next_updated_on"),
-    )
-)
 
 
 @dataclass(frozen=True, slots=True)
@@ -242,22 +227,62 @@ def _record_pb_points_update_params(
     }
 
 
+_POINT_UPDATE_CHUNK_SIZE = 2000
+
+
 async def _execute_point_updates(
     *,
     session: AsyncSession,
     updates: Sequence[tuple[dict[str, object], int, int]],
 ) -> None:
     """Apply WR demotions before promotions protected by the partial index."""
-    changed = [
-        params for params, current, next_points in updates if current != next_points
-    ]
-    if changed:
-        # Clear the partial unique-index key for every affected row before
-        # applying final values; executemany ordering is not guaranteed by the
-        # database driver.
-        neutralized = [params | {"next_points": 1} for params in changed]
-        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, neutralized)
-        await session.execute(_RECORD_PB_POINTS_BULK_UPDATE, changed)
+    grouped: dict[tuple[str, int, str], list[dict[str, object]]] = defaultdict(list)
+    for params, current, next_points in updates:
+        if current != next_points:
+            grouped[
+                (
+                    str(params["pk_scope"]),
+                    int(str(params["pk_course_id"])),
+                    str(params["pk_type"]),
+                )
+            ].append(params)
+    for (scope, course, kind), rows in sorted(grouped.items()):
+        rows.sort(key=lambda row: int(str(row["pk_steamid64"])))
+        chunks = [
+            rows[start : start + _POINT_UPDATE_CHUNK_SIZE]
+            for start in range(0, len(rows), _POINT_UPDATE_CHUNK_SIZE)
+        ]
+        # Demote every affected WR before any promotion, including across chunks.
+        for chunk in chunks:
+            await session.execute(
+                text("""UPDATE record_pb SET points=1
+                WHERE scope=CAST(:scope AS mode_scope) AND course_id=:course
+                  AND type=CAST(:kind AS record_type) AND points=1000
+                  AND steamid64=ANY(CAST(:players AS bigint[]))"""),
+                {
+                    "scope": scope,
+                    "course": course,
+                    "kind": kind,
+                    "players": [r["pk_steamid64"] for r in chunk],
+                },
+            )
+        for chunk in chunks:
+            await session.execute(
+                text("""UPDATE record_pb p
+                SET points=n.points, updated_at=n.updated_at
+                FROM unnest(CAST(:players AS bigint[]), CAST(:points AS integer[]),
+                            CAST(:timestamps AS timestamptz[])) AS n(steamid64,points,updated_at)
+                WHERE p.scope=CAST(:scope AS mode_scope) AND p.course_id=:course
+                  AND p.type=CAST(:kind AS record_type) AND p.steamid64=n.steamid64"""),
+                {
+                    "scope": scope,
+                    "course": course,
+                    "kind": kind,
+                    "players": [r["pk_steamid64"] for r in chunk],
+                    "points": [r["next_points"] for r in chunk],
+                    "timestamps": [r["next_updated_on"] for r in chunk],
+                },
+            )
 
 
 def _stored_points_for_banned_record() -> int:
