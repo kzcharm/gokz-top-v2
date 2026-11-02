@@ -656,9 +656,15 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
         assert row.updated_at == original_updated_on
 
 
-async def test_rebuild_record_pb_points_bucket_excludes_actively_banned_rows(
+@pytest.mark.parametrize("whole_course", [False, True])
+async def test_rebuild_rank_points_excludes_actively_banned_rows(
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+    whole_course: bool,
 ) -> None:
+    from app.core.config import settings
+
+    monkeypatch.setattr(settings, "RANK_POINTS_ENABLED", True)
     banned_player = random_steamid64()
     visible_player = random_steamid64()
     await _create_player(db, steamid64=banned_player, name="Banned Bucket")
@@ -717,12 +723,19 @@ async def test_rebuild_record_pb_points_bucket_excludes_actively_banned_rows(
         db.add(row)
     await db.commit()
 
-    updated_rows = await crud.rebuild_record_pb_points_bucket(
-        session=db,
-        course_id=course.id,
-        scope_id=ModeScope.SKZ.scope_id,
-        record_type=RecordType.NUB,
-    )
+    if whole_course:
+        updated_rows = await crud.rebuild_record_pb_points_for_course(
+            session=db,
+            course_id=course.id,
+            scope_ids=[ModeScope.SKZ.scope_id],
+        )
+    else:
+        updated_rows = await crud.rebuild_record_pb_points_bucket(
+            session=db,
+            course_id=course.id,
+            scope_id=ModeScope.SKZ.scope_id,
+            record_type=RecordType.NUB,
+        )
     await db.commit()
 
     refreshed_rows = (

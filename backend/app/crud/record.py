@@ -92,6 +92,7 @@ from app.services.course_points import (
     calculate_course_pb_points,
     calculate_estimated_pb_points,
     is_local_pro_points_preview,
+    is_local_rank_points_preview,
 )
 from app.services.record_replay_catalog import available_record_uuids
 
@@ -1255,9 +1256,7 @@ async def rebuild_record_pb_points_for_course(
     raw_updates: list[tuple[dict[str, object], int, int]] = []
     preview_updated = 0
     for (scope, row_record_type), bucket_rows in grouped_rows.items():
-        if row_record_type.is_pro and is_local_pro_points_preview(
-            scope_id=scope.scope_id, course_id=course_id
-        ):
+        if is_local_rank_points_preview(scope_id=scope.scope_id):
             preview_updated += await rebuild_record_pb_points_bucket(
                 session=session,
                 course_id=course_id,
