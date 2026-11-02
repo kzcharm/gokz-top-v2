@@ -29,6 +29,32 @@ from scripts.tune_ratings import (
 from tests.api.routes.test_leaderboards import _create_ban, _seed_leaderboard_data
 
 
+def test_snapshot_recalculates_pro_using_the_same_course_nub_population(
+    tmp_path, monkeypatch
+):
+    from app.core.config import settings
+    from app.models import ModeScope
+    from app.services.pro_points_candidate import pro_rank_points_candidate
+
+    monkeypatch.setattr(settings, "ENVIRONMENT", "local")
+    monkeypatch.setattr(settings, "LOCAL_OVR_NUB_RANK_POINTS_PREVIEW", True)
+    monkeypatch.setattr(settings, "LOCAL_OVR_PRO_RANK_POINTS_PREVIEW", True)
+    source = tmp_path / "source.csv"
+    with source.open("w") as out:
+        writer = csv.writer(out)
+        writer.writerows(
+            (player, 42, 42, "NUB", player * 1000) for player in range(1, 21)
+        )
+        writer.writerows((player, 42, 42, "PRO", player * 1000) for player in (19, 20))
+    runs = recalculate_snapshot_points(
+        source, {"42": 1}, scope_id=ModeScope.OVR.scope_id
+    )
+    last = runs[runs["player"] == 20][0]
+    assert last["points"] == pro_rank_points_candidate(
+        rank=2, pro_finishers=2, nub_finishers=20, tier=1
+    )
+
+
 @pytest.mark.parametrize("decay", ["0.9", "0.95", "0.975", "0.99", "0.999"])
 def test_snapshot_calculation_matches_production(monkeypatch, decay):
     config = replace(

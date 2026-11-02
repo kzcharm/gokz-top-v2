@@ -33,11 +33,13 @@ from app.core.db import async_engine  # noqa: E402
 from app.core.rank_system import RatingSettings, get_rank_system_settings  # noqa: E402
 from app.crud.leaderboard_player import (  # noqa: E402
     ELIGIBLE_UNIQUE_MAP_FINISHES,
+    calculate_overall_rating,
     calculate_weighted_rating,
 )
 from app.crud.record_filter import load_scoped_course_tiers  # noqa: E402
 from app.models import MapCourse, MapSkill, ModeScope  # noqa: E402
 from app.services.course_points import calculate_course_pb_points  # noqa: E402
+from app.services.overall_rating_converter import calibrate_overall_rating  # noqa: E402
 from app.services.skill_rating import SKILLS, calculate_skill_rating  # noqa: E402
 from app.services.skill_rating_converter import (  # noqa: E402
     calibrate,
@@ -108,8 +110,11 @@ def recalculate_snapshot_points(
         ):
             best: dict[int, int] = {}
             map_id = 0
-            for kind, bucket in groupby(course_rows, key=lambda row: row[3]):
-                rows = list(bucket)
+            buckets = {
+                kind: list(bucket)
+                for kind, bucket in groupby(course_rows, key=lambda row: row[3])
+            }
+            for kind, rows in buckets.items():
                 wr_time_ms = int(rows[0][4])
                 map_id = int(rows[0][2])
                 for rank, row in enumerate(rows, start=1):
@@ -122,6 +127,8 @@ def recalculate_snapshot_points(
                         tier=tiers[course],
                         is_pro_only=kind == "PRO",
                         scope_id=scope_id,
+                        course_id=int(course),
+                        nub_finishers=len(buckets.get("NUB", [])),
                     )
                     best[player] = max(best.get(player, 0), points)
             writer.writerows(
@@ -235,11 +242,11 @@ def evaluate_player(
     skills: dict[int, tuple[Decimal, ...]],
     settings: RatingSettings,
     fields: tuple[str, ...] = FIELDS,
-) -> tuple[int, ...]:
+) -> tuple[int | float, ...]:
     """Use the production calculators on best-per-main-course snapshot rows."""
     result = {}
     if "rating" in fields:
-        result["rating"] = calculate_weighted_rating(
+        result["rating"] = calculate_overall_rating(
             (point for _course, _map, point in rows), settings=settings
         )
     if "rating_easy" in fields:
@@ -310,7 +317,7 @@ def evaluate(
     )
     if len(players) != metadata["players"] or len(runs) != metadata["best_map_rows"]:
         raise ValueError("Incomplete snapshot; extract again")
-    ratings = np.empty((len(players), len(fields)), dtype=np.int64)
+    ratings = np.empty((len(players), len(fields)), dtype=np.float64)
     for index, (offset, count) in enumerate(zip(starts, counts, strict=True)):
         rows = [
             (int(row["course"]), int(row["map"]), int(row["points"]))
@@ -331,12 +338,19 @@ def evaluate(
         }
         for index, field in enumerate(fields):
             values, frequencies = np.unique(ratings[:, index], return_counts=True)
-            calibration = calibrate(
-                [
-                    (int(value), int(count))
-                    for value, count in zip(values, frequencies, strict=True)
-                ],
-                max_raw_rating=settings.target_max_raw_rating,
+            histogram = [
+                (float(value), int(count))
+                for value, count in zip(values, frequencies, strict=True)
+            ]
+            calibration = (
+                calibrate_overall_rating(
+                    histogram, max_raw_rating=settings.target_max_raw_rating
+                )
+                if field == "rating"
+                else calibrate(
+                    [(int(value), count) for value, count in histogram],
+                    max_raw_rating=settings.target_max_raw_rating,
+                )
             )
             curves["metrics"][field] = calibration.anchors
         output.with_suffix(".converters.json").write_text(
@@ -365,14 +379,20 @@ def evaluate(
             normalized = (
                 [
                     convert_skill_rating(
-                        int(ratings[index, column]), curves["metrics"][field]
+                        float(ratings[index, column]), curves["metrics"][field]
                     )
                     for column, field in enumerate(fields)
                 ]
                 if curves
                 else []
             )
-            writer.writerow((str(players[index]), *ratings[index], *normalized))
+            csv_values = [
+                f"{ratings[index, column]:.6f}"
+                if field == "rating"
+                else str(int(ratings[index, column]))
+                for column, field in enumerate(fields)
+            ]
+            writer.writerow((str(players[index]), *csv_values, *normalized))
     report = {
         "scope": metadata["scope"],
         "snapshot_created_at": metadata["created_at"],
@@ -449,11 +469,13 @@ def main() -> None:
         or not 0 < rating.skill_full_portion_decay < 1
     ):
         parser.error("decays must be between zero and one")
-    if (
-        min(
-            rating.easy_top_maps, rating.hard_top_maps, rating.skill_top_map_equivalents
+    if any(
+        limit is not None and limit < 1
+        for limit in (
+            rating.easy_top_maps,
+            rating.hard_top_maps,
+            rating.skill_top_map_equivalents,
         )
-        < 1
     ):
         parser.error("map limits must be positive")
     path = args.snapshot or ROOT / ".temp/rating-tuning" / args.scope.lower()

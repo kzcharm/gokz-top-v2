@@ -14,6 +14,7 @@ import gzip
 import json
 import sys
 from dataclasses import asdict
+from math import isfinite
 from pathlib import Path
 from typing import Any
 
@@ -36,7 +37,7 @@ from scripts.tune_ratings import FIELDS, checksum  # noqa: E402
 
 def load_candidate(
     snapshot: Path, candidate: Path
-) -> tuple[list[tuple[int, ...]], dict[str, Any]]:
+) -> tuple[list[tuple[int | float, ...]], dict[str, Any]]:
     metadata = json.loads((snapshot / "metadata.json").read_text())
     report = json.loads(candidate.with_suffix(".json").read_text())
     curves = json.loads(candidate.with_suffix(".converters.json").read_text())
@@ -69,7 +70,10 @@ def load_candidate(
         rows = [
             (
                 int(row["steamid64"]),
-                *(int(row[field]) for field in FIELDS),
+                *(
+                    float(row[field]) if field == "rating" else int(row[field])
+                    for field in FIELDS
+                ),
                 finishes[int(row["steamid64"])],
             )
             for row in csv.DictReader(source)
@@ -86,7 +90,7 @@ def load_candidate(
     ):
         raise ValueError("Candidate population metadata does not match the snapshot")
     if any(
-        value < 0 or value > runtime.rating.target_max_raw_rating
+        not isfinite(value) or value < 0 or value > runtime.rating.target_max_raw_rating
         for row in rows
         for value in row[1:-1]
     ):
@@ -136,7 +140,10 @@ async def publish(snapshot: Path, candidate: Path, backup: Path) -> dict[str, in
     with psycopg.connect(uri) as connection:
         connection.execute("SET LOCAL lock_timeout='30s'")
         columns = ("steamid64", *FIELDS, "unique_map_finishes")
-        definitions = ", ".join(f"{column} bigint" for column in columns)
+        definitions = ", ".join(
+            f"{column} numeric(11,6)" if column == "rating" else f"{column} bigint"
+            for column in columns
+        )
         connection.execute(
             f"CREATE TEMP TABLE candidate ({definitions}) ON COMMIT DROP"
         )
