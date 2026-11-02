@@ -177,14 +177,14 @@ async def test_load_target_steamid64s_supports_leaderboard_scope_ordering(
         LeaderboardPlayer(
             scope=ModeScope.OVR,
             steamid64=second_player,
-            rating=2_147_483_646,
+            rating=39_999.999999,
         )
     )
     db.add(
         LeaderboardPlayer(
             scope=ModeScope.OVR,
             steamid64=first_player,
-            rating=2_147_483_647,
+            rating=40_000,
         )
     )
     db.add(
