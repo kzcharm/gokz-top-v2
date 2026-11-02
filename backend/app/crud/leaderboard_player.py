@@ -12,7 +12,7 @@ from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
-from app.core.rank_system import get_rank_system_settings
+from app.core.rank_system import RatingSettings, get_rank_system_settings
 from app.core.regions import get_region_code_for_country, get_region_country_codes
 from app.crud.player import to_player_ref_public
 from app.crud.record_filter import load_scoped_course_tiers
@@ -97,11 +97,13 @@ def _truncate_rating(value: Decimal) -> int:
     return int(value)
 
 
-def calculate_weighted_rating(points: Iterable[int]) -> int:
+def calculate_weighted_rating(
+    points: Iterable[int], *, settings: RatingSettings | None = None
+) -> int:
     sorted_points = sorted(points, reverse=True)
     if not sorted_points:
         return 0
-    settings = get_rank_system_settings().rating
+    settings = settings or get_rank_system_settings().rating
 
     with localcontext() as ctx:
         ctx.prec = 28

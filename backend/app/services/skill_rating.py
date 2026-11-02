@@ -4,7 +4,7 @@ from collections.abc import Iterable
 from decimal import Decimal
 from math import exp, expm1, log
 
-from app.core.rank_system import get_rank_system_settings
+from app.core.rank_system import RatingSettings, get_rank_system_settings
 
 SKILLS = ("boxtech", "strafe", "bhop", "climb", "ladder", "slide")
 
@@ -14,6 +14,7 @@ def calculate_skill_rating(
     *,
     full_portion_decay: float | None = None,
     max_full_portion_entries: float | None = None,
+    settings: RatingSettings | None = None,
 ) -> int:
     """Rate virtual PB-point entries without materializing their repeated list.
 
@@ -22,7 +23,7 @@ def calculate_skill_rating(
     Each skill independently keeps the highest-point evidence up to the amount
     expected from the configured number of evenly distributed six-skill maps.
     """
-    settings = get_rank_system_settings().rating
+    settings = settings or get_rank_system_settings().rating
     decay = (
         float(settings.skill_full_portion_decay)
         if full_portion_decay is None
