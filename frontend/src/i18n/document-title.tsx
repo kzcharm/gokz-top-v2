@@ -65,6 +65,10 @@ export function useCurrentPageTitle() {
   }
 
   if (pathname.startsWith("/maps/")) {
+    const mapTopMatch = pathname.match(/^\/maps\/([^/]+)\/maptop\/?$/)
+    if (mapTopMatch) {
+      return `${decodeURIComponent(mapTopMatch[1])} maptop`
+    }
     return decodeURIComponent(pathname.split("/maps/")[1] ?? "")
   }
 

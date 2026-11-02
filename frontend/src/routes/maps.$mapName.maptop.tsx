@@ -27,7 +27,7 @@ export const Route = createFileRoute("/maps/$mapName/maptop")({
   head: ({ params }) => ({
     meta: [
       {
-        title: getPageTitle(params.mapName),
+        title: getPageTitle(`${params.mapName} maptop`),
       },
     ],
   }),
