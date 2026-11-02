@@ -84,11 +84,41 @@ def calculate_dist_points_portion(
     )
 
 
-def is_local_ovr_points_preview(*, scope_id: int | None) -> bool:
+def is_local_rank_points_preview(*, scope_id: int | None) -> bool:
     return (
         app_settings.ENVIRONMENT == "local"
-        and app_settings.LOCAL_OVR_NUB_RANK_POINTS_PREVIEW
-        and scope_id == ModeScopeId.OVR
+        and scope_id is not None
+        and scope_id in tuple(ModeScopeId)
+        and (
+            ModeScopeId(scope_id).name in app_settings.LOCAL_RANK_POINTS_PREVIEW_SCOPES
+            or (
+                app_settings.LOCAL_OVR_NUB_RANK_POINTS_PREVIEW
+                and scope_id == ModeScopeId.OVR
+            )
+        )
+    )
+
+
+def is_local_pro_points_preview(*, scope_id: int | None, course_id: int | None) -> bool:
+    return (
+        scope_id is not None
+        and is_local_rank_points_preview(scope_id=scope_id)
+        and (
+            ModeScopeId(scope_id).name in app_settings.LOCAL_RANK_POINTS_PREVIEW_SCOPES
+            or (
+                scope_id == ModeScopeId.OVR
+                and (
+                    app_settings.LOCAL_OVR_PRO_RANK_POINTS_PREVIEW
+                    or course_id in app_settings.LOCAL_OVR_PRO_POINTS_PREVIEW_COURSES
+                )
+            )
+        )
+    )
+
+
+def exclude_pro_from_local_preview(*, scope_id: int, course_id: int) -> bool:
+    return is_local_rank_points_preview(scope_id=scope_id) and not (
+        is_local_pro_points_preview(scope_id=scope_id, course_id=course_id)
     )
 
 
@@ -101,11 +131,26 @@ def calculate_course_pb_points(
     tier: int,
     is_pro_only: bool,
     scope_id: int | None = None,
+    course_id: int | None = None,
+    nub_finishers: int | None = None,
 ) -> int:
-    if is_local_ovr_points_preview(scope_id=scope_id):
+    if is_local_rank_points_preview(scope_id=scope_id):
         from app.services.rank_points_candidate import rank_points_candidate
 
         if is_pro_only:
+            if 1 <= tier <= 8 and is_local_pro_points_preview(
+                scope_id=scope_id, course_id=course_id
+            ):
+                from app.services.pro_points_candidate import pro_rank_points_candidate
+
+                if nub_finishers is None:
+                    raise ValueError("PRO preview requires the eligible NUB population")
+                return pro_rank_points_candidate(
+                    rank=rank,
+                    pro_finishers=total,
+                    nub_finishers=nub_finishers,
+                    tier=tier,
+                )
             return 1
         if 1 <= tier <= 8:
             return rank_points_candidate(rank=rank, total=total, tier=tier)
@@ -133,6 +178,8 @@ def calculate_bucket_points(
     tier: int,
     is_pro_only: bool,
     scope_id: int | None = None,
+    course_id: int | None = None,
+    nub_finishers: int | None = None,
 ) -> dict[uuid.UUID, int]:
     if not entries:
         return {}
@@ -148,6 +195,8 @@ def calculate_bucket_points(
             tier=tier,
             is_pro_only=is_pro_only,
             scope_id=scope_id,
+            course_id=course_id,
+            nub_finishers=nub_finishers,
         )
         for index, entry in enumerate(entries, start=1)
     }
@@ -160,10 +209,14 @@ def calculate_estimated_pb_points(
     tier: int,
     is_pro_only: bool,
     scope_id: int | None = None,
+    course_id: int | None = None,
+    nub_finishers: int | None = None,
 ) -> int:
     return calculate_bucket_points(
         entries=entries,
         tier=tier,
         is_pro_only=is_pro_only,
         scope_id=scope_id,
+        course_id=course_id,
+        nub_finishers=nub_finishers,
     )[winner_record_uuid]

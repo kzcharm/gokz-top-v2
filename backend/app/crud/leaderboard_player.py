@@ -4,7 +4,7 @@ import uuid
 from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime, timedelta
-from decimal import Decimal, localcontext
+from decimal import ROUND_DOWN, Decimal, localcontext
 from typing import Any, Literal, NamedTuple
 
 from sqlalchemy import bindparam, exists, func, or_, update
@@ -40,8 +40,9 @@ from app.models import (
     mode_scope_to_id,
 )
 from app.models.leaderboard_player import LeaderboardPlayerSortBy
+from app.models.mode_scope import rating_converter_scope
 from app.models.utils import get_datetime_utc, get_sqlmodel_table, select_row
-from app.services.course_points import is_local_ovr_points_preview
+from app.services.course_points import exclude_pro_from_local_preview
 from app.services.skill_rating import SKILLS, calculate_skill_rating
 from app.services.skill_rating_converter import convert_skill_rating
 
@@ -63,7 +64,7 @@ async def load_player_ratings_by_scope(
     *,
     session: AsyncSession,
     steamid64s: Sequence[int],
-) -> dict[int, dict[ModeScope, int]]:
+) -> dict[int, dict[ModeScope, float]]:
     unique_steamid64s = tuple(dict.fromkeys(steamid64s))
     if not unique_steamid64s:
         return {}
@@ -80,7 +81,7 @@ async def load_player_ratings_by_scope(
             )
         )
     ).all()
-    ratings_by_player: dict[int, dict[ModeScope, int]] = defaultdict(dict)
+    ratings_by_player: dict[int, dict[ModeScope, float]] = defaultdict(dict)
     for steamid64, scope, rating in rows:
         ratings_by_player[int(steamid64)][scope] = rating
     return dict(ratings_by_player)
@@ -101,9 +102,23 @@ def _truncate_rating(value: Decimal) -> int:
 def calculate_weighted_rating(
     points: Iterable[int], *, settings: RatingSettings | None = None
 ) -> int:
+    return int(_weighted_rating_total(points, settings=settings))
+
+
+def calculate_overall_rating(
+    points: Iterable[int], *, settings: RatingSettings | None = None
+) -> float:
+    """Keep six decimal places so near-ceiling results remain distinguishable."""
+    total = _weighted_rating_total(points, settings=settings)
+    return float(total.quantize(Decimal("0.000001"), rounding=ROUND_DOWN))
+
+
+def _weighted_rating_total(
+    points: Iterable[int], *, settings: RatingSettings | None = None
+) -> Decimal:
     sorted_points = sorted(points, reverse=True)
     if not sorted_points:
-        return 0
+        return Decimal(0)
     settings = settings or get_rank_system_settings().rating
 
     with localcontext() as ctx:
@@ -114,7 +129,7 @@ def calculate_weighted_rating(
             total += Decimal(point) * multiplier
             multiplier *= settings.decay
         total *= settings.multiplier
-    return _truncate_rating(total)
+    return total
 
 
 def _not_banned_clause() -> ColumnElement[bool]:
@@ -348,14 +363,7 @@ async def _load_skill_converters(
     rows = (
         await session.exec(
             select(SkillRatingConverter).where(
-                (
-                    (col(SkillRatingConverter.scope) == scope)
-                    & col(SkillRatingConverter.skill).not_in(("easy", "hard"))
-                )
-                | (
-                    (col(SkillRatingConverter.scope) == ModeScope.OVR)
-                    & col(SkillRatingConverter.skill).in_(("easy", "hard"))
-                )
+                col(SkillRatingConverter.scope) == rating_converter_scope(scope)
             )
         )
     ).all()
@@ -397,7 +405,10 @@ async def _load_player_pb_rows(
             points=points,
         )
         for course_id, map_id, record_type, record_uuid, points in rows
-        if not (record_type.is_pro and is_local_ovr_points_preview(scope_id=scope_id))
+        if not (
+            record_type.is_pro
+            and exclude_pro_from_local_preview(scope_id=scope_id, course_id=course_id)
+        )
     ]
 
 
@@ -406,7 +417,7 @@ def _build_leaderboard_values(
     rows: Sequence[PlayerPbRow],
     tiers_by_course_id: dict[int, int],
     skills_by_map_id: dict[int, MapSkill] | None = None,
-) -> dict[str, int]:
+) -> dict[str, int | float]:
     points_by_course_id: dict[int, dict[RecordType, int]] = defaultdict(dict)
     total_points = 0
     wrs_nub = 0
@@ -453,7 +464,7 @@ def _build_leaderboard_values(
     )
 
     if unique_map_finishes >= ELIGIBLE_UNIQUE_MAP_FINISHES:
-        rating = calculate_weighted_rating(map_best_points)
+        rating = calculate_overall_rating(map_best_points)
         rating_easy = calculate_weighted_rating(
             sorted(easy_points, reverse=True)[
                 : get_rank_system_settings().rating.easy_top_maps
@@ -802,7 +813,10 @@ async def rebuild_leaderboard_players_batch(
         if (
             stage == 0
             and validated
-            and not (kind.is_pro and is_local_ovr_points_preview(scope_id=scope_id))
+            and not (
+                kind.is_pro
+                and exclude_pro_from_local_preview(scope_id=scope_id, course_id=course)
+            )
         ):
             rows_by_player[player].append(
                 PlayerPbRow(course, map_id, kind, record_uuid, points)
@@ -865,8 +879,8 @@ async def rebuild_leaderboard_players_batch(
             session.add(LeaderboardPlayer(scope=scope, steamid64=player, **values))
             created += 1
         elif any(getattr(current, name) != value for name, value in values.items()):
-            for name, value in values.items():
-                setattr(current, name, value)
+            for name, field_value in values.items():
+                setattr(current, name, field_value)
             current.updated_at = get_datetime_utc()
             updated += 1
         else:
@@ -1221,7 +1235,7 @@ async def _read_metric_rank(
     scope: ModeScope,
     steamid64: int,
     metric_name: Literal["points", "rating"],
-    metric_value: int,
+    metric_value: int | float,
     country: str | None = None,
     region: str | None = None,
     friends_viewer_steamid64: int | None = None,

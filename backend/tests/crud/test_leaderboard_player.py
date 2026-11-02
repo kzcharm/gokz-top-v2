@@ -14,6 +14,7 @@ from app.crud.leaderboard_player import (
     _build_leaderboard_values,
     _build_raw_rating_contributions,
     _truncate_rating,
+    calculate_overall_rating,
 )
 from app.models import (
     Ban,
@@ -260,7 +261,7 @@ async def test_rebuild_leaderboard_player_aggregates_points_ratings_and_threshol
     assert row.records_900_plus == 0
     assert row.records_800_plus == 0
     assert row.unique_map_finishes == 10
-    assert row.rating == crud.calculate_weighted_rating([1000] * 10)
+    assert row.rating == calculate_overall_rating([1000] * 10)
     assert row.rating_easy == crud.calculate_weighted_rating([1000] * 10)
     assert row.rating_hard == 0
     pb_rows = (
@@ -650,10 +651,10 @@ async def test_load_leaderboard_player_keys_filters_source_keys_to_eligible_unba
 @pytest.mark.parametrize(
     ("tier", "cap", "field"), [(4, 100, "rating_easy"), (5, 50, "rating_hard")]
 )
-async def test_difficulty_rating_caps_best_unique_maps(
+async def test_difficulty_rating_includes_maps_beyond_previous_caps(
     tier: int, cap: int, field: str
 ) -> None:
-    def values(points: list[int]) -> dict[str, int]:
+    def values(points: list[int]) -> dict[str, int | float]:
         rows = [
             PlayerPbRow(
                 course_id=i,
@@ -671,9 +672,12 @@ async def test_difficulty_rating_caps_best_unique_maps(
 
     baseline = values([800] * cap)
     assert baseline[field] == crud.calculate_weighted_rating([800] * cap)
-    assert values([800] * cap + [100])[field] == baseline[field]
+    assert values([800] * cap + [100])[field] == crud.calculate_weighted_rating(
+        [800] * cap + [100]
+    )
+    assert values([800] * cap + [100])[field] > baseline[field]
     assert values([800] * cap + [900])[field] == crud.calculate_weighted_rating(
-        [900] + [800] * (cap - 1)
+        [900] + [800] * cap
     )
     assert values([800] * cap + [900])[field] > baseline[field]
-    assert baseline["rating"] == crud.calculate_weighted_rating([800] * cap)
+    assert baseline["rating"] == calculate_overall_rating([800] * cap)

@@ -36,8 +36,8 @@ def test_preview_curve_override_is_local_and_opt_in(
 def test_load_rank_system_settings_parses_current_config() -> None:
     settings = load_rank_system_settings()
 
-    assert settings.rating.easy_top_maps == 100
-    assert settings.rating.hard_top_maps == 50
+    assert settings.rating.easy_top_maps is None
+    assert settings.rating.hard_top_maps is None
     assert settings.rating.decay == Decimal("0.95")
     assert settings.rating.skill_full_portion_decay == Decimal("0.9")
     assert settings.rating.skill_top_map_equivalents == 50

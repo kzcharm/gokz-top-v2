@@ -5446,7 +5446,7 @@ export const PlayerLeaderboardEntryPublicSchema = {
         raw_rating: {
             anyOf: [
                 {
-                    type: 'integer'
+                    type: 'number'
                 },
                 {
                     type: 'null'

@@ -79,6 +79,8 @@ def test_candidate_rejects_invalid_inputs(rank, total, tier):
 
 
 def test_preview_only_changes_local_ovr_nub_and_ignores_time(monkeypatch):
+    monkeypatch.setattr(settings, "LOCAL_OVR_PRO_RANK_POINTS_PREVIEW", False)
+    monkeypatch.setattr(settings, "LOCAL_OVR_PRO_POINTS_PREVIEW_COURSES", [])
     args = {"rank": 2, "total": 10, "time_ms": 20000, "wr_time_ms": 10000, "tier": 6}
     monkeypatch.setattr(settings, "LOCAL_OVR_NUB_RANK_POINTS_PREVIEW", False)
     scope_id = ModeScopeId.OVR

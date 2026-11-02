@@ -23,6 +23,11 @@ class ModeScopeId(IntEnum):
     VNL = 3
 
 
+def rating_converter_scope(scope: ModeScope) -> ModeScope:
+    """E/H and skills share OVR calibration, except VNL's own population."""
+    return ModeScope.VNL if scope is ModeScope.VNL else ModeScope.OVR
+
+
 MODE_SCOPE_ID_BY_SCOPE: dict[ModeScope, int] = {
     ModeScope.OVR: ModeScopeId.OVR,
     ModeScope.KZT: ModeScopeId.KZT,

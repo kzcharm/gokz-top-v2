@@ -28,6 +28,8 @@ async def test_batch_matches_live_rebuild_and_is_idempotent(
     players = list((await _seed_leaderboard_data(db)).values())
     scope = ModeScope.OVR if preview else ModeScope.KZT
     monkeypatch.setattr(settings, "LOCAL_OVR_NUB_RANK_POINTS_PREVIEW", preview)
+    monkeypatch.setattr(settings, "LOCAL_OVR_PRO_RANK_POINTS_PREVIEW", False)
+    monkeypatch.setattr(settings, "LOCAL_OVR_PRO_POINTS_PREVIEW_COURSES", [])
     if preview:
         # Even stale high PRO scores must not affect the NUB-only preview.
         await db.exec(

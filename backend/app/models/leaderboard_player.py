@@ -4,7 +4,7 @@ from decimal import Decimal
 from typing import Literal
 
 from pydantic import field_serializer
-from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, Text, text
+from sqlalchemy import BigInteger, Column, DateTime, Index, Integer, Numeric, Text, text
 from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlmodel import Field, SQLModel
@@ -181,25 +181,27 @@ def scale_public_rating(value: float | None) -> float | None:
     return redistribute_display_rating(float(old_rating))
 
 
-def min_raw_rating_for_public_rating(target_rating: int | float) -> int:
+def min_raw_rating_for_public_rating(target_rating: int | float) -> float:
     max_raw_rating = get_rank_system_settings().rating.target_max_raw_rating
     minimum_target = max(1.0, float(target_rating))
     maximum_public_rating = scale_public_rating(max_raw_rating)
     if maximum_public_rating is None:
         return max_raw_rating
-    if minimum_target >= maximum_public_rating:
+    if minimum_target > maximum_public_rating:
         return max_raw_rating
 
     low = 1
-    high = max_raw_rating
+    # Search the same fixed six-decimal grid used by persisted overall ratings.
+    units = 1_000_000
+    high = max_raw_rating * units
     while low < high:
         midpoint = (low + high) // 2
-        midpoint_rating = scale_public_rating(midpoint)
+        midpoint_rating = scale_public_rating(midpoint / units)
         if midpoint_rating is None or midpoint_rating < minimum_target:
             low = midpoint + 1
         else:
             high = midpoint
-    return low
+    return low / units
 
 
 class LeaderboardPlayerBase(LegacyDatetimeNamesMixin):
@@ -215,7 +217,11 @@ class LeaderboardPlayerBase(LegacyDatetimeNamesMixin):
         sa_type=BigInteger,
         primary_key=True,
     )
-    rating: int = Field(default=0, ge=0)
+    rating: float = Field(
+        default=0,
+        ge=0,
+        sa_column=Column(Numeric(11, 6, asdecimal=False), nullable=False),
+    )
     rating_easy: int = Field(default=0, ge=0)
     rating_hard: int = Field(default=0, ge=0)
     rating_boxtech: int = Field(default=0, ge=0)
@@ -402,7 +408,7 @@ class PlayerLeaderboardEntryPublic(SQLModel):
     global_rank: int | None = None
     player: PlayerRefPublic
     rating: float | None
-    raw_rating: int | None
+    raw_rating: float | None
     skill_ratings: dict[str, SkillRatingPublic] = Field(default_factory=dict)
     rating_easy: float | None
     rating_hard: float | None

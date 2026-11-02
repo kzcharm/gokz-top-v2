@@ -441,7 +441,7 @@ def build_skill_converters(
         typer.Option("--save", help="Persist calibrated curves (preview by default)."),
     ] = False,
 ) -> None:
-    """Inspect or save 24 independently calibrated skill rating curves."""
+    """Inspect or save twelve skill curves for OVR-shared and VNL ratings."""
 
     def threshold_label(raw: int, level: int | float) -> str:
         if level == TOP_DISPLAY_RATING:
@@ -494,7 +494,7 @@ def build_difficulty_converters(
         typer.Option("--save", help="Persist calibrated curves (preview by default)."),
     ] = False,
 ) -> None:
-    """Inspect or save eight independently calibrated difficulty rating curves."""
+    """Inspect or save shared OVR and independent VNL difficulty curves."""
 
     def threshold_label(raw: int, level: int | float) -> str:
         if level == TOP_DISPLAY_RATING:

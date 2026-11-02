@@ -91,6 +91,7 @@ from app.services.course_points import (
     calculate_bucket_points,
     calculate_course_pb_points,
     calculate_estimated_pb_points,
+    is_local_pro_points_preview,
 )
 from app.services.record_replay_catalog import available_record_uuids
 
@@ -654,6 +655,37 @@ async def _load_bucket_record_pb_entries(
     ]
 
 
+async def _load_pro_preview_nub_finishers(
+    *,
+    session: AsyncSession,
+    course_id: int,
+    scope_id: int,
+    record_type: RecordType,
+    arriving_player: int | None = None,
+) -> int | None:
+    if not record_type.is_pro or not is_local_pro_points_preview(
+        scope_id=scope_id, course_id=course_id
+    ):
+        return None
+    statement = (
+        select(func.count())
+        .select_from(RecordPb)
+        .where(
+            col(RecordPb.scope) == mode_scope_from_id(scope_id),
+            col(RecordPb.course_id) == course_id,
+            col(RecordPb.type) == RecordType.NUB,
+            _not_active_ban_exists_split_clause(
+                steamid64_column=col(RecordPb.steamid64)
+            ),
+        )
+    )
+    if arriving_player is not None:
+        # A new PRO finisher also belongs to NUB, even before its PB is flushed.
+        statement = statement.where(col(RecordPb.steamid64) != arriving_player)
+    count = (await session.exec(statement)).one()
+    return int(count) + int(arriving_player is not None)
+
+
 async def _estimate_record_pb_points(
     *,
     session: AsyncSession,
@@ -687,6 +719,14 @@ async def _estimate_record_pb_points(
         tier=tier,
         is_pro_only=record_type.is_pro,
         scope_id=scope_id,
+        course_id=course_id,
+        nub_finishers=await _load_pro_preview_nub_finishers(
+            session=session,
+            course_id=course_id,
+            scope_id=scope_id,
+            record_type=record_type,
+            arriving_player=steamid64,
+        ),
     )
 
 
@@ -815,6 +855,11 @@ async def recalculate_estimated_record_pb_points_for_player(
             (scope, course_id, record_type, record_uuid): (rank, total, wr_time)
             for record_uuid, scope, course_id, record_type, total, rank, wr_time in bucket_stats_rows
         }
+        nub_totals = {
+            (scope, course_id): int(total)
+            for _, scope, course_id, record_type, total, _, _ in bucket_stats_rows
+            if record_type == RecordType.NUB
+        }
 
         estimated_points_by_row_key = {}
         for row in rows:
@@ -835,6 +880,8 @@ async def recalculate_estimated_record_pb_points_for_player(
                     tier=tiers_by_course_and_scope[(row.course_id, row.scope)],
                     is_pro_only=row.type.is_pro,
                     scope_id=row.scope.scope_id,
+                    course_id=row.course_id,
+                    nub_finishers=nub_totals.get((row.scope, row.course_id), 0),
                 )
             )
 
@@ -1086,6 +1133,13 @@ async def rebuild_record_pb_points_bucket(
         tier=resolved_tier,
         is_pro_only=record_type.is_pro,
         scope_id=scope_id,
+        course_id=course_id,
+        nub_finishers=await _load_pro_preview_nub_finishers(
+            session=session,
+            course_id=course_id,
+            scope_id=scope_id,
+            record_type=record_type,
+        ),
     )
     updates = [
         (
@@ -1199,7 +1253,19 @@ async def rebuild_record_pb_points_for_course(
             )[course_key]
 
     raw_updates: list[tuple[dict[str, object], int, int]] = []
+    preview_updated = 0
     for (scope, row_record_type), bucket_rows in grouped_rows.items():
+        if row_record_type.is_pro and is_local_pro_points_preview(
+            scope_id=scope.scope_id, course_id=course_id
+        ):
+            preview_updated += await rebuild_record_pb_points_bucket(
+                session=session,
+                course_id=course_id,
+                scope_id=scope.scope_id,
+                record_type=row_record_type,
+                tier=normalized_tiers[scope.scope_id],
+            )
+            continue
         points_by_uuid = calculate_bucket_points(
             entries=[
                 _course_pb_entry_for_record_time(
@@ -1250,7 +1316,7 @@ async def rebuild_record_pb_points_for_course(
     if raw_updates:
         await _execute_point_updates(session=session, updates=raw_updates)
         _expunge_loaded_record_pbs(session=session)
-    return len(raw_updates)
+    return len(raw_updates) + preview_updated
 
 
 async def recompute_record_pbs_for_keys(

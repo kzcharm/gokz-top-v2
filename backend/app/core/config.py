@@ -55,6 +55,9 @@ class Settings(BaseSettings):
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     ENABLE_TEST_AUTH_HELPERS: bool = False
     LOCAL_OVR_NUB_RANK_POINTS_PREVIEW: bool = False
+    LOCAL_OVR_PRO_RANK_POINTS_PREVIEW: bool = False
+    LOCAL_OVR_PRO_POINTS_PREVIEW_COURSES: list[int] = []
+    LOCAL_RANK_POINTS_PREVIEW_SCOPES: list[Literal["OVR", "KZT", "SKZ", "VNL"]] = []
     LOCAL_OVR_RATING_DISPLAY_ANCHORS: list[list[int | float]] | None = None
 
     BACKEND_CORS_ORIGINS: Annotated[

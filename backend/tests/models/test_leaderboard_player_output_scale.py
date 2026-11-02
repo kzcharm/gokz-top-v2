@@ -115,6 +115,23 @@ def test_min_raw_rating_for_public_rating_is_monotonic() -> None:
     assert all(left <= right for left, right in pairwise(thresholds))
 
 
+def test_rating_filter_uses_fractional_thresholds(monkeypatch):
+    from dataclasses import replace
+
+    config = replace(
+        get_rank_system_settings(),
+        display_anchors=[[0, 0], [100, 1], [39999.1, 10], [39999.9, 10.99]],
+    )
+    monkeypatch.setattr(
+        "app.models.leaderboard_player.get_rank_system_settings", lambda: config
+    )
+    threshold = min_raw_rating_for_public_rating(10.5)
+    assert 39999.1 < threshold < 39999.9
+    assert scale_public_rating(threshold) >= 10.5
+    assert scale_public_rating(threshold - 0.000001) < 10.5
+    assert min_raw_rating_for_public_rating(10.99) == 39999.9
+
+
 def test_difficulty_display_ratings_are_not_scaled_twice() -> None:
     from app.models import ModeScope, PlayerLeaderboardRankPublic, PlayerRefPublic
 

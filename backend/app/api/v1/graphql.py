@@ -41,7 +41,7 @@ class PlayerGQL:
     created_at: str | None
     updated_at: str | None
     profile_views: int
-    ratings_by_scope: strawberry.Private[dict[ModeScope, int]]
+    ratings_by_scope: strawberry.Private[dict[ModeScope, float]]
 
     @strawberry.field
     def rating(self, scope: ModeScope | None = None) -> float:

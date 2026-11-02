@@ -1,4 +1,4 @@
-"""Explicit, per-scope population calibration of skill display ratings."""
+"""Explicit calibration for OVR-shared and independent VNL display ratings."""
 
 from dataclasses import dataclass
 from typing import Any, cast
@@ -11,6 +11,7 @@ from app.core.db import async_session_maker
 from app.core.rank_system import get_rank_system_settings
 from app.crud.ban import not_active_ban_exists_split_clause
 from app.models import LeaderboardPlayer, ModeScope, SkillRatingConverter
+from app.models.mode_scope import rating_converter_scope
 from app.models.utils import get_datetime_utc
 from app.services.skill_rating import SKILLS
 from app.services.skill_rating_converter import Calibration, calibrate
@@ -29,17 +30,23 @@ class CalibrationResult:
 async def calibrate_skill_converters(
     *, scopes: tuple[ModeScope, ...], save: bool = False
 ) -> list[CalibrationResult]:
-    return await _calibrate_converters(scopes=scopes, save=save, metrics=SKILLS)
+    return await _calibrate_converters(
+        scopes=tuple(dict.fromkeys(rating_converter_scope(scope) for scope in scopes)),
+        save=save,
+        metrics=SKILLS,
+    )
 
 
 async def calibrate_difficulty_converters(
     *, scopes: tuple[ModeScope, ...], save: bool = False
 ) -> list[CalibrationResult]:
-    """Calibrate the shared OVR curves for any requested scope selection."""
+    """Calibrate OVR-shared and VNL-specific curves for requested scopes."""
     if not scopes:
         return []
     return await _calibrate_converters(
-        scopes=(ModeScope.OVR,), save=save, metrics=("easy", "hard")
+        scopes=tuple(dict.fromkeys(rating_converter_scope(scope) for scope in scopes)),
+        save=save,
+        metrics=("easy", "hard"),
     )
 
 

@@ -603,7 +603,7 @@ async def test_read_player_leaderboard_exposes_calibrated_skill_rating(
     alpha_row.rating_bhop = 100
     db.add(
         SkillRatingConverter(
-            scope=ModeScope.KZT,
+            scope=ModeScope.OVR,
             skill="bhop",
             anchors=[[0, 0], [100, 2], [200, 3]],
             sample_size=100,

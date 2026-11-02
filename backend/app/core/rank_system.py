@@ -13,8 +13,8 @@ _RANK_SYSTEM_CONFIG_PATH = Path(__file__).resolve().parents[2] / "rank-system.to
 
 @dataclass(frozen=True, slots=True)
 class RatingSettings:
-    easy_top_maps: int
-    hard_top_maps: int
+    easy_top_maps: int | None
+    hard_top_maps: int | None
     decay: Decimal
     skill_full_portion_decay: Decimal
     skill_top_map_equivalents: int
@@ -82,8 +82,12 @@ def load_rank_system_settings(
     return RankSystemSettings(
         display_anchors=raw_rating.get("display_anchors"),
         rating=RatingSettings(
-            easy_top_maps=int(raw_rating.get("easy_top_maps", 100)),
-            hard_top_maps=int(raw_rating.get("hard_top_maps", 50)),
+            easy_top_maps=int(raw_rating["easy_top_maps"])
+            if raw_rating.get("easy_top_maps") is not None
+            else None,
+            hard_top_maps=int(raw_rating["hard_top_maps"])
+            if raw_rating.get("hard_top_maps") is not None
+            else None,
             decay=Decimal(str(raw_rating["decay"])),
             skill_full_portion_decay=Decimal(
                 str(raw_rating["skill_full_portion_decay"])
@@ -117,7 +121,10 @@ def get_rank_system_settings() -> RankSystemSettings:
     settings = load_rank_system_settings()
     if (
         app_settings.ENVIRONMENT == "local"
-        and app_settings.LOCAL_OVR_NUB_RANK_POINTS_PREVIEW
+        and (
+            app_settings.LOCAL_OVR_NUB_RANK_POINTS_PREVIEW
+            or "OVR" in app_settings.LOCAL_RANK_POINTS_PREVIEW_SCOPES
+        )
         and app_settings.LOCAL_OVR_RATING_DISPLAY_ANCHORS
     ):
         return replace(
