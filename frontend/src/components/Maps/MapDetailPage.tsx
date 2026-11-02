@@ -483,7 +483,7 @@ function MapHero({
 
           <div className="grid min-w-0 gap-5 xl:grid-cols-2">
             <div className="flex min-w-0 flex-col gap-4">
-              <MapReviewSummary map={map} />
+              <MapReviewSummary map={map} align="left" />
               <MapSkillBreakdown map={map} />
             </div>
             {leaderboardSummary ? (

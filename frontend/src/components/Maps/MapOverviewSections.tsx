@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next"
 import type { MapPublic } from "@/client"
 import { formatNumber } from "@/i18n/locale"
 import { formatFlooredDecimal } from "@/lib/number-format"
+import { cn } from "@/lib/utils"
 import { getMapSkillPortions } from "./map-utils"
 
 function formatReviewAverage(value: number | null | undefined) {
@@ -71,12 +72,21 @@ function ReviewSummaryRow({
   )
 }
 
-export function MapReviewSummary({ map }: { map: MapPublic }) {
+export function MapReviewSummary({
+  map,
+  align = "center",
+}: {
+  map: MapPublic
+  align?: "left" | "center"
+}) {
   const { t } = useTranslation()
   const summary = map.review_summary
   return (
     <section
-      className="flex min-w-0 flex-col items-center gap-2"
+      className={cn(
+        "flex min-w-0 flex-col gap-2",
+        align === "left" ? "items-start" : "items-center",
+      )}
       aria-label={t("maps.overview.reviewSummary")}
     >
       <div className="flex flex-col gap-1">
@@ -96,7 +106,12 @@ export function MapReviewSummary({ map }: { map: MapPublic }) {
           count={summary?.visuals_count ?? 0}
         />
       </div>
-      <p className="text-center text-xs text-muted-foreground">
+      <p
+        className={cn(
+          "text-xs text-muted-foreground",
+          align === "left" ? "text-left" : "text-center",
+        )}
+      >
         {t("maps.overview.reviewCounts", {
           reviews: t("maps.overview.ratingCount", {
             count: summary?.reviews_count ?? 0,
