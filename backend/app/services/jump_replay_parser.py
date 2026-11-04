@@ -202,18 +202,16 @@ class SelectedJumpReplay:
 
 
 def wrap_angle_delta(current: float, previous: float) -> float:
-    delta = current - previous
-    while delta <= -180.0:
-        delta += 360.0
-    while delta > 180.0:
-        delta -= 360.0
-    return delta
+    return _normalize_angle(current - previous)
 
 
 def _normalize_angle(angle: float) -> float:
-    while angle <= -180.0:
+    # Large finite replay angles can be unchanged by adding/subtracting 360
+    # due to float precision. Reduce them once so normalization always finishes.
+    angle = math.fmod(angle, 360.0)
+    if angle <= -180.0:
         angle += 360.0
-    while angle > 180.0:
+    elif angle > 180.0:
         angle -= 360.0
     return angle
 

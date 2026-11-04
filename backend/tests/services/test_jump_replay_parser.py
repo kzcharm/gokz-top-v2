@@ -1,3 +1,5 @@
+import subprocess
+import sys
 from decimal import Decimal
 
 import pytest
@@ -8,6 +10,7 @@ from app.services.jump_replay_parser import (
     JumpReplayParseError,
     parse_jump_replay_bytes,
     parse_jump_replay_visualization,
+    wrap_angle_delta,
 )
 from tests.utils.jump_replay import (
     RP_FL_ONGROUND,
@@ -18,6 +21,68 @@ from tests.utils.jump_replay import (
     expected_parent_values,
     expected_strafe_stats,
 )
+
+
+@pytest.mark.parametrize("yaw", [-147573952589676410000.0, 3.4028234663852886e38])
+@pytest.mark.parametrize(
+    "parser", ["parse_jump_replay_bytes", "parse_jump_replay_visualization"]
+)
+def test_large_finite_replay_angles_do_not_hang(yaw: float, parser: str) -> None:
+    # Run the real binary parsing path in a child so a regression fails promptly
+    # instead of trapping the test runner in the same loop as production.
+    subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            """
+import sys
+from app.services import jump_replay_parser
+from tests.utils.jump_replay import (
+    RP_FL_ONGROUND, SyntheticReplayTick, build_synthetic_jump_replay,
+)
+yaw = float(sys.argv[1])
+ticks = [
+    SyntheticReplayTick(
+        origin=(float(i), 0.0, float(i in (1, 2))),
+        angles=(0.0, yaw if i == 1 else float(i * 10), 0.0),
+        velocity=(100.0, 0.0, 0.0),
+        flags=0 if i in (1, 2) else RP_FL_ONGROUND,
+    )
+    for i in range(4)
+]
+replay = build_synthetic_jump_replay(ticks=ticks)
+getattr(jump_replay_parser, sys.argv[2])(
+    data=replay.replay_bytes, source_name="large-angle.replay",
+)
+""",
+            str(yaw),
+            parser,
+        ],
+        check=True,
+        capture_output=True,
+        timeout=5,
+    )
+
+
+@pytest.mark.parametrize(
+    ("current", "previous", "expected"),
+    [
+        (180.0, 0.0, 180.0),
+        (-180.0, 0.0, 180.0),
+        (540.0, 0.0, 180.0),
+        (-540.0, 0.0, 180.0),
+        (-179.0, 179.0, 2.0),
+        (179.0, -179.0, -2.0),
+        (20.0, 15.0, 5.0),
+        (0.0, 0.0, 0.0),
+    ],
+)
+def test_wrap_angle_delta_preserves_boundary_convention(
+    current: float,
+    previous: float,
+    expected: float,
+) -> None:
+    assert wrap_angle_delta(current, previous) == expected
 
 
 def test_parse_jump_replay_bytes_returns_expected_jumpstat_values() -> None:
