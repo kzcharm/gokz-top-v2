@@ -6,16 +6,14 @@ import {
   type OnChangeFn,
   type SortingState,
 } from "@tanstack/react-table"
-import { ArrowDown, ArrowUp, Search, Users, X } from "lucide-react"
-import { useDeferredValue, useEffect, useMemo, useRef, useState } from "react"
+import { ArrowDown, ArrowUp, Search, Users } from "lucide-react"
+import { useMemo, useState } from "react"
 
 import {
   type AdminPlayerSessionIpLinksPublic,
   type AdminPlayerSessionPublic,
   AdminPlayerSessionsService,
   AdminServersService,
-  type PlayerPublic,
-  PlayersService,
   UsersService,
 } from "@/client"
 import {
@@ -27,6 +25,7 @@ import { DataTable } from "@/components/Common/DataTable"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { PlayerSearchSelect } from "@/components/Common/PlayerSearchSelect"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { formatTimerTime } from "@/components/Servers/utils"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -35,7 +34,6 @@ import { Button } from "@/components/ui/button"
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -61,6 +59,7 @@ import {
 } from "@/components/ui/table"
 import { isLoggedIn } from "@/hooks/useAuth"
 import { usePersistedPageSize } from "@/hooks/usePersistedPageSize"
+import type { GraphqlPlayer } from "@/lib/player-graphql"
 import { getPageTitle } from "@/lib/site"
 import { isSuperuser } from "@/lib/user-roles"
 
@@ -102,10 +101,8 @@ function AdminPlayerSessions() {
     storageKey: "gokz-page-size-admin-player-sessions",
   })
   const [latestOnly, setLatestOnly] = useState(false)
-  const [playerFilterInput, setPlayerFilterInput] = useState("")
   const [selectedPlayerFilter, setSelectedPlayerFilter] =
-    useState<PlayerPublic | null>(null)
-  const [isPlayerFilterFocused, setIsPlayerFilterFocused] = useState(false)
+    useState<GraphqlPlayer | null>(null)
   const [serverGroupFilterId, setServerGroupFilterId] = useState<string | null>(
     null,
   )
@@ -118,29 +115,11 @@ function AdminPlayerSessions() {
   const activeSort = sorting[0] ?? { id: "connected_at", desc: true }
   const sortBy = toSessionSortBy(activeSort.id)
   const sortOrder = activeSort.desc ? "desc" : "asc"
-  const deferredPlayerFilterInput = useDeferredValue(playerFilterInput)
-  const playerFilterSearch = deferredPlayerFilterInput.trim()
-  const playerSearchQuery = useQuery({
-    queryKey: ["admin-player-sessions", "player-filter", playerFilterSearch],
-    queryFn: () =>
-      PlayersService.searchPlayers({
-        q: playerFilterSearch,
-        offset: 0,
-        limit: 8,
-      }),
-    enabled: selectedPlayerFilter === null && playerFilterSearch.length > 0,
-    staleTime: 30_000,
-  })
   const serverGroupsQuery = useQuery({
     queryKey: ["admin-player-sessions", "server-groups"],
     queryFn: () => AdminServersService.readAdminServerGroups(),
     staleTime: 30_000,
   })
-  const playerSearchResults = playerSearchQuery.data?.data ?? []
-  const showPlayerSearchResults =
-    isPlayerFilterFocused &&
-    selectedPlayerFilter === null &&
-    playerFilterSearch.length > 0
 
   const query = useQuery({
     queryKey: [
@@ -281,75 +260,23 @@ function AdminPlayerSessions() {
       <AdminPageHeader title="Player Sessions" />
       <AdminControlsCard>
         <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
-          <FindAltsDialog />
-          <div className="relative w-full sm:w-56">
-            <Input
-              aria-label="Filter sessions by player"
+          <FindAltsDialog initialPlayer={selectedPlayerFilter} />
+          <div className="w-full sm:w-56">
+            <PlayerSearchSelect
+              ariaLabel="Filter sessions by player"
               placeholder="Select player..."
-              value={playerFilterInput}
-              onChange={(event) => {
-                setPlayerFilterInput(event.target.value)
+              clearButtonLabel="Clear selected player filter"
+              searchQueryKey="admin-player-sessions-filter"
+              selectedPlayer={selectedPlayerFilter}
+              onSelectPlayer={(player) => {
+                setSelectedPlayerFilter(player)
+                setPageIndex(0)
+              }}
+              onClearPlayer={() => {
                 setSelectedPlayerFilter(null)
                 setPageIndex(0)
               }}
-              onFocus={() => setIsPlayerFilterFocused(true)}
-              onBlur={() => {
-                window.setTimeout(() => setIsPlayerFilterFocused(false), 100)
-              }}
-              className="pr-10"
             />
-            {selectedPlayerFilter ? (
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                className="absolute top-1/2 right-1 -translate-y-1/2"
-                aria-label="Clear selected player filter"
-                onClick={() => {
-                  setPlayerFilterInput("")
-                  setSelectedPlayerFilter(null)
-                  setPageIndex(0)
-                }}
-              >
-                <X className="size-4" />
-              </Button>
-            ) : null}
-            {showPlayerSearchResults ? (
-              <div className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 overflow-hidden rounded-lg border bg-card shadow-lg">
-                {playerSearchQuery.isLoading ? (
-                  <div className="px-4 py-3 text-sm text-muted-foreground">
-                    Searching players...
-                  </div>
-                ) : playerSearchResults.length === 0 ? (
-                  <div className="px-4 py-3 text-sm text-muted-foreground">
-                    No players found.
-                  </div>
-                ) : (
-                  <div className="flex flex-col py-1">
-                    {playerSearchResults.map((player) => (
-                      <button
-                        key={player.steamid64}
-                        type="button"
-                        className="flex w-full px-4 py-2 text-left text-sm transition-colors hover:bg-muted/60"
-                        onMouseDown={(event) => {
-                          event.preventDefault()
-                          setSelectedPlayerFilter(player)
-                          setPlayerFilterInput(getPlayerDisplayName(player))
-                          setIsPlayerFilterFocused(false)
-                          setPageIndex(0)
-                        }}
-                      >
-                        <PlayerDisplay
-                          player={player}
-                          disableProfileLink
-                          className="min-w-0"
-                        />
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ) : null}
           </div>
           <Select
             value={serverGroupFilterId ?? "all"}
@@ -438,44 +365,25 @@ function AdminPlayerSessions() {
   )
 }
 
-function FindAltsDialog() {
+function FindAltsDialog({
+  initialPlayer,
+}: {
+  initialPlayer: GraphqlPlayer | null
+}) {
   const [open, setOpen] = useState(false)
   const [searchInput, setSearchInput] = useState("")
-  const [selectedPlayer, setSelectedPlayer] = useState<PlayerPublic | null>(
+  const [selectedPlayer, setSelectedPlayer] = useState<GraphqlPlayer | null>(
     null,
   )
-  const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [matchMode, setMatchMode] = useState<AltMatchMode>("exact_ip")
   const [days, setDays] = useState(365)
   const [depth, setDepth] = useState(1)
   const [maxPlayersPerBucket, setMaxPlayersPerBucket] = useState(50)
-  const searchBlurTimeoutRef = useRef<number | null>(null)
-  const deferredSearchInput = useDeferredValue(searchInput)
-  const playerSearchQuery = deferredSearchInput.trim()
-
-  useEffect(() => {
-    return () => {
-      if (searchBlurTimeoutRef.current !== null) {
-        window.clearTimeout(searchBlurTimeoutRef.current)
-      }
-    }
-  }, [])
-
-  const playerSearchQueryResult = useQuery({
-    queryKey: ["admin-player-sessions", "alt-search", playerSearchQuery],
-    queryFn: () =>
-      PlayersService.searchPlayers({
-        q: playerSearchQuery,
-        offset: 0,
-        limit: 8,
-      }),
-    enabled: open && selectedPlayer === null && playerSearchQuery.length > 0,
-    staleTime: 30_000,
-  })
 
   const lookupMutation = useMutation({
-    mutationFn: () => {
-      const steamid64 = selectedPlayer?.steamid64 ?? searchInput.trim()
+    mutationFn: (playerSteamid64?: string) => {
+      const steamid64 =
+        playerSteamid64 ?? selectedPlayer?.steamid64 ?? searchInput.trim()
       return AdminPlayerSessionsService.readAdminPlayerSessionIpLinks({
         steamid64,
         matchMode,
@@ -486,144 +394,65 @@ function FindAltsDialog() {
     },
   })
 
-  const searchResults = playerSearchQueryResult.data?.data ?? []
-  const showSearchResults =
-    isSearchFocused && selectedPlayer === null && playerSearchQuery.length > 0
   const lookupSteamid64 = selectedPlayer?.steamid64 ?? searchInput.trim()
   const canLookup = /^\d+$/.test(lookupSteamid64)
 
-  const handleSelectPlayer = (player: PlayerPublic) => {
+  const handleSelectPlayer = (player: GraphqlPlayer) => {
     setSelectedPlayer(player)
-    setSearchInput(getPlayerDisplayName(player))
-    setIsSearchFocused(false)
     lookupMutation.reset()
   }
 
   const clearSelectedPlayer = () => {
     setSelectedPlayer(null)
     setSearchInput("")
-    setIsSearchFocused(false)
     lookupMutation.reset()
   }
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button type="button" variant="outline" size="sm">
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (initialPlayer) {
+              setSelectedPlayer(initialPlayer)
+              lookupMutation.mutate(initialPlayer.steamid64)
+            }
+          }}
+        >
           <Users data-icon="inline-start" />
           Find Alts
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-5xl">
+      <DialogContent
+        aria-describedby={undefined}
+        className="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-5xl"
+      >
         <DialogHeader>
           <DialogTitle>Find Alts</DialogTitle>
-          <DialogDescription>
-            Search player sessions by shared IP evidence.
-          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col gap-5">
           <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_10rem_7rem_7rem_10rem] lg:items-end">
-            <div className="flex flex-col gap-2">
-              <label
-                htmlFor="alt-player-search"
-                className="text-sm font-medium"
-              >
-                Player
-              </label>
-              <div className="relative">
-                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  id="alt-player-search"
-                  aria-label="Search player for alt lookup"
-                  value={searchInput}
-                  onChange={(event) => {
-                    if (searchBlurTimeoutRef.current !== null) {
-                      window.clearTimeout(searchBlurTimeoutRef.current)
-                    }
-                    setSearchInput(event.target.value)
-                    setIsSearchFocused(true)
-                    setSelectedPlayer(null)
-                    lookupMutation.reset()
-                  }}
-                  onFocus={() => {
-                    if (searchBlurTimeoutRef.current !== null) {
-                      window.clearTimeout(searchBlurTimeoutRef.current)
-                    }
-                    setIsSearchFocused(true)
-                  }}
-                  onBlur={() => {
-                    searchBlurTimeoutRef.current = window.setTimeout(() => {
-                      setIsSearchFocused(false)
-                    }, 100)
-                  }}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault()
-                      if (searchResults.length > 0) {
-                        handleSelectPlayer(searchResults[0])
-                      } else if (canLookup) {
-                        lookupMutation.mutate()
-                      }
-                    }
-                    if (event.key === "Escape") {
-                      setIsSearchFocused(false)
-                    }
-                  }}
-                  placeholder="Search player or enter SteamID64"
-                  className="pr-10 pl-9"
-                />
-                {selectedPlayer ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    className="absolute top-1/2 right-1 -translate-y-1/2"
-                    onClick={clearSelectedPlayer}
-                    aria-label="Clear selected player"
-                  >
-                    <X className="size-4" />
-                  </Button>
-                ) : null}
-                {showSearchResults ? (
-                  <div className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 overflow-hidden rounded-lg border bg-card shadow-lg">
-                    {playerSearchQueryResult.isLoading ? (
-                      <div className="px-4 py-3 text-sm text-muted-foreground">
-                        Searching players...
-                      </div>
-                    ) : playerSearchQueryResult.isError ? (
-                      <div className="px-4 py-3 text-sm text-destructive">
-                        Unable to search players right now.
-                      </div>
-                    ) : searchResults.length === 0 ? (
-                      <div className="px-4 py-3 text-sm text-muted-foreground">
-                        No players found.
-                      </div>
-                    ) : (
-                      <div className="flex flex-col py-1">
-                        {searchResults.map((player) => (
-                          <button
-                            key={player.steamid64}
-                            type="button"
-                            className="flex w-full items-center justify-between gap-3 px-4 py-2 text-left text-sm transition-colors hover:bg-muted/60"
-                            onMouseDown={(event) => {
-                              event.preventDefault()
-                              handleSelectPlayer(player)
-                            }}
-                          >
-                            <PlayerDisplay
-                              player={player}
-                              disableProfileLink
-                              className="min-w-0"
-                            />
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ) : null}
-              </div>
-            </div>
+            <PlayerSearchSelect
+              id="alt-player-search"
+              ariaLabel="Search player for alt lookup"
+              label="Player"
+              placeholder="Search player or enter SteamID64"
+              searchQueryKey="admin-player-sessions-alts"
+              selectedPlayer={selectedPlayer}
+              onSelectPlayer={handleSelectPlayer}
+              onClearPlayer={clearSelectedPlayer}
+              onSearchChange={(value) => {
+                setSearchInput(value)
+                lookupMutation.reset()
+              }}
+              onSubmitSearch={() => {
+                if (canLookup) lookupMutation.mutate(undefined)
+              }}
+            />
 
             <div className="flex flex-col gap-2">
               <label htmlFor="alt-match-mode" className="text-sm font-medium">
@@ -717,7 +546,7 @@ function FindAltsDialog() {
           <Button
             type="button"
             disabled={!canLookup || lookupMutation.isPending}
-            onClick={() => lookupMutation.mutate()}
+            onClick={() => lookupMutation.mutate(undefined)}
           >
             <Search data-icon="inline-start" />
             {lookupMutation.isPending ? "Searching..." : "Find Alts"}
@@ -766,6 +595,9 @@ function AltLookupResults({
 }: {
   result: AdminPlayerSessionIpLinksPublic
 }) {
+  const playersBySteamid64 = new Map(
+    result.players.map(({ player }) => [player.steamid64, player]),
+  )
   const linkedPlayers = result.players.filter((row) => row.distance > 0)
   const maxDistance = result.players.reduce(
     (current, row) => Math.max(current, row.distance),
@@ -811,7 +643,7 @@ function AltLookupResults({
         </Table>
       </div>
 
-      <details className="rounded-lg border p-3">
+      <details open className="rounded-lg border p-3">
         <summary className="cursor-pointer text-sm font-semibold">
           Links ({result.links.length})
         </summary>
@@ -837,11 +669,17 @@ function AltLookupResults({
                   <TableRow
                     key={`${link.from_steamid64}-${link.to_steamid64}-${link.bucket.key}`}
                   >
-                    <TableCell className="font-mono text-xs">
-                      {link.from_steamid64}
+                    <TableCell>
+                      <PlayerDisplay
+                        player={playersBySteamid64.get(link.from_steamid64)}
+                        fallbackSteamid64={link.from_steamid64}
+                      />
                     </TableCell>
-                    <TableCell className="font-mono text-xs">
-                      {link.to_steamid64}
+                    <TableCell>
+                      <PlayerDisplay
+                        player={playersBySteamid64.get(link.to_steamid64)}
+                        fallbackSteamid64={link.to_steamid64}
+                      />
                     </TableCell>
                     <TableCell>{link.bucket.label}</TableCell>
                     <TableCell>
@@ -899,10 +737,6 @@ function SummaryBadge({ label, value }: { label: string; value: number }) {
       <div className="text-lg font-semibold">{value.toLocaleString()}</div>
     </div>
   )
-}
-
-function getPlayerDisplayName(player: PlayerPublic) {
-  return player.alias || player.name || player.steamid64
 }
 
 function getErrorMessage(error: unknown) {

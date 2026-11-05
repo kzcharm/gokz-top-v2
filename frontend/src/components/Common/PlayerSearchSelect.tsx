@@ -35,6 +35,8 @@ type PlayerSearchSelectProps = {
   showSelectedPlayerDisplay?: boolean
   selectedPlayer: PlayerDisplayPlayer | null
   onClearPlayer: () => void
+  onSearchChange?: (query: string) => void
+  onSubmitSearch?: (query: string) => void
   onSelectPlayer: (player: GraphqlPlayer) => void
 }
 
@@ -58,6 +60,8 @@ export function PlayerSearchSelect({
   showSelectedPlayerDisplay = true,
   selectedPlayer,
   onClearPlayer,
+  onSearchChange,
+  onSubmitSearch,
   onSelectPlayer,
 }: PlayerSearchSelectProps) {
   const [searchInput, setSearchInput] = useState("")
@@ -139,6 +143,7 @@ export function PlayerSearchSelect({
             if (selectedPlayer !== null && !clearOnSelect) {
               onClearPlayer()
             }
+            onSearchChange?.(event.target.value)
           }}
           onFocus={() => {
             if (searchBlurTimeoutRef.current !== null) {
@@ -152,9 +157,16 @@ export function PlayerSearchSelect({
             }, 100)
           }}
           onKeyDown={(event) => {
-            if (event.key === "Enter" && searchResults.length > 0) {
+            if (
+              event.key === "Enter" &&
+              (searchResults.length > 0 || onSubmitSearch)
+            ) {
               event.preventDefault()
-              handleSelectPlayer(searchResults[0])
+              if (searchResults.length > 0) {
+                handleSelectPlayer(searchResults[0])
+              } else {
+                onSubmitSearch?.(playerSearchQuery)
+              }
             }
             if (event.key === "Escape") {
               setIsSearchFocused(false)
@@ -201,7 +213,7 @@ export function PlayerSearchSelect({
           </Button>
         ) : null}
         {showSearchResults && !disabled ? (
-          <div className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-20 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
+          <div className="absolute top-[calc(100%+0.5rem)] right-0 left-0 z-30 overflow-hidden rounded-xl border border-border/70 bg-card shadow-lg">
             {playerSearchQueryResult.isLoading ? (
               <div className="px-4 py-3 text-sm text-muted-foreground">
                 Searching players...

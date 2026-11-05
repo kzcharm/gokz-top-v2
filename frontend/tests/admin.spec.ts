@@ -1109,19 +1109,32 @@ test("Superuser can view player sessions, filter latest sessions, and reveal IPs
   ).toHaveAttribute("aria-checked", "true")
   await expect.poll(() => latestOnly).toBe(true)
 
-  await page.route("**/v1/players/search**", (route) =>
-    route.fulfill({
+  await page.route("**/v1/graphql", async (route) => {
+    if (!route.request().postDataJSON().query.includes("searchPlayers")) {
+      await route.fallback()
+      return
+    }
+    await route.fulfill({
       json: {
-        data: [
-          adminPlayerSessionPayload({
-            latestOnly,
-            sessionId: "01966858-7280-7000-8000-000000000001",
-          }).player,
-        ],
-        count: 1,
+        data: {
+          searchPlayers: {
+            data: [
+              {
+                ...adminPlayerSessionPayload({
+                  latestOnly,
+                  sessionId: "01966858-7280-7000-8000-000000000001",
+                }).player,
+                displayName: "Session Runner",
+                primaryScope: "OVR",
+                rating: 0,
+              },
+            ],
+            count: 1,
+          },
+        },
       },
-    }),
-  )
+    })
+  })
   await page.getByLabel("Filter sessions by player").fill("Session Runner")
   await page.getByRole("button", { name: /Session Runner/ }).click()
   await page.getByLabel("Filter sessions by server").click()
