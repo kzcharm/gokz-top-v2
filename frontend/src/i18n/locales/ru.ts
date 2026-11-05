@@ -1010,6 +1010,7 @@ export const ru = {
       trophyAlt: "{{trophy}} кубок",
     },
     unfinished: {
+      firstMedian: "Медиана первых прохождений",
       ariaLabel: "{{type}} незавершённые",
       mapsCount_one: "{{count}} карта",
       mapsCount_other: "{{count}} карт",

@@ -45,20 +45,22 @@ function ScoreStars({ value }: { value: number | null }) {
   )
 }
 
-function ReviewSummaryRow({
+export function ReviewSummaryRow({
   label,
   value,
   count,
 }: {
-  label: string
+  label?: string
   value: number | null
   count?: number
 }) {
   return (
     <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-      <span className="w-14 text-xs font-medium text-muted-foreground">
-        {label}
-      </span>
+      {label ? (
+        <span className="w-14 text-xs font-medium text-muted-foreground">
+          {label}
+        </span>
+      ) : null}
       <ScoreStars value={value} />
       <span className="text-sm font-medium tabular-nums text-foreground">
         {formatReviewAverage(value)}

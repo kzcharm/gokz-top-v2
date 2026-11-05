@@ -986,6 +986,7 @@ export const en = {
       trophyAlt: "{{trophy}} trophy",
     },
     unfinished: {
+      firstMedian: "1st Median",
       ariaLabel: "{{type}} unfinished",
       mapsCount_one: "{{count}} map",
       mapsCount_other: "{{count}} maps",

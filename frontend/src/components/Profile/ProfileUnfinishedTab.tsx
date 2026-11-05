@@ -11,7 +11,11 @@ import {
   useState,
 } from "react"
 import { useTranslation } from "react-i18next"
-import type { MapPublic, RecordPublic } from "@/client"
+import {
+  LeaderboardsService,
+  type MapPublic,
+  type RecordPublic,
+} from "@/client"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import {
@@ -19,6 +23,7 @@ import {
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
 import { useGlobalPreferences } from "@/components/global-preferences-provider"
+import { ReviewSummaryRow } from "@/components/Maps/MapOverviewSections"
 import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { useScope } from "@/components/scope-provider"
@@ -35,18 +40,37 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { useHiddenMaps } from "@/hooks/useHiddenMaps"
+import { formatNumber } from "@/i18n/locale"
 
 import {
+  type ProfileUnfinishedRow as BaseUnfinishedRow,
   buildProfileUnfinishedRows,
   getProfileMapWrsQueryOptions,
-  type ProfileUnfinishedRow,
 } from "./profile-utils"
 
-const UNFINISHED_SPLIT_MIN_VIEWPORT_WIDTH = 1280
 const PROFILE_UNFINISHED_PAGE_SIZE = 100
 
+type ProfileUnfinishedRow = BaseUnfinishedRow & {
+  nubFinishers: number | null
+  proFinishers: number | null
+  totalFinishes: number | null
+  firstMedian: number | null
+  medianPbTime: number | null
+  overallRating: number | null
+  reviewsCount: number
+}
+
 type ProfileUnfinishedType = "NUB" | "PRO"
-type ProfileUnfinishedSortColumn = "map" | "tier" | "wrTime"
+type ProfileUnfinishedSortColumn =
+  | "map"
+  | "tier"
+  | "wrTime"
+  | "nubFinishers"
+  | "proFinishers"
+  | "totalFinishes"
+  | "firstMedian"
+  | "medianPbTime"
+  | "overallRating"
 type ProfileUnfinishedSortDirection = "asc" | "desc"
 
 type ProfileUnfinishedSortState = {
@@ -75,18 +99,20 @@ function sortProfileUnfinishedRows(
       case "tier":
         comparison = left.tier - right.tier
         break
-      case "wrTime": {
-        if (left.wrTime === null && right.wrTime === null) {
+      default: {
+        const leftValue = left[sort.column]
+        const rightValue = right[sort.column]
+        if (leftValue === null && rightValue === null) {
           comparison = 0
           break
         }
-        if (left.wrTime === null) {
+        if (leftValue === null) {
           return 1
         }
-        if (right.wrTime === null) {
+        if (rightValue === null) {
           return -1
         }
-        comparison = left.wrTime - right.wrTime
+        comparison = leftValue - rightValue
         break
       }
     }
@@ -103,8 +129,8 @@ function ProfileUnfinishedTableSkeleton() {
   return (
     <div className="space-y-4">
       <Skeleton className="h-12 rounded-2xl" />
-      <div className="grid gap-4 xl:grid-cols-2">
-        {Array.from({ length: 2 }, (_, index) => (
+      <div className="grid gap-4">
+        {Array.from({ length: 1 }, (_, index) => (
           <div
             key={index}
             className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm"
@@ -183,21 +209,11 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
       className="overflow-hidden rounded-2xl border border-border/70 bg-card shadow-sm"
       data-testid={`profile-unfinished-column-${type.toLowerCase()}`}
     >
-      <div className="border-b border-border/60 px-5 py-4">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="text-sm font-semibold tracking-[0.12em] text-foreground uppercase">
-            {title}
-          </h3>
-          <span className="text-xs text-muted-foreground">
-            {t("profile.unfinished.mapsCount", { count: rows.length })}
-          </span>
-        </div>
-      </div>
       <div className="overflow-x-auto">
-        <Table>
+        <Table className="[&_td]:px-3 [&_th]:px-3">
           <TableHeader>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="min-w-60 normal-case tracking-normal text-foreground/80">
+              <TableHead className="min-w-48 normal-case tracking-normal text-foreground/80">
                 <SortableHeader
                   column="map"
                   label={t("labels.map")}
@@ -224,6 +240,30 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                   className="justify-end normal-case tracking-normal text-foreground/80"
                 />
               </TableHead>
+              {(
+                [
+                  type === "NUB"
+                    ? (["nubFinishers", "maps.nubFinishers"] as const)
+                    : (["proFinishers", "maps.proFinishers"] as const),
+                  ["totalFinishes", "maps.sortOptions.finishes"],
+                  ["firstMedian", "profile.unfinished.firstMedian"],
+                  ["medianPbTime", "maps.overview.medianPbTime"],
+                  ["overallRating", "maps.filterFields.overallRating"],
+                ] as const
+              ).map(([column, label]) => (
+                <TableHead
+                  key={column}
+                  className="min-w-28 text-right normal-case tracking-normal text-foreground/80"
+                >
+                  <SortableHeader
+                    column={column}
+                    label={t(label)}
+                    sort={sort}
+                    onSortChange={onSortChange}
+                    className="justify-end normal-case tracking-normal text-foreground/80"
+                  />
+                </TableHead>
+              ))}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -246,12 +286,40 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                   <TableCell className="text-right font-mono font-medium">
                     {row.wrTime === null ? "-" : formatRecordTime(row.wrTime)}
                   </TableCell>
+                  {(
+                    [
+                      type === "NUB" ? "nubFinishers" : "proFinishers",
+                      "totalFinishes",
+                    ] as const
+                  ).map((metric) => (
+                    <TableCell key={metric} className="text-right tabular-nums">
+                      {row[metric] === null ? "—" : formatNumber(row[metric])}
+                    </TableCell>
+                  ))}
+                  <TableCell className="text-right font-mono">
+                    {row.firstMedian === null
+                      ? "—"
+                      : formatRecordTime(row.firstMedian)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {row.medianPbTime === null
+                      ? "—"
+                      : formatRecordTime(row.medianPbTime)}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <div className="flex min-w-44 justify-end">
+                      <ReviewSummaryRow
+                        value={row.overallRating}
+                        count={row.reviewsCount}
+                      />
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))
             ) : (
               <TableRow>
                 <TableCell
-                  colSpan={3}
+                  colSpan={8}
                   className="h-32 text-center text-muted-foreground"
                 >
                   {emptyMessage}
@@ -310,7 +378,6 @@ export function ProfileUnfinishedTab({
     () => maps.filter((map) => showHidden || !hiddenMaps.ids.has(map.id)),
     [maps, showHidden, hiddenMaps.ids],
   )
-  const [isSplitLayout, setIsSplitLayout] = useState(false)
   const [mapSearch, setMapSearch] = useState("")
   const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
   const [nubVisibleCount, setNubVisibleCount] = useState(
@@ -343,17 +410,46 @@ export function ProfileUnfinishedTab({
     }),
   )
 
-  useEffect(() => {
-    const updateLayout = () => {
-      setIsSplitLayout(window.innerWidth >= UNFINISHED_SPLIT_MIN_VIEWPORT_WIDTH)
-    }
-
-    updateLayout()
-
-    window.addEventListener("resize", updateLayout)
-
-    return () => window.removeEventListener("resize", updateLayout)
-  }, [])
+  const metricsQuery = useQuery({
+    queryKey: ["leaderboards", "maps", "catalog", scope],
+    queryFn: () => LeaderboardsService.readMapLeaderboard({ scope }),
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  })
+  const metricsByMapId = useMemo(
+    () =>
+      new Map(metricsQuery.data?.data.map((entry) => [entry.map.id, entry])),
+    [metricsQuery.data],
+  )
+  const ratingsByMapId = useMemo(
+    () => new Map(maps.map((map) => [map.id, map.review_summary])),
+    [maps],
+  )
+  const addMetrics = useCallback(
+    (row: BaseUnfinishedRow): ProfileUnfinishedRow => {
+      const metrics = metricsByMapId.get(row.mapId)
+      const review = ratingsByMapId.get(row.mapId)
+      return {
+        ...row,
+        overallRating: review?.reviews_count ? review.overall_avg : null,
+        reviewsCount: review?.reviews_count ?? 0,
+        nubFinishers: metrics?.unique_nub_finishes ?? null,
+        proFinishers: metrics?.unique_pro_finishes ?? null,
+        totalFinishes: metrics?.total_finishes ?? null,
+        medianPbTime:
+          metrics && metrics.median_first_completion_time > 0
+            ? metrics.median_first_completion_time
+            : null,
+        firstMedian:
+          metrics?.median_first_finish_time != null &&
+          metrics.median_first_finish_time > 0
+            ? metrics.median_first_finish_time
+            : null,
+      }
+    },
+    [metricsByMapId, ratingsByMapId],
+  )
 
   const normalizedMapSearch = deferredMapSearch.trim().toLocaleLowerCase()
   const selectedTierNumber =
@@ -420,12 +516,12 @@ export function ProfileUnfinishedTab({
   ])
 
   const sortedNubRows = useMemo(() => {
-    return sortProfileUnfinishedRows(nubRows, nubSort)
-  }, [nubRows, nubSort])
+    return sortProfileUnfinishedRows(nubRows.map(addMetrics), nubSort)
+  }, [nubRows, nubSort, addMetrics])
 
   const sortedProRows = useMemo(() => {
-    return sortProfileUnfinishedRows(proRows, proSort)
-  }, [proRows, proSort])
+    return sortProfileUnfinishedRows(proRows.map(addMetrics), proSort)
+  }, [proRows, proSort, addMetrics])
 
   const visibleNubRows = useMemo(() => {
     return sortedNubRows.slice(0, nubVisibleCount)
@@ -446,7 +542,7 @@ export function ProfileUnfinishedTab({
 
   useEffect(() => {
     const target = nubLoadMoreRef.current
-    if (!target || nubVisibleCount >= sortedNubRows.length) {
+    if (isProOnly || !target || nubVisibleCount >= sortedNubRows.length) {
       return
     }
 
@@ -471,11 +567,11 @@ export function ProfileUnfinishedTab({
 
     observer.observe(target)
     return () => observer.disconnect()
-  }, [nubVisibleCount, sortedNubRows.length])
+  }, [nubVisibleCount, sortedNubRows.length, isProOnly])
 
   useEffect(() => {
     const target = proLoadMoreRef.current
-    if (!target || proVisibleCount >= sortedProRows.length) {
+    if (!isProOnly || !target || proVisibleCount >= sortedProRows.length) {
       return
     }
 
@@ -500,7 +596,7 @@ export function ProfileUnfinishedTab({
 
     observer.observe(target)
     return () => observer.disconnect()
-  }, [proVisibleCount, sortedProRows.length])
+  }, [proVisibleCount, sortedProRows.length, isProOnly])
 
   const handleNubSortChange = useCallback(
     (column: ProfileUnfinishedSortColumn) => {
@@ -587,69 +683,51 @@ export function ProfileUnfinishedTab({
             value={mapSearch}
             onChange={(event) => setMapSearch(event.target.value)}
             placeholder={t("profile.unfinished.mapSearchPlaceholder")}
-            className="h-9 w-full border-border/70 bg-background/80 text-sm font-normal sm:max-w-xs"
+            className="h-9 w-full border-border/70 bg-[#f5f5f4] text-sm font-normal dark:bg-background/80 sm:max-w-xs"
           />
           <TierSelector
             value={selectedTier}
             onValueChange={setSelectedTier}
-            allLabel={t("labels.tier")}
-            triggerClassName="h-9 w-full justify-between border-border/70 bg-background/80 px-3 text-sm sm:w-32"
+            triggerClassName="w-auto"
+            showAllLabelInTrigger
             ariaLabel={t("profile.unfinished.filterTierAria")}
           />
         </div>
-        {!isSplitLayout ? (
-          <RecordTypeTabs
-            id="profile-unfinished-pro-only"
-            isProOnly={isProOnly}
-            onCheckedChange={onIsProOnlyChange}
-          />
-        ) : null}
-      </div>
-
-      {isSplitLayout ? (
-        <div className="grid grid-cols-2 gap-4">
-          <UnfinishedColumn
-            mapMenu={hiddenMaps.menuItem}
-            emptyMessage={nubEmptyMessage}
-            hasMore={visibleNubRows.length < sortedNubRows.length}
-            loadMoreRef={nubLoadMoreRef}
-            rows={visibleNubRows}
-            sort={nubSort}
-            title="NUB"
-            type="NUB"
-            onSortChange={handleNubSortChange}
-          />
-          <UnfinishedColumn
-            mapMenu={hiddenMaps.menuItem}
-            emptyMessage={proEmptyMessage}
-            hasMore={visibleProRows.length < sortedProRows.length}
-            loadMoreRef={proLoadMoreRef}
-            rows={visibleProRows}
-            sort={proSort}
-            title="PRO"
-            type="PRO"
-            onSortChange={handleProSortChange}
-          />
-        </div>
-      ) : (
-        <UnfinishedColumn
-          mapMenu={hiddenMaps.menuItem}
-          emptyMessage={selectedEmptyMessage}
-          hasMore={
-            selectedType === "NUB"
-              ? visibleNubRows.length < sortedNubRows.length
-              : visibleProRows.length < sortedProRows.length
-          }
-          loadMoreRef={selectedType === "NUB" ? nubLoadMoreRef : proLoadMoreRef}
-          rows={selectedType === "NUB" ? visibleNubRows : visibleProRows}
-          sort={selectedSort}
-          title={selectedTitle}
-          type={selectedType}
-          onSortChange={
-            selectedType === "NUB" ? handleNubSortChange : handleProSortChange
-          }
+        <output className="text-sm text-muted-foreground">
+          {t("profile.unfinished.mapsCount", {
+            count: isProOnly ? sortedProRows.length : sortedNubRows.length,
+          })}
+        </output>
+        <RecordTypeTabs
+          id="profile-unfinished-pro-only"
+          isProOnly={isProOnly}
+          onCheckedChange={onIsProOnlyChange}
         />
-      )}
+      </div>
+      {metricsQuery.isError ? (
+        <Alert>
+          <AlertDescription>
+            {t("maps.overview.metricsUnavailable")}
+          </AlertDescription>
+        </Alert>
+      ) : null}
+      <UnfinishedColumn
+        mapMenu={hiddenMaps.menuItem}
+        emptyMessage={selectedEmptyMessage}
+        hasMore={
+          selectedType === "NUB"
+            ? visibleNubRows.length < sortedNubRows.length
+            : visibleProRows.length < sortedProRows.length
+        }
+        loadMoreRef={selectedType === "NUB" ? nubLoadMoreRef : proLoadMoreRef}
+        rows={selectedType === "NUB" ? visibleNubRows : visibleProRows}
+        sort={selectedSort}
+        title={selectedTitle}
+        type={selectedType}
+        onSortChange={
+          selectedType === "NUB" ? handleNubSortChange : handleProSortChange
+        }
+      />
     </div>
   )
 }

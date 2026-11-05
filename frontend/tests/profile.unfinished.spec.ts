@@ -291,6 +291,32 @@ const wrsByScopeAndType = {
 } as const
 
 async function installProfileRoutes(page: Page) {
+  await page.addInitScript(() => localStorage.setItem("vite-ui-theme", "light"))
+  await page.route(/\/v1\/leaderboards\/maps(\?.*)?$/, async (route) => {
+    await route.fulfill({
+      json: {
+        data: [
+          {
+            map: { id: 980201, name: "kz_beta" },
+            unique_nub_finishes: 1234,
+            unique_pro_finishes: 56,
+            total_finishes: 7890,
+            median_first_completion_time: 95.5,
+            median_first_finish_time: 180.5,
+          },
+          {
+            map: { id: 980202, name: "kz_gamma" },
+            unique_nub_finishes: 25,
+            unique_pro_finishes: 7,
+            total_finishes: 300,
+            median_first_completion_time: 120,
+            median_first_finish_time: null,
+          },
+        ],
+        count: 2,
+      },
+    })
+  })
   await page.route(/\/v1\/users\/me$/, async (route: Route) => {
     await route.fulfill({
       status: 401,
@@ -381,7 +407,24 @@ async function installProfileRoutes(page: Page) {
     await route.fulfill({
       status: 200,
       contentType: "application/json",
-      body: JSON.stringify(validatedMaps),
+      body: JSON.stringify(
+        validatedMaps.map((map) =>
+          map.id === 980201
+            ? {
+                ...map,
+                review_summary: {
+                  overall_avg: 4.75,
+                  overall_adjusted: 4.2,
+                  reviews_count: 12,
+                  gameplay_count: 0,
+                  visuals_count: 0,
+                  comments_count: 0,
+                  updated_at: "2026-03-31T12:00:00Z",
+                },
+              }
+            : map,
+        ),
+      ),
     })
   })
 
@@ -428,7 +471,7 @@ async function expectRowOrder(
   }
 }
 
-test("Profile unfinished tab shows NUB and PRO side by side when width allows", async ({
+test("Profile unfinished tab switches one metrics table between NUB and PRO on desktop", async ({
   page,
 }) => {
   await page.setViewportSize({ width: 1600, height: 900 })
@@ -441,8 +484,67 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
   await expect(page.getByLabel("Search unfinished map name")).toBeVisible()
   await expect(page.getByLabel("Filter unfinished maps by tier")).toBeVisible()
   await expect(page.getByTestId("profile-unfinished-column-nub")).toBeVisible()
-  await expect(page.getByTestId("profile-unfinished-column-pro")).toBeVisible()
-  await expect(page.getByRole("switch")).toHaveCount(0)
+  await expect(page.getByTestId("profile-unfinished-column-pro")).toHaveCount(0)
+  await expect(page.getByRole("tablist", { name: "Run type" })).toBeVisible()
+  await expect(page.getByLabel("Search unfinished map name")).toHaveCSS(
+    "background-color",
+    "rgb(245, 245, 244)",
+  )
+  const beta = page.getByTestId("profile-unfinished-nub-row-980201")
+  await expect(beta).toContainText("1,234")
+  await expect(
+    page.getByRole("columnheader", { name: "PRO finishers" }),
+  ).toHaveCount(0)
+  await expect(beta).toContainText("7,890")
+  await expect(beta).toContainText("3:00.500")
+  await expect(beta).toContainText("1:35.500")
+  await expect(beta.getByRole("cell").last()).toHaveText("4.7(12)")
+  await expect(beta.getByRole("cell").last().getByRole("img")).toBeVisible()
+  await beta
+    .getByRole("cell")
+    .last()
+    .screenshot({ path: "../.temp/screenshots/unfinished-overall-rating.png" })
+  await expect(
+    page
+      .getByTestId("profile-unfinished-nub-row-980203")
+      .getByRole("cell")
+      .last(),
+  ).toHaveText("—(0)")
+  await page
+    .getByRole("button", { name: "Overall Rating", exact: true })
+    .click()
+  await expectRowOrder(page, "nub", ["kz_beta", "kz_gamma", "kz_delta"])
+  await page.getByRole("button", { name: "Map", exact: true }).click()
+  await expect(
+    page.getByRole("columnheader", { name: "1st Median" }),
+  ).toBeVisible()
+  await expect(
+    page.getByRole("columnheader", { name: "Median PB Time" }),
+  ).toBeVisible()
+  await page
+    .getByRole("button", { name: "Median PB Time", exact: true })
+    .click()
+  await expectRowOrder(page, "nub", ["kz_gamma", "kz_beta", "kz_delta"])
+  await page.getByRole("button", { name: "Map", exact: true }).click()
+  await expect(
+    page.getByTestId("profile-unfinished-column-nub").getByRole("heading"),
+  ).toHaveCount(0)
+  await expect(page.getByRole("status")).toHaveText("3 maps")
+  await expect(page.getByLabel("Filter unfinished maps by tier")).toContainText(
+    "Tier",
+  )
+  await expect(
+    page.getByRole("columnheader", { name: "Total Runs" }),
+  ).toBeVisible()
+  await page.getByRole("button", { name: "NUB finishers", exact: true }).click()
+  await expectRowOrder(page, "nub", ["kz_beta", "kz_gamma", "kz_delta"])
+  await page.getByRole("button", { name: "NUB finishers", exact: true }).click()
+  await expectRowOrder(page, "nub", ["kz_gamma", "kz_beta", "kz_delta"])
+  await page.getByRole("button", { name: "Map", exact: true }).click()
+  await page.screenshot({
+    path: "../.temp/screenshots/profile-unfinished-desktop.png",
+    fullPage: true,
+  })
   await expect(
     page
       .getByTestId("profile-unfinished-column-nub")
@@ -450,14 +552,29 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
   ).toBeVisible()
   await expect(
     page
-      .getByTestId("profile-unfinished-column-pro")
+      .getByTestId("profile-unfinished-column-nub")
       .getByRole("columnheader", { name: "WR" }),
   ).toBeVisible()
 
   await expectRowOrder(page, "nub", ["kz_beta", "kz_delta", "kz_gamma"])
-  await expectRowOrder(page, "pro", ["kz_delta", "kz_gamma"])
   await expect(page.getByText("0:45.111")).toBeVisible()
-  await expect(page.getByText("0:55.222")).toBeVisible()
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
+  await expectRowOrder(page, "pro", ["kz_delta", "kz_gamma"])
+  await expect(
+    page.getByRole("columnheader", { name: "NUB finishers" }),
+  ).toHaveCount(0)
+  await expect(
+    page.getByRole("columnheader", { name: "PRO finishers" }),
+  ).toBeVisible()
+  await expect(
+    page
+      .getByTestId("profile-unfinished-pro-row-980202")
+      .getByRole("cell")
+      .nth(3),
+  ).toHaveText("7")
+  await expect(page.getByRole("status")).toHaveText("2 maps")
+  await expect(page.getByText("0:48.333")).toBeVisible()
+  await page.getByRole("tab", { name: "NUB", exact: true }).click()
   await expect(
     page.locator('[data-testid="profile-unfinished-nub-row-980203"]'),
   ).toContainText("-")
@@ -470,13 +587,21 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
 
   await page.getByLabel("Search unfinished map name").fill("gam")
   await expectRowOrder(page, "nub", ["kz_gamma"])
+  await expect(page.getByRole("status")).toHaveText("1 map")
+  await expect(
+    page
+      .getByTestId("profile-unfinished-nub-row-980202")
+      .getByRole("cell")
+      .nth(5),
+  ).toHaveText("—")
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
   await expectRowOrder(page, "pro", ["kz_gamma"])
+  await page.getByRole("tab", { name: "NUB", exact: true }).click()
   await page.getByLabel("Search unfinished map name").fill("")
 
   await page.getByLabel("Filter unfinished maps by tier").click()
   await page.getByRole("option", { name: "T2" }).click()
   await expectRowOrder(page, "nub", ["kz_delta"])
-  await expectRowOrder(page, "pro", ["kz_delta"])
   await page.getByLabel("Filter unfinished maps by tier").click()
   await page.getByRole("option", { name: "Tier" }).click()
 
@@ -498,6 +623,9 @@ test("Profile unfinished tab shows NUB and PRO side by side when width allows", 
     .getByRole("button", { name: "WR" })
     .click()
   await expectRowOrder(page, "nub", ["kz_epsilon", "kz_alpha", "kz_delta"])
+  await expectRowOrder(page, "pro", [])
+  await page.getByRole("tab", { name: "PRO", exact: true }).click()
+  await expect(page.getByTestId("profile-unfinished-column-pro")).toBeVisible()
   await expectRowOrder(page, "pro", [])
 })
 
@@ -539,4 +667,19 @@ test("Profile unfinished tab shows an empty state when the scope has no missing 
   await expect(
     page.locator('[data-testid^="profile-unfinished-pro-row-"]'),
   ).toHaveCount(0)
+})
+
+test("Profile unfinished maps remain usable when metrics fail", async ({
+  page,
+}) => {
+  await installProfileRoutes(page)
+  await page.route(/\/v1\/leaderboards\/maps(\?.*)?$/, (route) =>
+    route.fulfill({ status: 503, json: { detail: "Unavailable" } }),
+  )
+  await page.goto(`/profile/${steamid64}/unfinished`)
+  await expectRowOrder(page, "nub", ["kz_beta", "kz_delta", "kz_gamma"])
+  await expect(page.getByText("Metrics unavailable")).toBeVisible()
+  await expect(
+    page.getByTestId("profile-unfinished-nub-row-980201"),
+  ).toContainText("—")
 })

@@ -957,6 +957,7 @@ export const zhCN = {
       trophyAlt: "{{trophy}}奖杯",
     },
     unfinished: {
+      firstMedian: "首通中位数",
       ariaLabel: "{{type}} 未完成",
       mapsCount_one: "{{count}} 张地图",
       mapsCount_other: "{{count}} 张地图",
