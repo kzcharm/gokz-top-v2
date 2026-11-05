@@ -493,9 +493,7 @@ test("Profile avatar activity follows server presence and the shared recency rul
   activity.lastPlayedAt = "2026-10-22T12:00:00Z"
   await page.clock.fastForward(31_000)
   await expect(badge).toHaveAttribute("data-status", "recent")
-  await expect(badge).toHaveAccessibleName(
-    /Played within the last 7 days · Last played:/,
-  )
+  await expect(badge).toHaveAccessibleName("Played within the last 7 days")
   activity.lastPlayedAt = "2026-10-07T12:00:00Z"
   await page.clock.fastForward(31_000)
   await expect(badge).toHaveCount(0)
@@ -503,6 +501,7 @@ test("Profile avatar activity follows server presence and the shared recency rul
   await page.clock.fastForward(31_000)
   await expect(badge).toHaveAttribute("data-status", "older")
   await expect(badge).toHaveClass(/bg-muted-foreground/)
+  await expect(badge).toHaveAccessibleName("Hasn't played in the last year")
   activity.lastPlayedAt = null
   await page.clock.fastForward(31_000)
   await expect(badge).toHaveCount(0)

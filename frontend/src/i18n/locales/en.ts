@@ -105,7 +105,7 @@ export const en = {
   playerActivity: {
     online: "In a server now",
     recent: "Played within the last 7 days",
-    lastPlayed: "Last played: {{date}}",
+    older: "Hasn't played in the last year",
     unknown: "Last played unknown",
   },
   pronunciationAdmin: {

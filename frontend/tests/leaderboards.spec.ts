@@ -242,6 +242,13 @@ test.describe("Leaderboards page", () => {
     const inactive = page.getByTestId("player-activity-76561198000000006")
     await expect(inactive).toHaveAttribute("data-status", "older")
     await expect(inactive).toHaveClass(/bg-muted-foreground/)
+    await expect(inactive).toHaveAccessibleName(
+      "Hasn't played in the last year",
+    )
+    await inactive.hover()
+    await expect(page.getByRole("tooltip")).toHaveText(
+      "Hasn't played in the last year",
+    )
     await expect(
       page.getByTestId("player-activity-76561198000000007"),
     ).toHaveCount(0)
@@ -256,7 +263,7 @@ test.describe("Leaderboards page", () => {
     await recent.hover()
     await expect(
       page.getByRole("tooltip", { name: /Played within the last 7 days/ }),
-    ).toContainText("Last played:")
+    ).toHaveText("Played within the last 7 days")
     const avatar = page.getByTestId("player-avatar-ring-76561198000000001")
     const avatarBox = await avatar.boundingBox()
     const badgeBox = await online.boundingBox()

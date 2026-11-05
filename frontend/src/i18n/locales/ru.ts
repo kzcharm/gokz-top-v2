@@ -112,7 +112,7 @@ export const ru = {
   playerActivity: {
     online: "Сейчас на сервере",
     recent: "Играл за последние 7 дней",
-    lastPlayed: "Последняя игра: {{date}}",
+    older: "Не играл в течение последнего года",
     unknown: "Время последней игры неизвестно",
   },
   pronunciationAdmin: {

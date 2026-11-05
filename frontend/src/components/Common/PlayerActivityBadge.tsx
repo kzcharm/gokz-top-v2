@@ -1,5 +1,4 @@
 import { useTranslation } from "react-i18next"
-import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import {
   Tooltip,
   TooltipContent,
@@ -23,7 +22,6 @@ export function PlayerActivityBadge({
   testId?: string
 }) {
   const { t } = useTranslation()
-  const { formatDateTime } = useDateTimeFormat()
   const lastPlayedTime = lastPlayedAt ? Date.parse(lastPlayedAt) : Number.NaN
   const now = Math.max(Date.now(), refreshedAt)
   const activityAge = now - lastPlayedTime
@@ -44,7 +42,9 @@ export function PlayerActivityBadge({
   const label =
     status === "online"
       ? t("playerActivity.online")
-      : `${status === "recent" ? `${t("playerActivity.recent")} · ` : ""}${t("playerActivity.lastPlayed", { date: formatDateTime(lastPlayedAt) })}`
+      : status === "recent"
+        ? t("playerActivity.recent")
+        : t("playerActivity.older")
 
   return (
     <Tooltip>
