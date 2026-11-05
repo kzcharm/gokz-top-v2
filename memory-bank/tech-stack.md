@@ -36,7 +36,7 @@ Staging and production deployments enable the reviewed rank-based NUB and modera
   - `/v1/player-reports` for authenticated player report submissions with optional record context
   - `/v1/admin/servers` for RBAC-protected server and server-group management
   - `/v1/admin/servers/globalapi/records/export` for owner-scoped, streamed GOKZ LocalDB MySQL record exports across one or more GlobalAPI server IDs
-  - `/v1/admin/player-social-links` for superuser management of player social links and verification state
+  - `/v1/admin/player-social-links` for superuser management of player social links and verification state. Admin account names are cached in the existing social-link JSONB metadata, keyed to the account identifier. List reads refresh names after 24 hours (missing names after one hour), with five concurrent lookups and an eight-second overall wait; provider failures retain cached names. Bilibili uses its user-card endpoint, YouTube uses the configured API key, Twitch reuses its app token, and GitHub/X use their usernames. Discord names are captured during OAuth linking without retaining tokens; older Discord links fall back to IDs until reconnected. Account changes clear metadata and invalidate names.
   - `/v1/maps/reviews` supports website-authored review upserts, server-group writes, and QQ-bot writes authenticated by the active QQ binding secret; authenticated comment-only deletion remains available across a player's review rows for a map
   - `/v1/polls` provides public poll browsing and authenticated voting, while `/v1/admin/polls` is restricted to root admins for poll lifecycle management and voter audits
 - Data strategy:

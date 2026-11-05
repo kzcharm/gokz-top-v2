@@ -80,11 +80,11 @@ async def test_connect_disconnect_and_reconnect(
     steamid64, headers = await player_headers(client, db)
     calls = []
 
-    async def fetch(*, code: str) -> str:
+    async def fetch(*, code: str) -> tuple[str, str | None]:
         calls.append(code)
-        return ACCOUNT_ID
+        return ACCOUNT_ID, "Discord Player"
 
-    monkeypatch.setattr(routes, "fetch_discord_account_identifier", fetch)
+    monkeypatch.setattr(routes, "fetch_discord_account", fetch)
     state = await start(client, headers)
     assert decode_discord_state(state).steamid64 == steamid64
     response = await client.get(
@@ -95,7 +95,8 @@ async def test_connect_disconnect_and_reconnect(
     assert len(links) == 1
     assert links[0].verified
     assert links[0].account_identifier == ACCOUNT_ID
-    assert links[0].metadata_json is None
+    assert links[0].metadata_json is not None
+    assert links[0].metadata_json["account_name_cache"]["name"] == "Discord Player"
     assert (await client.post(START, headers=headers)).status_code == 409
     assert (
         await client.patch(
@@ -159,14 +160,14 @@ async def test_callback_failures_never_create_link(
     elif failure == "missing-code":
         params.pop("code")
 
-    async def fetch(*, code: str) -> str:
+    async def fetch(*, code: str) -> tuple[str, str | None]:
         assert code == "private-code"
         assert failure == "provider", (
             "Provider must not be called for an invalid callback"
         )
         raise httpx.ConnectError("private-token private-code")
 
-    monkeypatch.setattr(routes, "fetch_discord_account_identifier", fetch)
+    monkeypatch.setattr(routes, "fetch_discord_account", fetch)
     response = await client.get(CALLBACK, params=params)
     assert_result(response, "error")
     assert "private-" not in response.headers["location"]
@@ -194,11 +195,11 @@ async def test_callback_handles_link_created_during_authorization(
         verified=True,
     )
 
-    async def fetch(*, code: str) -> str:
+    async def fetch(*, code: str) -> tuple[str, str | None]:
         assert code == "code"
-        return ACCOUNT_ID
+        return ACCOUNT_ID, "Discord Player"
 
-    monkeypatch.setattr(routes, "fetch_discord_account_identifier", fetch)
+    monkeypatch.setattr(routes, "fetch_discord_account", fetch)
     assert_result(
         await client.get(CALLBACK, params={"state": state, "code": "code"}), "error"
     )
@@ -262,11 +263,11 @@ async def test_callback_rejects_invalid_provider_identifier(
     steamid64, headers = await player_headers(client, db)
     state = await start(client, headers)
 
-    async def fetch(*, code: str) -> str:
+    async def fetch(*, code: str) -> tuple[str, str | None]:
         assert code == "code"
-        return "invalid-account-id"
+        return "invalid-account-id", None
 
-    monkeypatch.setattr(routes, "fetch_discord_account_identifier", fetch)
+    monkeypatch.setattr(routes, "fetch_discord_account", fetch)
     assert_result(
         await client.get(CALLBACK, params={"state": state, "code": "code"}), "error"
     )

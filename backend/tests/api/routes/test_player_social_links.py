@@ -10,6 +10,7 @@ from app import crud
 from app.api.v1 import player_social_links as player_social_links_routes
 from app.core.config import settings
 from app.models import Player
+from app.services import social_account_names
 from app.services.bilibili_social_link_verification import (
     create_bilibili_pending_confirmation_token,
 )
@@ -29,6 +30,14 @@ from tests.utils.user import authentication_token_from_steamid
 from tests.utils.utils import get_superuser_token_headers, random_steamid64
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.fixture(autouse=True)
+def disable_platform_name_requests(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fetch(**_: object) -> None:
+        return None
+
+    monkeypatch.setattr(social_account_names, "fetch_social_account_name", fetch)
 
 
 async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None:
@@ -1081,7 +1090,9 @@ async def test_player_youtube_social_link_add_callback_creates_verified_link(
         == f"{settings.FRONTEND_HOST}/settings?tab=social-links&youtubeVerification=success"
     )
     payload = (
-        await client.get(f"{settings.API_V1_STR}/player-social-links/players/{steamid64}")
+        await client.get(
+            f"{settings.API_V1_STR}/player-social-links/players/{steamid64}"
+        )
     ).json()
     assert payload["data"][0]["platform"] == "youtube"
     assert payload["data"][0]["account_identifier"] == (
@@ -1166,6 +1177,7 @@ async def test_player_twitch_social_link_callback_verifies_matching_account(
         return_path="/settings?tab=social-links",
         mode="verify",
     )
+
     async def _fake_token(**_: object) -> str:
         return "user-token"
 
@@ -1297,6 +1309,7 @@ async def test_player_twitch_social_link_callback_redirects_mismatch_without_mut
         return_path="/settings?tab=social-links",
         mode="verify",
     )
+
     async def _fake_token(**_: object) -> str:
         return "user-token"
 

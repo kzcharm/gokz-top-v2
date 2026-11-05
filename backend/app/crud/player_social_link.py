@@ -67,6 +67,7 @@ async def create_player_social_link(
     player_steamid64: int,
     url: str,
     verified: bool = False,
+    metadata_json: dict[str, Any] | None = None,
 ) -> PlayerSocialLink:
     platform, account_identifier = parse_social_link_or_raise(url)
     link = PlayerSocialLink(
@@ -74,6 +75,7 @@ async def create_player_social_link(
         platform=platform,
         account_identifier=account_identifier,
         verified=verified,
+        metadata_json=metadata_json,
     )
     session.add(link)
     try:
@@ -220,9 +222,13 @@ def to_player_social_link_publics(
 def to_admin_player_social_link_public(
     *, link: PlayerSocialLink, player: Player | None = None
 ) -> AdminPlayerSocialLinkPublic:
+    from app.services.social_account_names import get_account_name_cache
+
     public = to_player_social_link_public(link=link)
+    cache = get_account_name_cache(link)
     return AdminPlayerSocialLinkPublic(
         **public.model_dump(),
+        account_name=cache.name if cache else None,
         player=(
             PlayerRefPublic(
                 steamid64=str(player.steamid64),

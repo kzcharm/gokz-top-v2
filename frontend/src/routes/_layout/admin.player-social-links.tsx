@@ -317,15 +317,17 @@ function AdminPlayerSocialLinks() {
       },
       {
         accessorKey: "account_identifier",
+        size: 240,
         header: "Account",
         cell: ({ row }) => (
           <a
             href={row.original.url}
             target="_blank"
             rel="noreferrer"
-            className="font-mono text-sm text-primary hover:underline"
+            title={row.original.account_name || row.original.account_identifier}
+            className="block truncate text-sm text-primary hover:underline"
           >
-            {row.original.account_identifier}
+            {row.original.account_name || row.original.account_identifier}
           </a>
         ),
       },

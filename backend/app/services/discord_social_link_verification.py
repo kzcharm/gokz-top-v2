@@ -72,7 +72,7 @@ def build_discord_authorization_url(*, state: str) -> str:
     )
 
 
-async def fetch_discord_account_identifier(*, code: str) -> str:
+async def fetch_discord_account(*, code: str) -> tuple[str, str | None]:
     ensure_discord_configured()
     async with httpx.AsyncClient(timeout=10.0) as client:
         token_response = await client.post(
@@ -109,4 +109,7 @@ async def fetch_discord_account_identifier(*, code: str) -> str:
         or str(int(account_id)) != account_id
     ):
         raise ValueError("Discord did not return a valid user ID")
-    return account_id
+    name = user_payload.get("global_name") or user_payload.get("username")
+    return account_id, (
+        name.strip()[:255] if isinstance(name, str) and name.strip() else None
+    )

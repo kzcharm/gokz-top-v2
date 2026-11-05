@@ -13,6 +13,7 @@ from app.models import (
     AdminPlayerSocialLinkUpdate,
     User,
 )
+from app.services.social_account_names import refresh_social_account_names
 
 router = APIRouter(prefix="/admin", tags=["admin-player-social-links"])
 
@@ -47,6 +48,7 @@ async def read_admin_player_social_links(
         sort_by=query.sort_by,
         sort_order=query.sort_order,
     )
+    await refresh_social_account_names(session=session, links=[link for link, _ in rows])
     return AdminPlayerSocialLinksPublic(
         data=[
             crud.to_admin_player_social_link_public(link=link, player=player)

@@ -644,6 +644,17 @@ export const AdminPlayerSocialLinkPublicSchema = {
             format: 'date-time',
             title: 'Updated At'
         },
+        account_name: {
+            anyOf: [
+                {
+                    type: 'string'
+                },
+                {
+                    type: 'null'
+                }
+            ],
+            title: 'Account Name'
+        },
         player: {
             anyOf: [
                 {

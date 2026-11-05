@@ -123,6 +123,7 @@ class PlayerSocialLinksPublic(SQLModel):
 
 
 class AdminPlayerSocialLinkPublic(PlayerSocialLinkPublic):
+    account_name: str | None = None
     player: PlayerRefPublic | None = None
 
 

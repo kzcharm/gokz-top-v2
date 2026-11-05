@@ -47,7 +47,10 @@ async def test_discord_provider_exchange(
         return httpx.Response(
             200,
             json={
-                "id": "not-an-id" if failure == "user-invalid" else "123456789012345678"
+                "id": "not-an-id"
+                if failure == "user-invalid"
+                else "123456789012345678",
+                "global_name": "Discord Player",
             },
         )
 
@@ -59,11 +62,11 @@ async def test_discord_provider_exchange(
     )
     if failure:
         with pytest.raises((ValueError, httpx.HTTPError)):
-            await discord.fetch_discord_account_identifier(code="authorization-code")
+            await discord.fetch_discord_account(code="authorization-code")
     else:
-        assert (
-            await discord.fetch_discord_account_identifier(code="authorization-code")
-            == "123456789012345678"
+        assert await discord.fetch_discord_account(code="authorization-code") == (
+            "123456789012345678",
+            "Discord Player",
         )
         assert len(requests) == 2
 

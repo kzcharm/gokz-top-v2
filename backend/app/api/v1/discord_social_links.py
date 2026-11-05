@@ -1,4 +1,5 @@
 import secrets
+from datetime import UTC, datetime
 from urllib.parse import urlencode, urlsplit
 
 import httpx
@@ -17,8 +18,9 @@ from app.services.discord_social_link_verification import (
     decode_discord_state,
     discord_callback_url,
     ensure_discord_configured,
-    fetch_discord_account_identifier,
+    fetch_discord_account,
 )
+from app.services.social_account_names import SocialAccountNameCache
 
 router = APIRouter(tags=["player-social-links"])
 
@@ -100,7 +102,7 @@ async def complete_discord_connection(
             message="Discord did not return an authorization code"
         )
     try:
-        account_id = await fetch_discord_account_identifier(code=code)
+        account_id, account_name = await fetch_discord_account(code=code)
     except (ValueError, httpx.HTTPError):
         # Never expose provider response bodies, codes, or tokens in redirects.
         return _return_to_settings(
@@ -112,6 +114,13 @@ async def complete_discord_connection(
             player_steamid64=payload.steamid64,
             url=f"https://discord.com/users/{account_id}",
             verified=True,
+            metadata_json={
+                "account_name_cache": SocialAccountNameCache(
+                    account_identifier=account_id,
+                    name=account_name,
+                    checked_at=datetime.now(UTC),
+                ).model_dump(mode="json")
+            },
         )
     except crud.PlayerSocialLinkConflictError:
         return _return_to_settings(

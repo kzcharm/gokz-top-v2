@@ -144,6 +144,7 @@ export type AdminPlayerSocialLinkPublic = {
     url: string;
     created_at: string;
     updated_at: string;
+    account_name?: (string | null);
     player?: (PlayerRefPublic | null);
 };
 
