@@ -16,6 +16,7 @@ import {
   type MapPublic,
   type RecordPublic,
 } from "@/client"
+import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import {
@@ -53,7 +54,7 @@ const PROFILE_UNFINISHED_PAGE_SIZE = 100
 type ProfileUnfinishedRow = BaseUnfinishedRow & {
   nubFinishers: number | null
   proFinishers: number | null
-  totalFinishes: number | null
+  createdAt: number | null
   firstMedian: number | null
   medianPbTime: number | null
   overallRating: number | null
@@ -67,7 +68,7 @@ type ProfileUnfinishedSortColumn =
   | "wrTime"
   | "nubFinishers"
   | "proFinishers"
-  | "totalFinishes"
+  | "createdAt"
   | "firstMedian"
   | "medianPbTime"
   | "overallRating"
@@ -77,6 +78,17 @@ type ProfileUnfinishedSortState = {
   column: ProfileUnfinishedSortColumn
   direction: ProfileUnfinishedSortDirection
 }
+
+// Keep the view during navigation; a full page reload starts a fresh view.
+let unfinishedView:
+  | {
+      mapSearch: string
+      selectedTier: TierSelectorValue
+      nubSort: ProfileUnfinishedSortState
+      proSort: ProfileUnfinishedSortState
+      isProOnly: boolean
+    }
+  | undefined
 
 function compareText(left: string, right: string) {
   return left.localeCompare(right, undefined, {
@@ -203,6 +215,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
   mapMenu: (mapId: number) => ReactNode
 }) {
   const { t } = useTranslation()
+  const finisherMetric = type === "NUB" ? "nubFinishers" : "proFinishers"
   return (
     <section
       aria-label={t("profile.unfinished.ariaLabel", { type: title })}
@@ -245,10 +258,10 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                   type === "NUB"
                     ? (["nubFinishers", "maps.nubFinishers"] as const)
                     : (["proFinishers", "maps.proFinishers"] as const),
-                  ["totalFinishes", "maps.sortOptions.finishes"],
                   ["firstMedian", "profile.unfinished.firstMedian"],
                   ["medianPbTime", "maps.overview.medianPbTime"],
-                  ["overallRating", "maps.filterFields.overallRating"],
+                  ["overallRating", "labels.rating"],
+                  ["createdAt", "maps.filterFields.createdAt"],
                 ] as const
               ).map(([column, label]) => (
                 <TableHead
@@ -277,6 +290,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                     <MapDisplay
                       mapName={row.mapName}
                       mapId={row.mapId}
+                      containerClassName="block"
                       playerMenuItems={mapMenu(row.mapId)}
                     />
                   </TableCell>
@@ -286,16 +300,11 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                   <TableCell className="text-right font-mono font-medium">
                     {row.wrTime === null ? "-" : formatRecordTime(row.wrTime)}
                   </TableCell>
-                  {(
-                    [
-                      type === "NUB" ? "nubFinishers" : "proFinishers",
-                      "totalFinishes",
-                    ] as const
-                  ).map((metric) => (
-                    <TableCell key={metric} className="text-right tabular-nums">
-                      {row[metric] === null ? "—" : formatNumber(row[metric])}
-                    </TableCell>
-                  ))}
+                  <TableCell className="text-right tabular-nums">
+                    {row[finisherMetric] === null
+                      ? "—"
+                      : formatNumber(row[finisherMetric])}
+                  </TableCell>
                   <TableCell className="text-right font-mono">
                     {row.firstMedian === null
                       ? "—"
@@ -313,6 +322,15 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                         count={row.reviewsCount}
                       />
                     </div>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <FormattedDateTime
+                      value={
+                        row.createdAt === null ? null : new Date(row.createdAt)
+                      }
+                      dateOnly
+                      fallback="—"
+                    />
                   </TableCell>
                 </TableRow>
               ))
@@ -378,23 +396,52 @@ export function ProfileUnfinishedTab({
     () => maps.filter((map) => showHidden || !hiddenMaps.ids.has(map.id)),
     [maps, showHidden, hiddenMaps.ids],
   )
-  const [mapSearch, setMapSearch] = useState("")
-  const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
+  const [initialView] = useState(unfinishedView)
+  const [mapSearch, setMapSearch] = useState(initialView?.mapSearch ?? "")
+  const [selectedTier, setSelectedTier] = useState<TierSelectorValue>(
+    initialView?.selectedTier ?? "all",
+  )
   const [nubVisibleCount, setNubVisibleCount] = useState(
     PROFILE_UNFINISHED_PAGE_SIZE,
   )
   const [proVisibleCount, setProVisibleCount] = useState(
     PROFILE_UNFINISHED_PAGE_SIZE,
   )
-  const [nubSort, setNubSort] = useState<ProfileUnfinishedSortState>({
-    column: "map",
-    direction: "asc",
-  })
-  const [proSort, setProSort] = useState<ProfileUnfinishedSortState>({
-    column: "map",
-    direction: "asc",
-  })
+  const [nubSort, setNubSort] = useState<ProfileUnfinishedSortState>(
+    initialView?.nubSort ?? {
+      column: "map",
+      direction: "asc",
+    },
+  )
+  const [proSort, setProSort] = useState<ProfileUnfinishedSortState>(
+    initialView?.proSort ?? {
+      column: "map",
+      direction: "asc",
+    },
+  )
   const deferredMapSearch = useDeferredValue(mapSearch)
+  const currentView = useRef({
+    mapSearch,
+    selectedTier,
+    nubSort,
+    proSort,
+    isProOnly,
+  })
+  useEffect(() => {
+    currentView.current = {
+      mapSearch,
+      selectedTier,
+      nubSort,
+      proSort,
+      isProOnly,
+    }
+  }, [mapSearch, selectedTier, nubSort, proSort, isProOnly])
+  useEffect(() => {
+    if (initialView) onIsProOnlyChange(initialView.isProOnly)
+    return () => {
+      unfinishedView = currentView.current
+    }
+  }, [initialView, onIsProOnlyChange])
   const nubLoadMoreRef = useRef<HTMLDivElement | null>(null)
   const proLoadMoreRef = useRef<HTMLDivElement | null>(null)
   const nubWrsQuery = useQuery(
@@ -422,21 +469,22 @@ export function ProfileUnfinishedTab({
       new Map(metricsQuery.data?.data.map((entry) => [entry.map.id, entry])),
     [metricsQuery.data],
   )
-  const ratingsByMapId = useMemo(
-    () => new Map(maps.map((map) => [map.id, map.review_summary])),
+  const mapsByMapId = useMemo(
+    () => new Map(maps.map((map) => [map.id, map])),
     [maps],
   )
   const addMetrics = useCallback(
     (row: BaseUnfinishedRow): ProfileUnfinishedRow => {
       const metrics = metricsByMapId.get(row.mapId)
-      const review = ratingsByMapId.get(row.mapId)
+      const map = mapsByMapId.get(row.mapId)
+      const review = map?.review_summary
       return {
         ...row,
-        overallRating: review?.reviews_count ? review.overall_avg : null,
+        overallRating: review?.reviews_count ? review.overall_adjusted : null,
         reviewsCount: review?.reviews_count ?? 0,
         nubFinishers: metrics?.unique_nub_finishes ?? null,
         proFinishers: metrics?.unique_pro_finishes ?? null,
-        totalFinishes: metrics?.total_finishes ?? null,
+        createdAt: map ? Date.parse(map.created_on) : null,
         medianPbTime:
           metrics && metrics.median_first_completion_time > 0
             ? metrics.median_first_completion_time
@@ -448,7 +496,7 @@ export function ProfileUnfinishedTab({
             : null,
       }
     },
-    [metricsByMapId, ratingsByMapId],
+    [metricsByMapId, mapsByMapId],
   )
 
   const normalizedMapSearch = deferredMapSearch.trim().toLocaleLowerCase()
