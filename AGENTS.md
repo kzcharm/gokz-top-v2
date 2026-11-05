@@ -69,7 +69,9 @@ Allowed primary types:
 
 When the thread starts with a user-facing request such as "fix something", "improve xxx", or "make xxx work", write the commit subject around what problem the change solves first. Put the common technical commit-message detail after that, separated by a semicolon, only when it adds useful context.
 
-For frontend changes, include the exact affected route path in the user-facing part of the subject whenever there is a clear page or workflow route. Prefer concrete paths such as `/maps`, `/leaderboards`, `/profile/:identifier`, or `/settings/social-links` over vague areas like "maps page" or "profile UI". This lets the `/updates` page enrich release notes with direct "try it" links.
+For frontend changes outside `/admin/`, include the exact affected route path in the user-facing part of the subject whenever there is a clear page or workflow route. Prefer concrete paths such as `/maps`, `/leaderboards`, `/profile/:identifier`, or `/settings/social-links` over vague areas like "maps page" or "profile UI". This lets the `/updates` page enrich release notes with direct "try it" links.
+
+For changes to `/admin/` pages, describe the affected admin workflow without including its URL or route path anywhere in the commit message.
 
 Examples:
 
