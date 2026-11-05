@@ -111,13 +111,7 @@ Use task-specific subdirectories such as `/.temp/frontend/test-results`, `/.temp
 
 Before finishing a task, either delete ad-hoc artifacts or move them into `/.temp/`. Treat anything outside `/.temp/` as potentially commit-worthy.
 
-## Documentation Workflow
-Public documentation lives in the `notes/` submodule, backed by the separate `kzcharm/gokz-top-docs` repository.
+## Repository Markdown
+This repository does not include or maintain a public documentation site or documentation submodule.
 
-When a change affects public behavior, APIs, plugin setup, rating logic, server operator workflows, or troubleshooting, update the docs in `notes/`.
-
-When editing public docs, keep English and translated docs content-matched. If a page is added, removed, renamed, shortened, or materially changed in English, make the corresponding change in every available language under `notes/docs/` in the same task. Deleting or cleaning up a doc also means deleting or cleaning up its translated counterparts.
-
-Before editing docs, initialize the submodule with `git submodule update --init --recursive` and make sure `notes/` is on a branch, not a detached HEAD.
-
-Commit documentation changes inside `notes/` first. Update this parent repository's submodule pointer only when the app should pin a specific docs revision alongside a product or behavior change.
+Update relevant repository Markdown files when implementation or contributor workflows change. Keep setup guidance in `README.md`, development instructions in `development.md`, deployment instructions in `deployment.md`, and architecture and product context in `memory-bank/`.

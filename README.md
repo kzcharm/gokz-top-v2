@@ -9,7 +9,6 @@ GOKZ.TOP v2 is the FastAPI, React, and SourceMod-backed platform for GOKZ record
 - `sourcemod/`: SourceMod plugin submodule for `kzcharm/gokz-top-plugins`.
 - `qqbot/`: official QQ API bot submodule for `kzcharm/qqbot-saki-chan`, deployed independently on E.
 - `memory-bank/`: product and architecture notes that guide implementation.
-- `notes/`: public documentation submodule.
 
 ## Local Development
 
@@ -107,4 +106,4 @@ Set production secrets through environment variables, never in committed files. 
 - `SUPER_USER_STEAMID64`
 - `STEAM_API_KEY`
 
-See [docs/deployment.md](./docs/deployment.md) and [development.md](./development.md) for Docker, Traefik, and environment details.
+See [deployment.md](./deployment.md) and [development.md](./development.md) for Docker, Traefik, and environment details.
