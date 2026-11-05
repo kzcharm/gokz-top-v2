@@ -39,8 +39,8 @@ import {
   getPlayerRatingBadgeIcon,
   getPlayerRatingLevel,
 } from "@/components/Common/player-rating"
+import { useRunTimeFormat } from "@/components/Common/RunTime"
 import { usePlayerDisplayPreferences } from "@/components/player-display-preferences-provider"
-import { formatRecordTime } from "@/components/Records/utils"
 import { useScope } from "@/components/scope-provider"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
@@ -135,7 +135,6 @@ type PlayerDisplaySubline =
       mode: string
       recordType: RecordType
       showRecordType?: boolean
-      showMilliseconds?: boolean
       time: number
     }
   | {
@@ -512,6 +511,7 @@ export function PlayerDisplay({
   reportRecordContext = null,
   scope,
 }: PlayerDisplayProps) {
+  const formatRecordTime = useRunTimeFormat()
   const { t } = useTranslation()
   const { scope: appScope } = useScope()
   const playerDisplayPreferences = usePlayerDisplayPreferences()
@@ -666,10 +666,7 @@ export function PlayerDisplay({
     sublineContent = effectiveSubline.value?.trim() || null
     sublineTitle = effectiveSubline.value?.trim() || undefined
   } else if (effectiveSubline?.type === "record") {
-    const formattedTime = formatRecordTime(
-      effectiveSubline.time,
-      effectiveSubline.showMilliseconds,
-    )
+    const formattedTime = formatRecordTime(effectiveSubline.time)
     const recordTypeLabel =
       effectiveSubline.showRecordType === false
         ? ""
@@ -684,9 +681,7 @@ export function PlayerDisplay({
           {effectiveSubline.mode}
           {recordTypeLabel} ·{" "}
         </span>
-        <span className="font-sans tabular-nums text-muted-foreground">
-          {formattedTime}
-        </span>
+        <span className="run-time text-muted-foreground">{formattedTime}</span>
       </span>
     )
   } else if (effectiveSubline?.type === "wr") {
@@ -699,7 +694,7 @@ export function PlayerDisplay({
 
     if (matchingWr) {
       const wrLabel = `WR: ${formatRecordTime(matchingWr.time)}`
-      sublineContent = wrLabel
+      sublineContent = <span className="run-time">{wrLabel}</span>
       sublineTitle = wrLabel
     } else if (wrSublineQuery.isLoading) {
       sublineContent = "WR: ..."

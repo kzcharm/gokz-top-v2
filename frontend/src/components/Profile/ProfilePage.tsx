@@ -101,7 +101,6 @@ const PROFILE_RUNS_SHOW_SERVER_COOKIE = "profile_runs_show_server"
 const PROFILE_RUNS_SHOW_DATETIME_COOKIE = "profile_runs_show_datetime"
 const PROFILE_RUNS_SHOW_DATE_COOKIE = "profile_runs_show_date"
 const PROFILE_RUNS_SHOW_TIME_COOKIE = "profile_runs_show_time"
-const PROFILE_RUNS_SHOW_MILLISECONDS_COOKIE = "profile_runs_show_milliseconds"
 const PROFILE_RUNS_PREFERENCE_MAX_AGE = 60 * 60 * 24 * 365
 
 function readBooleanCookie(name: string, defaultValue = false) {
@@ -213,9 +212,6 @@ export function ProfilePage({
       PROFILE_RUNS_SHOW_TIME_COOKIE,
       readBooleanCookie(PROFILE_RUNS_SHOW_DATETIME_COOKIE, true),
     ),
-  )
-  const [showMilliseconds, setShowMilliseconds] = useState(() =>
-    readBooleanCookie(PROFILE_RUNS_SHOW_MILLISECONDS_COOKIE, true),
   )
   const [recordsViewState, setRecordsViewState] = useState(
     initialRecordsDefault?.view ?? DEFAULT_PROFILE_RECORDS_VIEW_STATE,
@@ -900,18 +896,6 @@ export function ProfilePage({
             >
               {t("profile.records.showTime")}
             </DropdownMenuCheckboxItem>
-            <DropdownMenuCheckboxItem
-              checked={showMilliseconds}
-              onCheckedChange={(checked) => {
-                setShowMilliseconds(checked)
-                writeBooleanCookie(
-                  PROFILE_RUNS_SHOW_MILLISECONDS_COOKIE,
-                  checked,
-                )
-              }}
-            >
-              {t("profile.records.showMilliseconds")}
-            </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -1133,7 +1117,6 @@ export function ProfilePage({
               showServer={showServer}
               showDate={showDate}
               showTime={showDate && showTime}
-              showMilliseconds={showMilliseconds}
               hiddenMapsMutating={hiddenMaps.pending}
               pinnedRecordKeys={pinnedRecordKeys}
               pinnedRecordsMutating={

@@ -324,7 +324,10 @@ export const ru = {
     wrTime: "WR",
     wrGap: "Разрыв с WR",
   },
-  preferences: { quickSettings: "Быстрые настройки" },
+  preferences: {
+    quickSettings: "Быстрые настройки",
+    runTimeFont: "Шрифт времени прохождения",
+  },
   language: {
     label: "Язык",
     select: "Выбрать язык",

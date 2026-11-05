@@ -33,7 +33,7 @@ import NotFound from "@/components/Common/NotFound"
 import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
 import { RegionBadge } from "@/components/Common/RegionFlag"
 import { RowContextMenuItem } from "@/components/Common/RowContextMenu"
-import { formatRecordTime } from "@/components/Records/utils"
+import { RunTime } from "@/components/Common/RunTime"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -162,8 +162,8 @@ function MapRankSummaryItem({
         {pbTime === null ? label : `${label} PB`}
       </div>
       {pbTime === null ? null : (
-        <div className="font-mono text-lg font-semibold leading-none text-foreground">
-          {formatRecordTime(pbTime)}
+        <div className="text-lg font-semibold leading-none text-foreground">
+          <RunTime seconds={pbTime} />
         </div>
       )}
       <div className="text-sm font-semibold text-foreground">

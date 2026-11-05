@@ -203,11 +203,11 @@ test("map overview shows reviews, complete skills, and essential metrics inside 
     ["Finishers", "100"],
     ["PRO Finishers", "25"],
     ["PRO Share", "25%"],
-    ["Median PB Time", "5:00"],
+    ["Median PB Time", "5:00.000"],
     ["Median PB WR Gap", "3.00x"],
     ["Avg Finishes per Player", "12.34"],
     ["Avg Playtime per Player", "6:00"],
-    ["Med 1st Completion Time", "8:20"],
+    ["Med 1st Completion Time", "8:20.000"],
     ["Med 1st Completion WR Gap", "5.00x"],
     ["Bonuses", "2"],
   ]) {
@@ -510,7 +510,7 @@ test("distribution ratio labels preserve logarithmic bins and chart geometry", a
     }),
   )
   await page.goto(`/maps/${map.name}/stats`)
-  await expect(page.getByText("Median: 3.00x (5:00)")).toHaveCount(2)
+  await expect(page.getByText("Median: 3.00x (5:00.000)")).toHaveCount(2)
   const chartElement = page.getByTestId("map-stats-nub-wr-gap-chart")
   await expect(chartElement.locator("canvas")).toBeVisible()
   const moduleSource = await (
@@ -549,11 +549,26 @@ test("distribution ratio labels preserve logarithmic bins and chart geometry", a
     ],
   })
   expect(result.labels).toEqual([
-    "{gap|1.50x}\n{time|2:30}",
-    "{gap|2.00x}\n{time|3:20}",
-    "{gap|3.00x}\n{time|5:00}",
+    "{gap|1.50x}\n{time|2:30.000}",
+    "{gap|2.00x}\n{time|3:20.000}",
+    "{gap|3.00x}\n{time|5:00.000}",
   ])
   expect(result.tooltip).toContain("2.00x ~ 2.41x")
+  await page.getByRole("button", { name: "Quick preferences" }).click()
+  await page
+    .getByRole("menuitem", { name: "Run time font", exact: true })
+    .click()
+  await page.getByRole("radio", { name: /^Roboto Mono/ }).check()
+  await page.keyboard.press("Escape")
+  await expect
+    .poll(() =>
+      chartElement.evaluate(async (element, moduleUrl) => {
+        const echarts = await import(moduleUrl)
+        return echarts.getInstanceByDom(element).getOption().xAxis[0].axisLabel
+          .rich.time.fontFamily
+      }, echartsUrl!),
+    )
+    .toMatch(/Roboto Mono/)
   await chartElement.screenshot({
     path: "../.temp/map-overview/distribution-ratio.png",
   })

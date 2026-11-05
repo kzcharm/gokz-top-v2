@@ -11,10 +11,10 @@ import type {
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapNameContextMenu } from "@/components/Common/MapDisplay"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { RunTime, useRunTimeFormat } from "@/components/Common/RunTime"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { getRecordModeLabelById } from "@/components/Records/mode"
 import { PointsBadge } from "@/components/Records/PointsBadge"
-import { formatRecordTime } from "@/components/Records/utils"
 import { formatWrGap } from "@/components/Records/wr-gap"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Badge } from "@/components/ui/badge"
@@ -28,6 +28,7 @@ import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { formatNumber } from "@/i18n/locale"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { formatFlooredDecimal } from "@/lib/number-format"
+import { cn } from "@/lib/utils"
 import {
   DEFAULT_MAP_CARD_OPTIONS,
   getFirstMedianWrGap,
@@ -78,6 +79,7 @@ export function MapCard({
   showBonusBadge = true,
   personalBest,
 }: MapCardProps) {
+  const formatRecordTime = useRunTimeFormat()
   const { t } = useTranslation()
   const { formatDateTime } = useDateTimeFormat()
   const imageUrls = useMapImageUrls(map.name, map.workshop_id)
@@ -96,8 +98,8 @@ export function MapCard({
           proRatio: `${(leaderboardEntry.pro_nub_ratio * 100).toFixed(1)}%`,
           finishes: leaderboardEntry.total_finishes.toLocaleString(),
           firstMed: formatRecordTime(
-            Math.round(leaderboardEntry.median_first_completion_time),
-          ).replace(/\.000$/, ""),
+            leaderboardEntry.median_first_completion_time,
+          ),
         } as Record<string, string>
       )[sortField]
     : null
@@ -247,20 +249,24 @@ export function MapCard({
             {personalBest.record || personalBest.loading || personalBest.error
               ? "PB: "
               : ""}
-            {personalBest.loading
-              ? t("maps.personal.loading")
-              : personalBest.error
-                ? t("maps.personal.unavailable")
-                : personalBest.record
-                  ? formatRecordTime(
-                      personalBest.record.time,
-                      displayOptions.milliseconds,
-                    )
-                  : t("maps.personal.unfinished")}
+            {personalBest.loading ? (
+              t("maps.personal.loading")
+            ) : personalBest.error ? (
+              t("maps.personal.unavailable")
+            ) : personalBest.record ? (
+              <RunTime seconds={personalBest.record.time} />
+            ) : (
+              t("maps.personal.unfinished")
+            )}
           </span>
         ) : null}
         {personalMetric && personalBest?.record ? (
-          <span className="absolute bottom-2 left-2 z-10 max-w-[52%] truncate rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white">
+          <span
+            className={cn(
+              "absolute bottom-2 left-2 z-10 max-w-[52%] truncate rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white",
+              sortField === "pbWrGap" && "run-time",
+            )}
+          >
             {personalLabel}: {personalDisplay}
           </span>
         ) : null}
@@ -276,7 +282,16 @@ export function MapCard({
                   className="truncate rounded-md bg-black/65 px-2 py-1 text-xs font-semibold tabular-nums text-white backdrop-blur-sm"
                   aria-label={`${metricLabel}: ${cardMetric}`}
                 >
-                  {metricLabel}: {cardMetric}
+                  {metricLabel}:{" "}
+                  <span
+                    className={cn(
+                      (sortField === "firstMed" ||
+                        sortField === "firstMedWrGap") &&
+                        "run-time",
+                    )}
+                  >
+                    {cardMetric}
+                  </span>
                 </button>
               </MapMetricTooltip>
             </div>
@@ -299,8 +314,8 @@ export function MapCard({
         ) : null}
       </div>
 
-      {Object.entries(displayOptions).some(
-        ([key, value]) => key !== "milliseconds" && key !== "points" && value,
+      {(Object.keys(DEFAULT_MAP_CARD_OPTIONS) as (keyof MapCardOptions)[]).some(
+        (key) => key !== "points" && displayOptions[key],
       ) ? (
         <CardContent className="space-y-4 px-5 py-5">
           {displayOptions.wr ? (
@@ -324,7 +339,6 @@ export function MapCard({
                       recordType: wrRecord.type,
                       showRecordType: false,
                       time: wrRecord.time,
-                      showMilliseconds: displayOptions.milliseconds,
                     }}
                   />
                 </div>

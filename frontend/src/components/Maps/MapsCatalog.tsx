@@ -2164,7 +2164,9 @@ export function MapsCatalog() {
                 <DropdownMenuContent align="end">
                   <DropdownMenuGroup>
                     {(
-                      Object.keys(displayOptions) as (keyof MapCardOptions)[]
+                      Object.keys(
+                        DEFAULT_MAP_CARD_OPTIONS,
+                      ) as (keyof MapCardOptions)[]
                     ).map((key) => (
                       <DropdownMenuCheckboxItem
                         key={key}

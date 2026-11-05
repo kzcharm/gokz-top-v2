@@ -16,6 +16,7 @@ import {
   RowContextMenuItem,
   RowContextMenuSeparator,
 } from "@/components/Common/RowContextMenu"
+import { RunTime } from "@/components/Common/RunTime"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { formatWrGap } from "@/components/Records/wr-gap"
 import { TierBadge } from "@/components/Servers/TierBadge"
@@ -49,14 +50,12 @@ import type {
 import { RecordServerDisplay } from "./RecordServerDisplay"
 import { ReplayAvailabilityButton } from "./ReplayAvailabilityButton"
 import { TeleportsBadge } from "./TeleportsBadge"
-import { formatRecordTime } from "./utils"
 
 interface PbRecordsTableProps {
   records: PbRecordWithWr[]
   columns?: PbRecordsColumn[]
   columnFilters?: Partial<Record<PbRecordsColumn, ReactNode>>
   emptyMessage?: string
-  showMilliseconds?: boolean
   dateTimeDateOnly?: boolean
   dateTimeDisplay?: DateTimeDisplay
   firstCompletionSortEnabled?: boolean
@@ -84,7 +83,6 @@ function isInteractiveRowTarget(target: EventTarget | null) {
 }
 
 function PbRecordTableRow({
-  showMilliseconds,
   dateTimeDateOnly,
   dateTimeDisplay,
   getMapContextMenu,
@@ -96,7 +94,6 @@ function PbRecordTableRow({
   visibleColumns,
   renderAdminActions,
 }: {
-  showMilliseconds: boolean
   dateTimeDateOnly: boolean
   dateTimeDisplay: DateTimeDisplay
   getMapContextMenu?: (record: RecordPublic) => ReactNode
@@ -240,7 +237,7 @@ function PbRecordTableRow({
       {visibleColumns.has("wrTime") ? (
         <TableCell
           className={cn(
-            "text-right font-mono font-medium",
+            "text-right font-medium",
             record.wr_time != null && record.wr_teleports === 0
               ? "text-[#258ac7] dark:text-[#42b5f5]"
               : record.wr_time != null && record.wr_teleports != null
@@ -248,14 +245,12 @@ function PbRecordTableRow({
                 : undefined,
           )}
         >
-          {record.wr_time == null
-            ? "-"
-            : formatRecordTime(record.wr_time, showMilliseconds)}
+          {record.wr_time == null ? "-" : <RunTime seconds={record.wr_time} />}
         </TableCell>
       ) : null}
       {visibleColumns.has("time") ? (
-        <TableCell className="text-right font-mono font-medium">
-          {formatRecordTime(record.time, showMilliseconds)}
+        <TableCell className="text-right font-medium">
+          <RunTime seconds={record.time} />
         </TableCell>
       ) : null}
       {visibleColumns.has("rank") ? (
@@ -274,7 +269,7 @@ function PbRecordTableRow({
         </TableCell>
       ) : null}
       {visibleColumns.has("wrGap") ? (
-        <TableCell className="text-right font-mono font-medium">
+        <TableCell className="text-right run-time font-medium">
           {record.wr_gap == null ? "-" : formatWrGap(record.wr_gap)}
         </TableCell>
       ) : null}
@@ -437,7 +432,6 @@ export function PbRecordsTable({
   ],
   columnFilters,
   emptyMessage = "No records found.",
-  showMilliseconds = true,
   dateTimeDateOnly = false,
   dateTimeDisplay = "relative",
   firstCompletionSortEnabled = true,
@@ -788,7 +782,6 @@ export function PbRecordsTable({
               records.map((record) => (
                 <PbRecordTableRow
                   key={record.uuid}
-                  showMilliseconds={showMilliseconds}
                   dateTimeDateOnly={dateTimeDateOnly}
                   dateTimeDisplay={dateTimeDisplay}
                   getMapContextMenu={getMapContextMenu}

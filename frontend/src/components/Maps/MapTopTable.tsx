@@ -11,13 +11,13 @@ import {
   RowContextMenuItem,
   RowContextMenuSeparator,
 } from "@/components/Common/RowContextMenu"
+import { RunTime } from "@/components/Common/RunTime"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import { ModeBadge } from "@/components/Records/ModeBadge"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { RecordServerDisplay } from "@/components/Records/RecordServerDisplay"
 import { ReplayAvailabilityButton } from "@/components/Records/ReplayAvailabilityButton"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
-import { formatRecordTime } from "@/components/Records/utils"
 import { formatWrGap, getWrGap } from "@/components/Records/wr-gap"
 import { ReportPlayerDialog } from "@/components/Reports/ReportPlayerDialog"
 import { Button } from "@/components/ui/button"
@@ -175,8 +175,8 @@ export function MapTopTable({
         },
         header: () => <div className="text-right">{t("labels.time")}</div>,
         cell: ({ row }) => (
-          <div className="text-right font-mono font-medium">
-            {formatRecordTime(row.original.record.time)}
+          <div className="text-right font-medium">
+            <RunTime seconds={row.original.record.time} />
           </div>
         ),
       },
@@ -191,7 +191,7 @@ export function MapTopTable({
         cell: ({ row }) => {
           const wrGap = getWrGap(row.original.record.time, wrTime ?? Number.NaN)
           return (
-            <div className="text-right font-mono font-medium text-foreground/90">
+            <div className="text-right run-time font-medium text-foreground/90">
               {wrGap === null ? "-" : formatWrGap(wrGap)}
             </div>
           )

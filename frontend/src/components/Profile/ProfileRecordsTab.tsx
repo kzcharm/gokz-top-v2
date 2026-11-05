@@ -1001,7 +1001,6 @@ export function ProfileRecordsTab({
   showServer,
   showDate,
   showTime,
-  showMilliseconds,
   hiddenMapsMutating,
   pinnedRecordKeys,
   pinnedRecordsMutating,
@@ -1029,7 +1028,6 @@ export function ProfileRecordsTab({
   showServer: boolean
   showDate: boolean
   showTime: boolean
-  showMilliseconds: boolean
   hiddenMapsMutating: boolean
   pinnedRecordKeys: Set<string>
   pinnedRecordsMutating: boolean
@@ -1782,7 +1780,6 @@ export function ProfileRecordsTab({
             emptyMessage={emptyMessage}
             dateTimeDisplay="absolute"
             dateTimeDateOnly={!showTime}
-            showMilliseconds={showMilliseconds}
             sort={!showRanks && sort.column === "rank" ? pageSort : sort}
             onSortChange={handleSortChange}
             onRowClick={setHistoryRecord}

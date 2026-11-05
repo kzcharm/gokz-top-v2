@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next"
 import type { ServerPublic } from "@/client"
 import { CountryFlag } from "@/components/Common/CountryFlag"
 import { MapNameContextMenu } from "@/components/Common/MapDisplay"
+import { RunTime } from "@/components/Common/RunTime"
 import { GlobalStatusBadge } from "@/components/Servers/GlobalStatusBadge"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
@@ -19,7 +20,6 @@ import { getInitials } from "@/utils"
 
 import {
   canSteamConnect,
-  formatTimerTime,
   getPlayerAvatarUrl,
   getPlayerBooleanValue,
   getPlayerNumberValue,
@@ -55,7 +55,7 @@ function ServerCardPlayerChip({
   const progress = getPlayerProgressPercent(player)
   const isPaused = getPlayerBooleanValue(player, "is_paused")
   const stage = getPlayerNumberValue(player, "stage")
-  const timerLabel = formatTimerTime(getPlayerNumberValue(player, "timer_time"))
+  const timerTime = getPlayerNumberValue(player, "timer_time")
   const inlineAvatarUrl = getPlayerAvatarUrl(player)
   const { backgroundClassName } = getPlayerStatusSurfaceClass(player)
   const hydrationQuery = useQuery({
@@ -108,9 +108,9 @@ function ServerCardPlayerChip({
         >
           {mode ? <span className="mr-1 text-gray-500">[{mode}]</span> : null}
           {name}
-          {timerLabel !== "-" ? (
+          {timerTime !== null ? (
             <span className="ml-1 text-gray-500">
-              - {timerLabel}
+              - <RunTime seconds={timerTime} />
               {stage !== null && stage > 0 ? "*" : null}
               {isPaused ? (
                 <Pause className="ml-1 inline h-3 w-3 align-middle" />

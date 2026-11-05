@@ -4,6 +4,7 @@ import { ArrowDown, ArrowUp, Star } from "lucide-react"
 
 import type { MapLeaderboardEntryPublic } from "@/client"
 import { MapDisplay } from "@/components/Common/MapDisplay"
+import { RunTime } from "@/components/Common/RunTime"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Button } from "@/components/ui/button"
 import { formatNumber, getLocale } from "@/i18n/locale"
@@ -171,7 +172,11 @@ function timeMetricColumn(
     ),
     cell: ({ row }) => (
       <div className="flex w-full justify-center font-medium tabular-nums">
-        {formatHoursMinutesSeconds(row.original[accessorKey])}
+        {accessorKey === "median_first_completion_time" ? (
+          <RunTime seconds={row.original[accessorKey]} />
+        ) : (
+          formatHoursMinutesSeconds(row.original[accessorKey])
+        )}
       </div>
     ),
   }

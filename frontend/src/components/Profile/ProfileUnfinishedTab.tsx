@@ -19,13 +19,13 @@ import {
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { MapDisplay } from "@/components/Common/MapDisplay"
 import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
+import { RunTime } from "@/components/Common/RunTime"
 import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
 import { useGlobalPreferences } from "@/components/global-preferences-provider"
 import { ReviewSummaryRow } from "@/components/Maps/MapOverviewSections"
-import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -298,7 +298,11 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                     <TierBadge tier={row.tier} />
                   </TableCell>
                   <TableCell className="text-right font-mono font-medium">
-                    {row.wrTime === null ? "-" : formatRecordTime(row.wrTime)}
+                    {row.wrTime === null ? (
+                      "-"
+                    ) : (
+                      <RunTime seconds={row.wrTime} />
+                    )}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     {row[finisherMetric] === null
@@ -306,14 +310,18 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                       : formatNumber(row[finisherMetric])}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {row.firstMedian === null
-                      ? "—"
-                      : formatRecordTime(row.firstMedian)}
+                    {row.firstMedian === null ? (
+                      "—"
+                    ) : (
+                      <RunTime seconds={row.firstMedian} />
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono">
-                    {row.medianPbTime === null
-                      ? "—"
-                      : formatRecordTime(row.medianPbTime)}
+                    {row.medianPbTime === null ? (
+                      "—"
+                    ) : (
+                      <RunTime seconds={row.medianPbTime} />
+                    )}
                   </TableCell>
                   <TableCell className="text-right tabular-nums">
                     <div className="flex min-w-44 justify-end">

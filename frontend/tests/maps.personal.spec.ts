@@ -502,10 +502,18 @@ test("card controls toggle milliseconds and clear completion selections", async 
     .getByRole("menuitemcheckbox", { name: "Show points", exact: true })
     .click()
   await expect(page.getByTestId("map-points-1")).toHaveCount(0)
+  await page.keyboard.press("Escape")
+  await page.getByRole("button", { name: "Quick preferences" }).click()
   await page
     .getByRole("menuitemcheckbox", { name: "Show milliseconds", exact: true })
     .click()
   await page.keyboard.press("Escape")
+  await expect(page.getByTestId("map-pb-1")).toHaveText("PB: 0:30")
+  await expect(page.getByTestId("map-pb-1").locator(".run-time")).toHaveCSS(
+    "font-family",
+    /Inter/,
+  )
+  await page.reload()
   await expect(page.getByTestId("map-pb-1")).toHaveText("PB: 0:30")
   await completion(page, "Finished")
   await expect(

@@ -967,7 +967,7 @@ test("Run time requires date and both preferences survive reloads", async ({
   ).toBeChecked()
 })
 
-test("Run milliseconds option also formats WR times and survives reloads", async ({
+test("Global milliseconds preference formats run and WR times and survives reloads", async ({
   page,
 }) => {
   await installPinnedRecordRoutes(page)
@@ -982,21 +982,157 @@ test("Run milliseconds option also formats WR times and survives reloads", async
   }
   await toggle("WR time")
   await expect(row.getByText("0:40.000", { exact: true })).toBeVisible()
-  await toggle("Milliseconds")
+  await toggle("WR gap")
+  await expect(row.getByText("1.05x", { exact: true })).toHaveCSS(
+    "font-family",
+    /Inter/,
+  )
+  await page.getByRole("button", { name: "Quick preferences" }).click()
+  await page
+    .getByRole("menuitemcheckbox", { name: "Show milliseconds", exact: true })
+    .click()
+  await page.keyboard.press("Escape")
   await expect(row.getByText("0:42", { exact: true })).toBeVisible()
   await expect(row.getByText("0:40", { exact: true })).toBeVisible()
   await page.reload()
   await expect(row.getByText("0:42", { exact: true })).toBeVisible()
   await expect(row.getByText("0:40", { exact: true })).toBeVisible()
-  await page.getByRole("button", { name: "Record page settings" }).click()
+  await page.getByRole("button", { name: "Quick preferences" }).click()
   const option = page.getByRole("menuitemcheckbox", {
-    name: "Milliseconds",
+    name: "Show milliseconds",
   })
   await expect(option).not.toBeChecked()
   await option.click()
+  await page.keyboard.press("Escape")
   await page.reload()
   await expect(row.getByText("0:42.123", { exact: true })).toBeVisible()
   await expect(row.getByText("0:40.000", { exact: true })).toBeVisible()
+  await expect(row.getByText("0:42.123", { exact: true })).toHaveCSS(
+    "font-family",
+    /Inter/,
+  )
+  await expect(row.getByText("0:42.123", { exact: true })).toHaveCSS(
+    "font-variant-numeric",
+    "lining-nums tabular-nums",
+  )
+  const widths = await page.evaluate(async () => {
+    await document.fonts.load("500 16px Inter")
+    const canvas = document.createElement("canvas")
+    const context = canvas.getContext("2d")!
+    context.font = "500 16px Inter"
+    return [
+      context.measureText("0").width,
+      context.measureText(".").width,
+      context.measureText(":").width,
+    ]
+  })
+  expect(widths[1]).toBeLessThan(widths[0])
+  expect(widths[2]).toBeLessThan(widths[0])
+  await row.screenshot({
+    path: "../.temp/screenshots/run-time-profile-row.png",
+  })
+  await page.getByRole("button", { name: "Record page settings" }).click()
+  await expect(
+    page.getByRole("menuitemcheckbox", { name: "Milliseconds", exact: true }),
+  ).toHaveCount(0)
+})
+
+for (const width of [1280, 390]) {
+  test(`Run time font dialog switches fonts and persists at ${width}px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width, height: 900 })
+    await installPinnedRecordRoutes(page)
+    await page.goto(`/profile/${steamid64}/runs`)
+    const row = page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+    const time = row.getByText("0:42.123", { exact: true })
+    await expect(time).toHaveCSS("font-family", /Inter/)
+    await page.getByRole("button", { name: "Record page settings" }).click()
+    await page
+      .getByRole("menuitemcheckbox", { name: "WR gap", exact: true })
+      .click()
+    const openFontDialog = async () => {
+      await page.getByRole("button", { name: "Quick preferences" }).click()
+      await page.getByRole("menu").screenshot({
+        path: `../.temp/screenshots/quick-preferences-${width}.png`,
+      })
+      await page
+        .getByRole("menuitem", { name: "Run time font", exact: true })
+        .click()
+      return page.getByRole("dialog", { name: "Run time font", exact: true })
+    }
+    const dialog = await openFontDialog()
+    await expect(dialog.getByRole("radio")).toHaveCount(3)
+    await expect(dialog.getByRole("radio", { name: /^Lora/ })).toHaveCount(0)
+    await expect(dialog).not.toContainText("original font")
+    await expect(
+      dialog.locator('[data-slot="dialog-description"]'),
+    ).toHaveCount(0)
+    await expect(dialog.getByRole("radio", { name: /^Inter/ })).toBeChecked()
+    await dialog.getByRole("radio", { name: /^Roboto Mono/ }).check()
+    await expect(time).toHaveCSS("font-family", /Roboto Mono/)
+    await expect(row.getByText("1.05x", { exact: true })).toHaveCSS(
+      "font-family",
+      /Roboto Mono/,
+    )
+    await dialog.screenshot({
+      path: `../.temp/screenshots/run-time-font-${width}.png`,
+    })
+    await page.keyboard.press("Escape")
+    await expect(
+      page.getByRole("button", { name: "Quick preferences" }),
+    ).toBeFocused()
+    await page.reload()
+    await expect(time).toHaveCSS("font-family", /Roboto Mono/)
+    await openFontDialog()
+    await expect(
+      dialog.getByRole("radio", { name: /^Roboto Mono/ }),
+    ).toBeChecked()
+    const font = "Plus Jakarta Sans"
+    await dialog.getByRole("radio", { name: new RegExp(`^${font}`) }).check()
+    await page.keyboard.press("Escape")
+    await expect(time).toHaveCSS("font-family", new RegExp(font))
+    await expect(row.getByText("1.05x", { exact: true })).toHaveCSS(
+      "font-family",
+      new RegExp(font),
+    )
+    await page.reload()
+    await expect(time).toHaveCSS("font-family", new RegExp(font))
+    await openFontDialog()
+    await expect(
+      dialog.getByRole("radio", { name: new RegExp(`^${font}`) }),
+    ).toBeChecked()
+    await dialog.getByRole("radio", { name: /^Inter/ }).check()
+    await page.keyboard.press("Escape")
+    await expect(time).toHaveCSS("font-family", /Inter/)
+    await expect(row.getByText("1.05x", { exact: true })).toHaveCSS(
+      "font-family",
+      /Inter/,
+    )
+  })
+}
+
+test("Global milliseconds preference inherits the old profile cookie", async ({
+  page,
+}) => {
+  await page.context().addCookies([
+    {
+      name: "profile_runs_show_milliseconds",
+      value: "false",
+      url: "http://localhost:5173",
+    },
+  ])
+  await installPinnedRecordRoutes(page)
+  await page.goto(`/profile/${steamid64}/runs`)
+  const row = page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+  await expect(row.getByText("0:42", { exact: true })).toBeVisible()
+  await page.getByRole("button", { name: "Quick preferences" }).click()
+  await page
+    .getByRole("menuitemcheckbox", { name: "Show milliseconds", exact: true })
+    .click()
+  await page.keyboard.press("Escape")
+  await page.reload()
+  await expect(row.getByText("0:42.123", { exact: true })).toBeVisible()
 })
 
 test("Points and rating headings, filters, and badges share column centers", async ({

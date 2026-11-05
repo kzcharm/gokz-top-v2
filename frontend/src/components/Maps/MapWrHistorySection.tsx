@@ -16,10 +16,14 @@ import {
   getPlayerDisplayName,
   PlayerDisplay,
 } from "@/components/Common/PlayerDisplay"
+import {
+  RunTime,
+  useRunTimeFontFamily,
+  useRunTimeFormat,
+} from "@/components/Common/RunTime"
 import { ModeBadge } from "@/components/Records/ModeBadge"
 import { RecordServerDisplay } from "@/components/Records/RecordServerDisplay"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
-import { formatRecordTime } from "@/components/Records/utils"
 import type { AppScope } from "@/components/scope-provider"
 import { useTheme } from "@/components/theme-provider"
 import { Badge } from "@/components/ui/badge"
@@ -49,7 +53,10 @@ function getHolderName(row: MapWrHistoryEntryPublic) {
   return getPlayerDisplayName(row.player, row.player.steamid64)
 }
 
-function formatWrDelta(delta: number) {
+function formatWrDelta(
+  delta: number,
+  formatRecordTime: (seconds: number) => string,
+) {
   return `${delta < 0 ? "-" : "+"}${formatRecordTime(Math.abs(delta))}`
 }
 
@@ -121,6 +128,8 @@ function WrHistoryChart({
   rows: MapWrHistoryEntryPublic[]
   xAxisMode: "time" | "record"
 }) {
+  const formatRecordTime = useRunTimeFormat()
+  const runTimeFontFamily = useRunTimeFontFamily()
   const chartRef = useRef<HTMLDivElement | null>(null)
   const chartInstanceRef = useRef<EChartsType | null>(null)
   const { resolvedTheme } = useTheme()
@@ -225,7 +234,7 @@ function WrHistoryChart({
           const row =
             typeof data?.rowIndex === "number" ? chartRows[data.rowIndex] : null
           if (!row) return ""
-          return `<div><div style="font-weight:600;">${escapeHtml(getHolderName(row))} · ${formatRecordTime(row.time)}</div><div style="margin-top:4px;">${formatAxisDate(Date.parse(row.created_on))} · ${escapeHtml(row.mode)} · ${escapeHtml(row.server_name)}</div></div>`
+          return `<div><div style="font-weight:600;">${escapeHtml(getHolderName(row))} · <span class="run-time">${formatRecordTime(row.time)}</span></div><div style="margin-top:4px;">${formatAxisDate(Date.parse(row.created_on))} · ${escapeHtml(row.mode)} · ${escapeHtml(row.server_name)}</div></div>`
         },
       },
       legend: { show: false },
@@ -251,6 +260,7 @@ function WrHistoryChart({
         nameGap: 52,
         axisLabel: {
           color: axisColor,
+          fontFamily: runTimeFontFamily,
           formatter: (value: number) => formatRecordTime(value),
         },
         axisLine: { show: false },
@@ -265,6 +275,7 @@ function WrHistoryChart({
         symbol: "circle",
         symbolSize: 8,
         label: {
+          fontFamily: runTimeFontFamily,
           position: "top",
           color: holderColors.get(segment.holderId),
           fontSize: 11,
@@ -345,7 +356,16 @@ function WrHistoryChart({
     }
 
     chart.setOption(option, { notMerge: true })
-  }, [chartRows, holderColors, resolvedTheme, rows, segments, xAxisMode])
+  }, [
+    chartRows,
+    holderColors,
+    resolvedTheme,
+    rows,
+    segments,
+    xAxisMode,
+    formatRecordTime,
+    runTimeFontFamily,
+  ])
 
   useEffect(() => {
     const chart = chartInstanceRef.current
@@ -389,6 +409,7 @@ export function MapWrHistorySection({
   type: RecordType
 }) {
   const { t } = useTranslation()
+  const formatRecordTime = useRunTimeFormat()
   const [highlightedUuid, setHighlightedUuid] = useState<string | null>(null)
   const [xAxisMode, setXAxisMode] = useState<"time" | "record">("time")
   const historyQuery = useQuery({
@@ -457,7 +478,7 @@ export function MapWrHistorySection({
         header: () => <div className="text-right">{t("labels.time")}</div>,
         cell: ({ row }) => (
           <div className="text-right font-mono font-medium">
-            {formatRecordTime(row.original.entry.time)}
+            <RunTime seconds={row.original.entry.time} />
           </div>
         ),
       },
@@ -480,13 +501,13 @@ export function MapWrHistorySection({
               <Badge
                 variant="outline"
                 className={cn(
-                  "font-mono tabular-nums",
+                  "run-time",
                   delta < 0
                     ? "border-emerald-300/70 bg-emerald-100 text-emerald-900 dark:border-emerald-500/40 dark:bg-emerald-500/15 dark:text-emerald-200"
                     : "border-red-300/70 bg-red-100 text-red-900 dark:border-red-500/40 dark:bg-red-500/15 dark:text-red-200",
                 )}
               >
-                {formatWrDelta(delta)}
+                {formatWrDelta(delta, formatRecordTime)}
               </Badge>
             </div>
           )
@@ -517,7 +538,7 @@ export function MapWrHistorySection({
         ),
       },
     ],
-    [t],
+    [t, formatRecordTime],
   )
   const holderColors = useMemo(() => getHolderColors(rows), [rows])
   const holders = useMemo(() => {

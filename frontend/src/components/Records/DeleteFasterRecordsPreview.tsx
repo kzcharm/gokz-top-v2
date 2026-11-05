@@ -8,6 +8,7 @@ import type {
 } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { RunTime, useRunTimeFormat } from "@/components/Common/RunTime"
 import { Badge } from "@/components/ui/badge"
 import {
   Table,
@@ -17,7 +18,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-import { formatRecordTime } from "./utils"
 
 export function DeleteFasterRecordsPreview({
   preview,
@@ -61,6 +61,7 @@ function PlayerPreviewGroup({
   player,
   records,
 }: RecordBulkDeleteFasterPreviewPlayer) {
+  const formatRunTime = useRunTimeFormat()
   const { t } = useTranslation()
   const [expanded, setExpanded] = useState(false)
   const first = records[0]
@@ -82,11 +83,9 @@ function PlayerPreviewGroup({
             })}
           </Badge>
           {first && last ? (
-            <span className="font-mono text-xs text-muted-foreground">
-              {formatRecordTime(first.time)}
-              {first.uuid !== last.uuid
-                ? ` – ${formatRecordTime(last.time)}`
-                : ""}
+            <span className="run-time text-xs text-muted-foreground">
+              {formatRunTime(first.time)}
+              {first.uuid !== last.uuid ? ` – ${formatRunTime(last.time)}` : ""}
             </span>
           ) : null}
         </span>
@@ -107,7 +106,7 @@ function PlayerPreviewGroup({
               {records.map((record) => (
                 <TableRow key={record.uuid}>
                   <TableCell className="font-mono">
-                    {formatRecordTime(record.time)}
+                    <RunTime seconds={record.time} />
                   </TableCell>
                   <TableCell>{record.mode}</TableCell>
                   <TableCell>{record.teleports}</TableCell>

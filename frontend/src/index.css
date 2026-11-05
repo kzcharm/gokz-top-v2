@@ -2,6 +2,24 @@
 @import "tw-animate-css";
 
 @font-face {
+  font-family: "Inter";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/Inter-latin.woff2") format("woff2");
+  font-feature-settings:
+    "tnum" 1,
+    "zero" 0;
+}
+
+.run-time {
+  font-family: var(--font-run-time, "Inter", sans-serif);
+  font-variant-numeric: lining-nums tabular-nums;
+  font-feature-settings: "zero" 0;
+  letter-spacing: normal;
+}
+
+@font-face {
   font-family: "Lora";
   font-style: normal;
   font-weight: 400;

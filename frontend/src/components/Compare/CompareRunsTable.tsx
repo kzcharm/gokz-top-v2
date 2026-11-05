@@ -14,6 +14,7 @@ import {
   PlayerDisplay,
   type PlayerDisplayPlayer,
 } from "@/components/Common/PlayerDisplay"
+import { RunTime, useRunTimeFormat } from "@/components/Common/RunTime"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
 import {
   TierSelector,
@@ -22,7 +23,6 @@ import {
 import { ModeBadge } from "@/components/Records/ModeBadge"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { TeleportsBadge } from "@/components/Records/TeleportsBadge"
-import { formatRecordTime } from "@/components/Records/utils"
 import { formatWrGap, getWrGap } from "@/components/Records/wr-gap"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Button } from "@/components/ui/button"
@@ -96,6 +96,7 @@ export function CompareRunsTable({
   player2: PlayerDisplayPlayer
 }) {
   const { t } = useTranslation()
+  const formatRecordTime = useRunTimeFormat()
   const [gapMode, setGapMode] = useState<"difference" | "ratio">(() => {
     try {
       return localStorage.getItem("compare-time-gap-mode") === "difference"
@@ -259,7 +260,8 @@ export function CompareRunsTable({
       <span
         data-testid={`compare-${field}-delta`}
         className={cn(
-          "text-xs font-mono tabular-nums",
+          "text-xs tabular-nums",
+          field === "time" ? "run-time" : "font-mono",
           field === "time"
             ? "text-red-600 dark:text-red-400"
             : "text-emerald-600 dark:text-emerald-400",
@@ -400,7 +402,7 @@ export function CompareRunsTable({
             return (
               <>
                 <span className="font-mono tabular-nums">
-                  {formatRecordTime(record.time)}
+                  <RunTime seconds={record.time} />
                 </span>
                 {delta(row.original, slot, "time")}
               </>

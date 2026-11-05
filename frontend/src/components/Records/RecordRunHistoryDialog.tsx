@@ -6,6 +6,11 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import type { RecordPublic, RecordRunHistoryEntryPublic } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
+import {
+  RunTime,
+  useRunTimeFontFamily,
+  useRunTimeFormat,
+} from "@/components/Common/RunTime"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import type { AppScope } from "@/components/scope-provider"
 import { useTheme } from "@/components/theme-provider"
@@ -20,9 +25,7 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { cn } from "@/lib/utils"
-
 import { getRecordRunHistoryQueryOptions } from "./pb-records-utils"
-import { formatRecordTime } from "./utils"
 
 type RunHistoryRecordType = "NUB" | "PRO"
 
@@ -87,7 +90,10 @@ function getCurrentPbRun(rows: RecordRunHistoryEntryPublic[]) {
   return pbRows[pbRows.length - 1] ?? null
 }
 
-function getRunTimeDeltaLabel(delta: number) {
+function getRunTimeDeltaLabel(
+  delta: number,
+  formatRecordTime: (seconds: number) => string,
+) {
   const sign = delta < 0 ? "-" : "+"
   return `${sign}${formatRecordTime(Math.abs(delta))}`
 }
@@ -152,6 +158,8 @@ function RunHistoryChart({
   rows: RecordRunHistoryEntryPublic[]
   wrTime: number | null | undefined
 }) {
+  const formatRecordTime = useRunTimeFormat()
+  const runTimeFontFamily = useRunTimeFontFamily()
   const chartRef = useRef<HTMLDivElement | null>(null)
   const chartInstanceRef = useRef<EChartsType | null>(null)
   const { resolvedTheme } = useTheme()
@@ -238,7 +246,8 @@ function RunHistoryChart({
           }
 
           const delta = deltaByUuid.get(row.uuid)
-          const deltaLabel = delta == null ? null : getRunTimeDeltaLabel(delta)
+          const deltaLabel =
+            delta == null ? null : getRunTimeDeltaLabel(delta, formatRecordTime)
           const deltaColor =
             delta == null
               ? null
@@ -252,8 +261,8 @@ function RunHistoryChart({
                 ? "PB run"
                 : "Run"
           return `<div>
-<div style="font-weight:600;">${escapeHtml(pbLabel)} · ${escapeHtml(formatRecordTime(row.time))}</div>
-${deltaLabel ? `<div style="margin-top:4px;color:${deltaColor};font-weight:600;">${escapeHtml(deltaLabel)} vs last PB</div>` : ""}
+<div style="font-weight:600;">${escapeHtml(pbLabel)} · <span class="run-time">${escapeHtml(formatRecordTime(row.time))}</span></div>
+${deltaLabel ? `<div class="run-time" style="margin-top:4px;color:${deltaColor};font-weight:600;">${escapeHtml(deltaLabel)} vs last PB</div>` : ""}
 <div style="margin-top:4px;">${escapeHtml(row.server_name)} · ${escapeHtml(formatDateTime(row.created_on, { display: "absolute", fallback: "-" }))}</div>
 <div style="margin-top:4px;">${escapeHtml(row.mode)} · ${row.teleports} TP</div>
 </div>`
@@ -294,6 +303,7 @@ ${deltaLabel ? `<div style="margin-top:4px;color:${deltaColor};font-weight:600;"
         nameGap: 46,
         nameLocation: "middle",
         axisLabel: {
+          fontFamily: runTimeFontFamily,
           color: axisColor,
           formatter: (value) => {
             const recordTime = wrGapToRecordTime(wrTime, Number(value))
@@ -376,6 +386,8 @@ ${deltaLabel ? `<div style="margin-top:4px;color:${deltaColor};font-weight:600;"
     currentPbUuid,
     deltaByUuid,
     formatDateTime,
+    formatRecordTime,
+    runTimeFontFamily,
     resolvedTheme,
     wrTime,
   ])
@@ -472,6 +484,7 @@ function HistoryRows({
   onHighlightedUuidChange: (uuid: string | null) => void
   rows: RecordRunHistoryEntryPublic[]
 }) {
+  const formatRecordTime = useRunTimeFormat()
   const rowRefs = useRef(new Map<string, HTMLTableRowElement>())
   const sortedRows = useMemo(
     () =>
@@ -524,18 +537,21 @@ function HistoryRows({
               <td className="min-w-0 px-3 py-2">
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="font-mono font-medium">
-                    {formatRecordTime(row.time)}
+                    <RunTime seconds={row.time} />
                   </span>
                   {deltaByUuid.has(row.uuid) ? (
                     <span
                       className={cn(
-                        "font-mono text-xs font-semibold",
+                        "run-time text-xs font-semibold",
                         (deltaByUuid.get(row.uuid) ?? 0) < 0
                           ? "text-emerald-600 dark:text-emerald-400"
                           : "text-red-600 dark:text-red-400",
                       )}
                     >
-                      {getRunTimeDeltaLabel(deltaByUuid.get(row.uuid) ?? 0)}
+                      {getRunTimeDeltaLabel(
+                        deltaByUuid.get(row.uuid) ?? 0,
+                        formatRecordTime,
+                      )}
                     </span>
                   ) : null}
                   {row.is_pb ? (
@@ -702,7 +718,7 @@ export function RecordRunHistoryDialog({
                   Current PB
                 </dt>
                 <dd className="font-mono font-semibold tabular-nums">
-                  {formatRecordTime(currentPbRun.time)}
+                  <RunTime seconds={currentPbRun.time} />
                 </dd>
               </div>
             ) : null}

@@ -4,12 +4,12 @@ import type { ComponentPropsWithRef, KeyboardEvent, MouseEvent } from "react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { PlayerDailyActivityPublic } from "@/client"
+import { RunTime } from "@/components/Common/RunTime"
 import { useDateTimeFormat } from "@/components/date-time-format-provider"
 import { ProfileSetupCard } from "@/components/Gear/ProfileSetupCard"
 import { PointsBadge } from "@/components/Records/PointsBadge"
 import { StageBadge } from "@/components/Records/StageBadge"
 import { formatCompactCount } from "@/components/Records/TeleportsBadge"
-import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Card, CardContent } from "@/components/ui/card"
@@ -644,7 +644,7 @@ function PinnedRecordCard({
       </div>
       <div className="shrink-0 text-right">
         <p className="text-xl font-semibold tracking-tight text-white tabular-nums">
-          {formatRecordTime(record.time)}
+          <RunTime seconds={record.time} />
         </p>
         <div className="mt-1 flex items-center justify-end gap-2">
           <span className="whitespace-nowrap text-[0.625rem] text-slate-200">

@@ -2,6 +2,7 @@ import { Pause } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { RunTime } from "@/components/Common/RunTime"
 import { StageBadge } from "@/components/Records/StageBadge"
 import { Badge } from "@/components/ui/badge"
 import {
@@ -153,7 +154,11 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                     ) : null}
                     {showTimerColumn ? (
                       <TableCell>
-                        {formatTimerTime(timerTime, { showDecimals: true })}
+                        {timerTime === null ? (
+                          "-"
+                        ) : (
+                          <RunTime seconds={timerTime} />
+                        )}
                         {isPaused ? (
                           <Pause className="ml-1 inline h-3 w-3 align-middle text-muted-foreground" />
                         ) : null}

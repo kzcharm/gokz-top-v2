@@ -25,12 +25,12 @@ import {
   PlayerDisplay,
 } from "@/components/Common/PlayerDisplay"
 import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
+import { RunTime, useRunTimeFormat } from "@/components/Common/RunTime"
 import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
 import { ReactionBar } from "@/components/Reactions/ReactionBar"
-import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { type AppScope, useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -80,6 +80,7 @@ function RecentWrCard({
   selectedType: RecordType
 }) {
   const { t } = useTranslation()
+  const formatRecordTime = useRunTimeFormat()
   const { record, achievements } = item
   const playerName = getPlayerDisplayName(record.player)
   const imageUrls = useMapImageUrls(record.map.name)
@@ -166,21 +167,20 @@ function RecentWrCard({
           </div>
           <div
             data-testid="recent-wr-time"
-            className="text-2xl font-normal tabular-nums tracking-wide text-white sm:text-3xl"
+            className="text-2xl font-normal text-white sm:text-3xl"
             style={{
-              fontFamily: "Arial, Helvetica, sans-serif",
               textShadow:
                 "-1px -1px 0 rgba(0, 0, 0, 0.9), 1px -1px 0 rgba(0, 0, 0, 0.9), -1px 1px 0 rgba(0, 0, 0, 0.9), 1px 1px 0 rgba(0, 0, 0, 0.9), 0 2px 4px rgba(0, 0, 0, 0.8)",
             }}
           >
-            {formatRecordTime(record.time)}
+            <RunTime seconds={record.time} />
           </div>
           {selectedAchievement?.improvement_seconds == null ? (
             <div className="mt-1 font-mono text-xs font-semibold text-emerald-300 [text-shadow:_0_1px_3px_rgb(0_0_0_/_0.9)] sm:text-sm">
               {t("dashboard.wrs.firstWr")}
             </div>
           ) : (
-            <div className="mt-1 flex max-w-full items-center justify-center gap-1 font-mono text-xs font-semibold text-emerald-300 [text-shadow:_0_1px_3px_rgb(0_0_0_/_0.9)] sm:text-sm">
+            <div className="mt-1 flex max-w-full items-center justify-center gap-1 run-time text-xs font-semibold text-emerald-300 [text-shadow:_0_1px_3px_rgb(0_0_0_/_0.9)] sm:text-sm">
               <span className="shrink-0">
                 {t("dashboard.wrs.previousPlayerPrefix", {
                   delta: formatRecordTime(

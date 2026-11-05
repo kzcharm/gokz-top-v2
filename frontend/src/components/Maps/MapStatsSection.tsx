@@ -6,6 +6,10 @@ import type {
   MapStatsPublic,
   MapWrGapDistributionContentPublic,
 } from "@/client"
+import {
+  useRunTimeFontFamily,
+  useRunTimeFormat,
+} from "@/components/Common/RunTime"
 import { formatWrGap, wrGapScaleToRatio } from "@/components/Records/wr-gap"
 import { useTheme } from "@/components/theme-provider"
 import { Card, CardContent } from "@/components/ui/card"
@@ -32,27 +36,6 @@ function medianWrGapToRecordTime(
   medianWrGap: number | null | undefined,
 ) {
   return wrGapBoundToRecordTime(wrTime, medianWrGap)
-}
-
-function formatChartTimeSeconds(value: number) {
-  if (!Number.isFinite(value) || value < 0) {
-    return "--:--"
-  }
-
-  const roundedSeconds = Math.round(value)
-  if (roundedSeconds >= 3600) {
-    const hours = roundedSeconds / 3600
-    return `${new Intl.NumberFormat(undefined, {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 1,
-    })
-      .format(hours)
-      .replace(/\.0$/, "")} h`
-  }
-
-  const minutes = Math.floor(roundedSeconds / 60)
-  const seconds = roundedSeconds % 60
-  return `${minutes}:${seconds.toString().padStart(2, "0")}`
 }
 
 function formatBucketPercent(count: number, total: number) {
@@ -152,6 +135,8 @@ function WrGapDistributionChart({
   showPlayerMarker: boolean
 }) {
   const { t } = useTranslation()
+  const formatChartTimeSeconds = useRunTimeFormat()
+  const runTimeFontFamily = useRunTimeFontFamily()
   const chartRef = useRef<HTMLDivElement | null>(null)
   const { resolvedTheme } = useTheme()
   const isNarrowViewport = useMediaQuery("(max-width: 1279px)")
@@ -378,7 +363,7 @@ function WrGapDistributionChart({
               distribution.plotted_pb_count ?? 0,
             )
             return `<div>
-<div style="font-weight:600;">${escapeHtml(timeRangeLabel ?? `${formatWrGapAxisLabel(bin?.lower_bound ?? 0)} ~ ${formatWrGapAxisLabel(bin?.upper_bound ?? 0)}`)}</div>
+<div class="run-time" style="font-weight:600;">${escapeHtml(timeRangeLabel ?? `${formatWrGapAxisLabel(bin?.lower_bound ?? 0)} ~ ${formatWrGapAxisLabel(bin?.upper_bound ?? 0)}`)}</div>
 <div style="margin-top:4px;">${escapeHtml(t("maps.stats.tooltipCountWithPercent", { count: value, percent: percentLabel }))}</div>
 </div>`
           },
@@ -397,11 +382,13 @@ function WrGapDistributionChart({
             lineHeight: isNarrowViewport ? 16 : 18,
             rich: {
               gap: {
+                fontFamily: runTimeFontFamily,
                 fontSize: isNarrowViewport ? 10 : 11,
                 fontWeight: 600,
                 color: axisColor,
               },
               time: {
+                fontFamily: runTimeFontFamily,
                 fontSize: isNarrowViewport ? 9 : 10,
                 color:
                   resolvedTheme === "dark"
@@ -510,6 +497,8 @@ function WrGapDistributionChart({
     xAxisMax,
     xAxisMin,
     distribution.plotted_pb_count,
+    formatChartTimeSeconds,
+    runTimeFontFamily,
   ])
 
   const medianLabel = formatMedianWrGap(distribution.median_wr_gap)
@@ -530,7 +519,7 @@ function WrGapDistributionChart({
             {title}
           </p>
           <div className="space-y-1 text-sm text-muted-foreground">
-            <p>
+            <p className="run-time">
               {t("maps.stats.medianLabel", {
                 median: medianLabel ?? t("common.notAvailable"),
                 time: medianTimeLabel,

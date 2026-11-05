@@ -298,7 +298,10 @@ export const zhCN = {
     wrTime: "WR",
     wrGap: "WR 差距",
   },
-  preferences: { quickSettings: "快捷偏好设置" },
+  preferences: {
+    quickSettings: "快捷偏好设置",
+    runTimeFont: "通关时间字体",
+  },
   language: {
     label: "语言",
     select: "选择语言",

@@ -12,6 +12,7 @@ import type {
 import { RecordsService } from "@/client"
 import { OpenAPI } from "@/client/core/OpenAPI"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { useRunTimeFormat } from "@/components/Common/RunTime"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Button } from "@/components/ui/button"
 import {
@@ -27,7 +28,6 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
 import useCustomToast from "@/hooks/useCustomToast"
 import { DeleteFasterRecordsPreview } from "./DeleteFasterRecordsPreview"
-import { formatRecordTime } from "./utils"
 
 type RecordDeleteTarget = Pick<RecordPublic, "map_name" | "stage"> & {
   player: Pick<RecordPublic["player"], "display_name" | "steamid64">
@@ -198,6 +198,7 @@ export function DeleteFasterRecordsDialog({
   mutation: ReturnType<typeof useRecordAdminActions>["deleteFasterMutation"]
 }) {
   const { t } = useTranslation()
+  const formatRecordTime = useRunTimeFormat()
   const preview = useQuery({
     queryKey: [
       "record-delete-faster-preview",
@@ -233,7 +234,7 @@ export function DeleteFasterRecordsDialog({
       >
         <DialogHeader>
           <DialogTitle>{t("recordModeration.title")}</DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="run-time">
             {target
               ? t("recordModeration.description", {
                   map: target.record.map_name,

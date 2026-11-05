@@ -551,6 +551,22 @@ test("Server details show rich telemetry and update legacy snapshots", async ({
   ).toBeVisible()
   await expect(page.getByText("SV 0.428 ms")).toBeVisible()
   await expect(page.getByText("VAR 0.016 ms")).toBeVisible()
+  const runner = page.getByRole("row").filter({ hasText: "Runner One" })
+  await expect(
+    runner.getByRole("cell", { name: "6:52", exact: true }),
+  ).toBeVisible()
+  await expect(runner.locator(".run-time")).toHaveText("2:22.500")
+  await page.keyboard.press("Escape")
+  await page.getByRole("button", { name: "Quick preferences" }).click()
+  await page
+    .getByRole("menuitemcheckbox", { name: "Show milliseconds", exact: true })
+    .click()
+  await page.keyboard.press("Escape")
+  await page.goto("/servers/10.0.0.3:27017")
+  await expect(runner.locator(".run-time")).toHaveText("2:22")
+  await expect(
+    runner.getByRole("cell", { name: "6:52", exact: true }),
+  ).toBeVisible()
 
   await page.evaluate((payload) => {
     ;(window as any).__dispatchServerMessage(payload)

@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { LeaderboardsService, type MapPublic, MapsService } from "@/client"
+import { useRunTimeFormat } from "@/components/Common/RunTime"
 import { formatRecordTime } from "@/components/Records/utils"
 import { formatWrGap, getWrGap } from "@/components/Records/wr-gap"
 import type { AppScope } from "@/components/scope-provider"
@@ -17,6 +18,7 @@ export function MapOverviewMetrics({
   scope: AppScope
 }) {
   const { t } = useTranslation()
+  const formatRunTime = useRunTimeFormat()
   const enabled = map.validated && map.id > 0
   const metricsQuery = useQuery({
     queryKey: ["map", "metrics", map.id, scope],
@@ -117,9 +119,7 @@ export function MapOverviewMetrics({
       label: t("maps.overview.medianPbTime"),
       value:
         hasFinishers && entry.median_first_completion_time > 0
-          ? formatRecordTime(
-              Math.round(entry.median_first_completion_time),
-            ).replace(/\.000$/, "")
+          ? formatRunTime(entry.median_first_completion_time)
           : "—",
     },
     {
@@ -135,9 +135,7 @@ export function MapOverviewMetrics({
         hasFinishers &&
         entry.median_first_finish_time != null &&
         entry.median_first_finish_time > 0
-          ? formatRecordTime(
-              Math.round(entry.median_first_finish_time),
-            ).replace(/\.000$/, "")
+          ? formatRunTime(entry.median_first_finish_time)
           : "—",
     },
     {
@@ -180,7 +178,9 @@ export function MapOverviewMetrics({
                 </button>
               </MapMetricTooltip>
             </dt>
-            <dd className="text-base font-semibold tabular-nums">
+            <dd
+              className={`text-base font-semibold tabular-nums ${["firstMed", "firstMedWrGap", "firstFinishMed", "firstFinishMedWrGap"].includes(metric.key) ? "run-time" : ""}`}
+            >
               {(metric.loading ?? metricsQuery.isLoading) ? (
                 <Skeleton className="h-6 w-16" />
               ) : (

@@ -21,8 +21,8 @@ import {
 } from "@/client"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import { PlayerDisplay } from "@/components/Common/PlayerDisplay"
+import { useRunTimeFormat } from "@/components/Common/RunTime"
 import { TablePaginationFooter } from "@/components/Common/TablePaginationFooter"
-import { formatRecordTime } from "@/components/Records/utils"
 import type { AppScope } from "@/components/scope-provider"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -66,10 +66,6 @@ type NotificationDisplay = {
 const notificationLinkClassName =
   "rounded-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
 
-function formatNotificationRecordTime(value: number | null | undefined) {
-  return typeof value === "number" ? formatRecordTime(value) : "-"
-}
-
 function notificationIcon(type: PlayerNotificationType) {
   if (type === "profile_like") {
     return <Heart className="size-4" />
@@ -98,11 +94,15 @@ function notificationIcon(type: PlayerNotificationType) {
 function buildNotificationDisplay(
   notification: PlayerNotificationPublic,
   t: ReturnType<typeof useTranslation>["t"],
+  formatRecordTime: (seconds: number) => string,
 ): NotificationDisplay {
   const mapName = notification.map_name ?? t("notifications.unknownMap")
   const scope = notification.scope ?? "-"
   const recordType = notification.record_type ?? "-"
-  const time = formatNotificationRecordTime(notification.new_record_time)
+  const time =
+    notification.new_record_time == null
+      ? "-"
+      : formatRecordTime(notification.new_record_time)
 
   if (notification.type === "profile_like") {
     return {
@@ -219,6 +219,7 @@ function ReportNotificationDetails({
 }) {
   const { t } = useTranslation()
   const targetPlayer = notification.target_player
+  const formatRecordTime = useRunTimeFormat()
   const targetSteamid64 =
     targetPlayer?.steamid64 ?? notification.target_player_steamid64
   const hasRecordContext =
@@ -292,9 +293,11 @@ function ReportNotificationDetails({
           ) : (
             t("notifications.events.recordContext")
           )}
-          {recordDetailParts.length > 0
-            ? ` - ${recordDetailParts.join(" - ")}`
-            : ""}
+          {recordDetailParts.length > 0 ? (
+            <span className="run-time"> - {recordDetailParts.join(" - ")}</span>
+          ) : (
+            ""
+          )}
         </span>
       ) : null}
       {description ? (
@@ -402,6 +405,7 @@ function NotificationAction({
 }
 
 export function NotificationsRoute() {
+  const formatRecordTime = useRunTimeFormat()
   const { t } = useTranslation()
   const queryClient = useQueryClient()
   const [pageIndex, setPageIndex] = useState(0)
@@ -490,7 +494,11 @@ export function NotificationsRoute() {
       ) : notificationsQuery.data?.data.length ? (
         <div className="overflow-hidden rounded-md border border-border bg-card">
           {notificationsQuery.data.data.map((notification) => {
-            const display = buildNotificationDisplay(notification, t)
+            const display = buildNotificationDisplay(
+              notification,
+              t,
+              formatRecordTime,
+            )
             const unread = !notification.read_at
 
             return (
@@ -538,6 +546,7 @@ export function NotificationsRoute() {
                     <span
                       className={cn(
                         "block text-muted-foreground text-sm",
+                        notification.type === "wr_beaten" && "run-time",
                         notification.type === "map_review_comment_deleted" &&
                           "whitespace-pre-wrap",
                       )}

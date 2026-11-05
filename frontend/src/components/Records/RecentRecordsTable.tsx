@@ -9,6 +9,7 @@ import {
   RowContextMenu,
   RowContextMenuItem,
 } from "@/components/Common/RowContextMenu"
+import { RunTime } from "@/components/Common/RunTime"
 import { ReportPlayerDialog } from "@/components/Reports/ReportPlayerDialog"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import {
@@ -20,13 +21,12 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import { isLoggedIn } from "@/hooks/useAuth"
-
 import { ModeBadge } from "./ModeBadge"
 import { PointsBadge } from "./PointsBadge"
 import { RecordServerDisplay } from "./RecordServerDisplay"
 import { StageBadge } from "./StageBadge"
 import { TeleportsBadge } from "./TeleportsBadge"
-import { formatRecordTime, type RecentRecord } from "./utils"
+import type { RecentRecord } from "./utils"
 
 interface RecentRecordsTableProps {
   records: RecentRecord[]
@@ -109,8 +109,8 @@ function RecentRecordsTableRow({
       <TableCell>
         <TeleportsBadge teleports={record.teleports} />
       </TableCell>
-      <TableCell className="text-right font-mono font-medium">
-        {formatRecordTime(record.time)}
+      <TableCell className="text-right font-medium">
+        <RunTime seconds={record.time} />
       </TableCell>
       <TableCell>
         <PointsBadge points={record.points} />

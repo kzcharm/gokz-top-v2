@@ -310,7 +310,10 @@ export const en = {
     wrTime: "WR",
     wrGap: "WR Gap",
   },
-  preferences: { quickSettings: "Quick preferences" },
+  preferences: {
+    quickSettings: "Quick preferences",
+    runTimeFont: "Run time font",
+  },
   language: {
     label: "Language",
     select: "Select language",

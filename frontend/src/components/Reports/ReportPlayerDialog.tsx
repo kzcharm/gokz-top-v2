@@ -8,7 +8,7 @@ import {
   PlayerDisplay,
   type PlayerDisplayPlayer,
 } from "@/components/Common/PlayerDisplay"
-import { formatRecordTime } from "@/components/Records/utils"
+import { useRunTimeFormat } from "@/components/Common/RunTime"
 import {
   Dialog,
   DialogContent,
@@ -49,6 +49,7 @@ export function ReportPlayerDialog({
   target: ReportPlayerTarget
 }) {
   const queryClient = useQueryClient()
+  const formatRecordTime = useRunTimeFormat()
   const { showErrorToast, showSuccessToast } = useCustomToast()
   const [description, setDescription] = useState("")
   const [confirmationOpen, setConfirmationOpen] = useState(false)
@@ -177,7 +178,7 @@ export function ReportPlayerDialog({
               />
               {recordContext ? (
                 <div className="mt-2 grid gap-1 text-xs text-muted-foreground">
-                  <p>Record: {recordParts.join(" - ")}</p>
+                  <p className="run-time">Record: {recordParts.join(" - ")}</p>
                   {recordContext.createdOn ? (
                     <p>
                       Submitted{" "}
