@@ -25,7 +25,6 @@ import {
 } from "react"
 import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
-
 import {
   LeaderboardsService,
   type MapLeaderboardEntryPublic,
@@ -43,6 +42,7 @@ import {
 } from "@/components/Common/TierSelector"
 import { ValidationStatusIconButton } from "@/components/Common/ValidationStatusIconButton"
 import { useKeyboardPagination } from "@/components/Common/WASDNavigation"
+import { useGlobalPreferences } from "@/components/global-preferences-provider"
 import {
   DEFAULT_MAP_CARD_OPTIONS,
   getFirstMedianWrGap,
@@ -98,9 +98,9 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover"
-
 import useAuth from "@/hooks/useAuth"
 import { useCopyToClipboard } from "@/hooks/useCopyToClipboard"
+import { HiddenMapsStatus, useHiddenMaps } from "@/hooks/useHiddenMaps"
 import { compareLocaleText, formatNumber } from "@/i18n/locale"
 import { readDefaultView } from "@/lib/default-view"
 import { getMapPackageDownloadUrl } from "@/lib/map-downloads"
@@ -1122,6 +1122,8 @@ export function MapsCatalog() {
   const { t } = useTranslation()
   const { scope, setScope } = useScope()
   const { user } = useAuth()
+  const hiddenMaps = useHiddenMaps()
+  const { showHiddenMaps } = useGlobalPreferences()
   const [initialDefault] = useState(() =>
     readDefaultView("gokz-maps-presets-v1.default", parseMapsPresetSettings),
   )
@@ -1589,6 +1591,7 @@ export function MapsCatalog() {
       !isRangeReversed(min, max, parseNumber)
 
     return searchableMaps.flatMap(({ map, normalizedName }) => {
+      if (!showHiddenMaps && hiddenMaps.ids.has(map.id)) return []
       if (normalizedQuery !== "" && !normalizedName.includes(normalizedQuery)) {
         return []
       }
@@ -1700,6 +1703,8 @@ export function MapsCatalog() {
     normalizedDeferredSearch,
     scope,
     searchableMaps,
+    hiddenMaps.ids,
+    showHiddenMaps,
     selectedTier,
     withBonusOnly,
     wrTimeByMapId,
@@ -1872,6 +1877,8 @@ export function MapsCatalog() {
     },
   })
 
+  if (hiddenMaps.loading || hiddenMaps.error)
+    return <HiddenMapsStatus state={hiddenMaps} />
   if (mapsQuery.isLoading) {
     return <PendingMaps />
   }
@@ -2577,6 +2584,7 @@ export function MapsCatalog() {
         <section className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
           {visibleMaps.map((map) => (
             <MapCard
+              playerMenuItems={hiddenMaps.menuItem(map.id)}
               key={map.id}
               activeTier={getMapTierForScope(map, scope)}
               map={map}

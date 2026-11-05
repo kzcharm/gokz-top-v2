@@ -18,6 +18,7 @@ import ErrorComponent from "@/components/Common/ErrorComponent"
 import { FormattedDateTime } from "@/components/Common/FormattedDateTime"
 import NotFound from "@/components/Common/NotFound"
 import { RecordTypeTabs } from "@/components/Common/RecordTypeTabs"
+import { useGlobalPreferences } from "@/components/global-preferences-provider"
 import { getProfilePbRecordsQueryOptions } from "@/components/Records/pb-records-utils"
 import { useScope } from "@/components/scope-provider"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -37,6 +38,7 @@ import { LoadingButton } from "@/components/ui/loading-button"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Switch } from "@/components/ui/switch"
 import useAuth, { isLoggedIn } from "@/hooks/useAuth"
+import { HiddenMapsStatus, useHiddenMaps } from "@/hooks/useHiddenMaps"
 import { useOwnProfileRecordsRealtime } from "@/hooks/useOwnProfileRecordsRealtime"
 import { getSteamid64FromAccessToken } from "@/lib/auth"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
@@ -73,7 +75,6 @@ import {
   fetchProfilePlayer,
   getProfileActiveBanQueryOptions,
   getProfileFriendsQueryOptions,
-  getProfileHiddenMapsQueryOptions,
   getProfileLikesQueryOptions,
   getProfileMapWrsQueryOptions,
   getProfilePinnedRecordKey,
@@ -83,12 +84,10 @@ import {
   getProfileStatsQueryOptions,
   getProfileValidatedMapsQueryOptions,
   getProfileViewsQueryOptions,
-  hideProfileMap,
   type ProfileLikeResult,
   type ProfileTab,
   pinProfileRecord,
   syncProfileFriends,
-  unhideProfileMap,
   unpinProfileRecord,
 } from "./profile-utils"
 
@@ -169,7 +168,7 @@ export function ProfilePage({
   const [isBonus, setIsBonus] = useState(
     initialRecordsDefault?.isBonus ?? false,
   )
-  const [showHiddenRecords, setShowHiddenRecords] = useState(false)
+  const { showHiddenMaps: showHiddenRecords } = useGlobalPreferences()
   const [autoLoadMore, setAutoLoadMore] = useState(() =>
     readBooleanCookie(PROFILE_RUNS_AUTO_LOAD_MORE_COOKIE, true),
   )
@@ -357,9 +356,12 @@ export function ProfilePage({
       })
   }, [canonicalIdentifier, identifier, playerSteamid64, queryClient])
 
+  const isOwnProfile = currentUser?.steamid64 === playerSteamid64
+  const hiddenMaps = useHiddenMaps(isOwnProfile)
+  const hiddenMapIds = hiddenMaps.ids
   const completion = useMemo(() => {
     return buildProfileCompletionData({
-      maps: mapsQuery.data ?? [],
+      maps: (mapsQuery.data ?? []).filter((map) => !hiddenMapIds.has(map.id)),
       nubRecords: nubRecordsQuery.data ?? [],
       proRecords: proRecordsQuery.data ?? [],
       proWrs: proWrsQuery.data ?? [],
@@ -373,6 +375,7 @@ export function ProfilePage({
     proWrsQuery.data,
     scope,
     useWrBasedProCompletion,
+    hiddenMapIds,
   ])
   const pinnedRecordsQuery = useQuery(
     getProfilePinnedRecordsQueryOptions({
@@ -401,7 +404,6 @@ export function ProfilePage({
       totalCount: rankByUuid.get(entry.record.uuid)?.totalCount ?? null,
     }))
   }, [pinnedRecordCandidates, pinnedRecordRanksQuery.data])
-  const isOwnProfile = currentUser?.steamid64 === playerSteamid64
   useOwnProfileRecordsRealtime({
     enabled: playerSteamid64 !== null,
     identifier,
@@ -409,10 +411,6 @@ export function ProfilePage({
     scope,
     steamid64: playerSteamid64,
   })
-  const hiddenMapsQuery = useQuery(
-    getProfileHiddenMapsQueryOptions({ enabled: isOwnProfile }),
-  )
-  const hiddenMapIds = hiddenMapsQuery.data ?? new Set<number>()
   const pinnedRecordKeys = useMemo(() => {
     return new Set(
       pinnedRecordCandidates.map((entry) =>
@@ -485,29 +483,6 @@ export function ProfilePage({
     },
     onError: () => {
       toast.error(t("profile.ban.unpinFailed"))
-    },
-  })
-  const invalidateHiddenMaps = async () => {
-    await queryClient.invalidateQueries({ queryKey: ["profile-hidden-maps"] })
-  }
-  const hideMapMutation = useMutation({
-    mutationFn: hideProfileMap,
-    onSuccess: async () => {
-      await invalidateHiddenMaps()
-      toast.success(t("profile.hiddenMaps.hidden"))
-    },
-    onError: () => {
-      toast.error(t("profile.hiddenMaps.hideFailed"))
-    },
-  })
-  const unhideMapMutation = useMutation({
-    mutationFn: unhideProfileMap,
-    onSuccess: async () => {
-      await invalidateHiddenMaps()
-      toast.success(t("profile.hiddenMaps.unhidden"))
-    },
-    onError: () => {
-      toast.error(t("profile.hiddenMaps.unhideFailed"))
     },
   })
   const unbanCheckMutation = useMutation({
@@ -837,14 +812,6 @@ export function ProfilePage({
             <DropdownMenuLabel>
               {t("profile.records.display")}
             </DropdownMenuLabel>
-            {isOwnProfile ? (
-              <DropdownMenuCheckboxItem
-                checked={showHiddenRecords}
-                onCheckedChange={setShowHiddenRecords}
-              >
-                {t("profile.hiddenMaps.showToggle")}
-              </DropdownMenuCheckboxItem>
-            ) : null}
             <DropdownMenuCheckboxItem
               checked={showMode}
               onCheckedChange={(checked) => {
@@ -1100,10 +1067,11 @@ export function ProfilePage({
         </aside>
 
         <section className="min-w-0 space-y-6">
+          <HiddenMapsStatus state={hiddenMaps} />
           <ProfileCompletionSection
             completion={completion}
-            completionLoading={completionLoading}
-            completionError={completionError}
+            completionLoading={completionLoading || hiddenMaps.loading}
+            completionError={completionError || hiddenMaps.error}
             completionTrophies={completionTrophies}
           />
 
@@ -1142,7 +1110,9 @@ export function ProfilePage({
                 targetSteamid64={player.steamid64}
               />
             </>
-          ) : activeTab === "records" ? (
+          ) : activeTab === "records" &&
+            (hiddenMaps.loading || hiddenMaps.error) ? null : activeTab ===
+            "records" ? (
             <ProfileRecordsTab
               steamid64={player.steamid64}
               isProOnly={isProOnly}
@@ -1164,9 +1134,7 @@ export function ProfilePage({
               showDate={showDate}
               showTime={showDate && showTime}
               showMilliseconds={showMilliseconds}
-              hiddenMapsMutating={
-                hideMapMutation.isPending || unhideMapMutation.isPending
-              }
+              hiddenMapsMutating={hiddenMaps.pending}
               pinnedRecordKeys={pinnedRecordKeys}
               pinnedRecordsMutating={
                 pinRecordMutation.isPending || unpinRecordMutation.isPending
@@ -1177,11 +1145,12 @@ export function ProfilePage({
               onUnpinRecord={(mapId, stage, type) => {
                 unpinRecordMutation.mutate({ mapId, stage, type })
               }}
-              onHideMap={(mapId) => hideMapMutation.mutate(mapId)}
-              onUnhideMap={(mapId) => unhideMapMutation.mutate(mapId)}
+              onHideMap={hiddenMaps.hide}
+              onUnhideMap={hiddenMaps.unhide}
             />
           ) : activeTab === "unfinished" ? (
             <ProfileUnfinishedTab
+              isOwnProfile={isOwnProfile}
               isProOnly={isProOnly}
               maps={mapsQuery.data ?? []}
               mapsLoading={mapsQuery.isLoading}

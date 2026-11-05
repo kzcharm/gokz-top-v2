@@ -4,6 +4,7 @@ import { AdminModeToggle } from "@/components/Common/AdminModeToggle"
 import { Appearance } from "@/components/Common/Appearance"
 import { CommunityLinks } from "@/components/Common/CommunityLinks"
 import { Footer } from "@/components/Common/Footer"
+import { GlobalPreferences } from "@/components/Common/GlobalPreferences"
 import { LanguageSelector } from "@/components/Common/LanguageSelector"
 import { ScopeSelector } from "@/components/Common/ScopeSelector"
 import AppSidebar from "@/components/Sidebar/AppSidebar"
@@ -52,6 +53,7 @@ export function AppShell({
             <AdminModeToggle />
             <Appearance />
             <LanguageSelector />
+            <GlobalPreferences />
             <ScopeSelector />
           </div>
         </header>

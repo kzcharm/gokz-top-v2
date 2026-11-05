@@ -1,4 +1,10 @@
 import { expect, type Page, type Route, test } from "@playwright/test"
+import type { MapPublic, RecordPublic } from "../src/client"
+import {
+  buildProfileCompletionData,
+  getProfileHiddenMapsQueryOptions,
+} from "../src/components/Profile/profile-utils"
+import { setShowHiddenMaps } from "./utils/globalPreferences"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -18,6 +24,56 @@ const player = {
 }
 
 const profileViews = 7
+
+test("Hidden-map caches isolate accounts and completion handles empty and WR-limited lists", () => {
+  expect(
+    getProfileHiddenMapsQueryOptions({ enabled: true, playerId: "owner" })
+      .queryKey,
+  ).not.toEqual(
+    getProfileHiddenMapsQueryOptions({ enabled: true, playerId: "other" })
+      .queryKey,
+  )
+  const maps = [1, 2].map((id) => ({ id, tiers: { OVR: 4 } })) as MapPublic[]
+  const records = [
+    { map_id: 1, points: 900 },
+    { map_id: 2, points: 500 },
+  ] as RecordPublic[]
+  const calculate = (visibleMaps: MapPublic[], wrBased = true) =>
+    buildProfileCompletionData({
+      maps: visibleMaps,
+      nubRecords: records,
+      proRecords: records,
+      proWrs: [{ map_id: 1, time: 10 }],
+      scope: "OVR",
+      useWrBasedProCompletion: wrBased,
+    })
+  const full = calculate(maps)
+  expect(full.nub.tiers[3]).toMatchObject({
+    complete: 2,
+    total: 2,
+    averagePoints: 700,
+  })
+  expect(full.pro.tiers[3]).toMatchObject({
+    complete: 1,
+    total: 1,
+    averagePoints: 900,
+  })
+  const hiddenCompleted = calculate(maps.filter((map) => map.id !== 1))
+  expect(hiddenCompleted.nub.tiers[3]).toMatchObject({
+    complete: 1,
+    total: 1,
+    averagePoints: 500,
+  })
+  expect(hiddenCompleted.pro).toMatchObject({ completed: 0, total: 0 })
+  expect(calculate(maps.slice(1), false).pro).toMatchObject({
+    completed: 1,
+    total: 1,
+  })
+  for (const card of Object.values(calculate([]))) {
+    expect(card).toMatchObject({ completed: 0, total: 0 })
+    expect(card.tiers.every((tier) => tier.averagePoints === 0)).toBe(true)
+  }
+})
 
 const nubRecords = [
   {
@@ -555,14 +611,117 @@ test("Own profile can hide and restore maps from the records tab", async ({
   await expect(page.getByText("kz_alpha")).toHaveCount(0)
   await expect(page.getByText("kz_beta")).toBeVisible()
 
-  await page.getByRole("button", { name: "Record page settings" }).click()
-  await page.getByRole("menuitemcheckbox", { name: "Hidden records" }).click()
+  await page.getByRole("button", { name: "Undo", exact: true }).last().click()
+  await expect(page.getByText("kz_alpha")).toBeVisible()
+  await page.getByRole("button", { name: "Undo", exact: true }).last().click()
+  await expect(page.getByText("kz_alpha")).toHaveCount(0)
+
+  await setShowHiddenMaps(page, true)
   await expect(page.getByText("kz_alpha")).toBeVisible()
   await page.getByTestId(`pb-record-row-${nubRecords[0].uuid}`).click({
     button: "right",
   })
   await page.getByRole("menuitem", { name: "Unhide this map" }).click()
   await expect(page.getByText("kz_alpha")).toBeVisible()
+})
+
+test("Hidden maps persist across runs, unfinished maps, and the catalog", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  const maps = ["kz_alpha", "kz_beta", "kz_unfinished"].map((name, index) => ({
+    id: 980200 + index,
+    name,
+    validated: true,
+    filesize: 100,
+    tiers: { OVR: 4, KZT: 4, SKZ: 4, VNL: 4 },
+    authors: [],
+    no_steamid_names: [],
+    bonus_count: 0,
+    workshop_id: null,
+    created_on: "2026-01-01T00:00:00Z",
+    updated_on: "2026-01-01T00:00:00Z",
+  }))
+  await page.route(/\/v1\/maps(\?.*)?$/, (route) =>
+    route.fulfill({ json: maps }),
+  )
+  await page.goto(`/profile/${steamid64}/runs`)
+  const summary = page.locator("[data-completion-summary]").first()
+  await expect(summary).toContainText("2 / 3")
+  await page
+    .getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+    .click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Hide this map" }).click()
+  await expect(summary).toContainText("1 / 2")
+  await page.reload()
+  await expect(summary).toContainText("1 / 2")
+  await expect(page.getByText("kz_alpha", { exact: true })).toHaveCount(0)
+
+  await page.goto(`/profile/${steamid64}/unfinished`)
+  await page
+    .getByText("kz_unfinished", { exact: true })
+    .first()
+    .click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Hide this map" }).click()
+  await expect(page.getByText("kz_unfinished", { exact: true })).toHaveCount(0)
+  await expect(summary).toContainText("1 / 1")
+  await setShowHiddenMaps(page, true)
+  await expect(
+    page.getByText("kz_unfinished", { exact: true }).first(),
+  ).toBeVisible()
+  await expect(summary).toContainText("1 / 1")
+
+  await page.goto("/maps")
+  await expect(page.getByText("kz_beta", { exact: true }).first()).toBeVisible()
+  await expect(
+    page.getByText("kz_alpha", { exact: true }).first(),
+  ).toBeVisible()
+  await page.reload()
+  await expect(
+    page.getByText("kz_alpha", { exact: true }).first(),
+  ).toBeVisible()
+  await setShowHiddenMaps(page, false)
+  await expect(page.getByText("kz_alpha", { exact: true })).toHaveCount(0)
+  await expect(page.getByText("kz_unfinished", { exact: true })).toHaveCount(0)
+  await setShowHiddenMaps(page, true)
+  await expect(page.getByText("kz_beta", { exact: true }).first()).toBeVisible()
+  await page
+    .getByText("kz_alpha", { exact: true })
+    .first()
+    .click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Unhide this map" }).click()
+  await page.goto(`/profile/${steamid64}/runs`)
+  await expect(page.getByText("kz_alpha", { exact: true })).toBeVisible()
+  await expect(summary).toContainText("2 / 2")
+})
+
+test("Hidden map failures offer retry and do not hide records", async ({
+  page,
+}) => {
+  await installPinnedRecordRoutes(page)
+  let failing = true
+  await page.route(/\/v1\/me\/hidden-maps$/, (route) =>
+    route.fulfill({
+      status: failing ? 500 : 200,
+      json: failing ? {} : { data: [], count: 0 },
+    }),
+  )
+  await page.goto(`/profile/${steamid64}/runs`)
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Unable to load hidden maps" }),
+  ).toBeVisible()
+  failing = false
+  await page.getByRole("button", { name: "Retry", exact: true }).click()
+  await expect(page.getByText("kz_alpha", { exact: true })).toBeVisible()
+  failing = true
+  await page
+    .getByTestId(`pb-record-row-${nubRecords[0].uuid}`)
+    .click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Hide this map" }).click()
+  await expect(
+    page.getByText("Failed to hide map", { exact: true }),
+  ).toBeVisible()
+  await expect(page.getByText("kz_alpha", { exact: true })).toBeVisible()
 })
 
 test("Own profile can show and filter WR time and WR gap columns", async ({
@@ -692,7 +851,7 @@ test("Other profiles expose WR column options without hidden records", async ({
     page.getByRole("menuitemcheckbox", { name: "WR gap" }),
   ).toBeVisible()
   await expect(
-    page.getByRole("menuitemcheckbox", { name: "Hidden records" }),
+    page.getByRole("menuitemcheckbox", { name: "Show hidden maps" }),
   ).toHaveCount(0)
 })
 

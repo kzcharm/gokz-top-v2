@@ -4,6 +4,7 @@ import {
   getWrGap,
   wrGapScaleToRatio,
 } from "../src/components/Records/wr-gap"
+import { setShowHiddenMaps } from "./utils/globalPreferences"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
@@ -221,6 +222,70 @@ async function order(page: Page, names: string[]) {
     names,
   )
 }
+
+test("Hiding the final catalog page clamps pagination and restores through the shared list", async ({
+  page,
+}) => {
+  await install(page)
+  const hidden = new Set<number>()
+  await page.route(/\/v1\/maps(?:\?.*)?$/, (route) =>
+    route.fulfill({ json: maps.slice(0, 25) }),
+  )
+  await page.route(/\/v1\/me\/hidden-maps(?:\/\d+)?$/, async (route) => {
+    if (route.request().method() === "POST")
+      hidden.add(route.request().postDataJSON().map_id)
+    if (route.request().method() === "DELETE")
+      hidden.delete(
+        Number(new URL(route.request().url()).pathname.split("/").pop()),
+      )
+    await route.fulfill({
+      json: {
+        data: [...hidden].map((map_id) => ({ map_id })),
+        count: hidden.size,
+      },
+    })
+  })
+  await page.goto("/maps")
+  await expect(page.locator('[data-testid^="map-card-"]')).toHaveCount(24)
+  await page
+    .getByRole("button", { name: "Go to last page", exact: true })
+    .click()
+  await expect(page.locator('[data-testid^="map-card-"]')).toHaveCount(1)
+  await page
+    .locator('[data-testid^="map-card-"] h2 a')
+    .click({ button: "right" })
+  await page.getByRole("menuitem", { name: "Hide this map" }).click()
+  await expect(page.locator('[data-testid^="map-card-"]')).toHaveCount(24)
+  await expect(page.getByTestId("map-card-kz_pick_24")).toHaveCount(0)
+  const preferences = page.getByRole("button", {
+    name: "Quick preferences",
+    exact: true,
+  })
+  expect(
+    await preferences.evaluate((button) =>
+      button.previousElementSibling?.getAttribute("aria-label"),
+    ),
+  ).toContain("Select language")
+  await setShowHiddenMaps(page, true)
+  await page
+    .getByRole("button", { name: "Go to last page", exact: true })
+    .click()
+  await expect(page.locator('[data-testid^="map-card-"]')).toHaveCount(1)
+  await expect(page.getByTestId("map-card-kz_pick_24")).toBeVisible()
+  await page
+    .locator('[data-testid^="map-card-"] h2 a')
+    .click({ button: "right" })
+  const restoreItem = page.getByRole("menuitem", { name: "Unhide this map" })
+  await expect(restoreItem.locator("svg")).toBeVisible()
+  expect(
+    await restoreItem.evaluate(
+      (item) => item.previousElementSibling?.textContent,
+    ),
+  ).toBe("Add Review")
+  await page.getByRole("menuitem", { name: "Unhide this map" }).click()
+  await setShowHiddenMaps(page, false)
+  await expect(page.getByTestId("map-card-kz_pick_24")).toBeVisible()
+})
 
 test("one PB type drives overlay, completion, and full-catalog sorting", async ({
   page,

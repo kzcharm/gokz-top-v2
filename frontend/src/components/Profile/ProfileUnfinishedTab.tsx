@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { ArrowDown, ArrowUp } from "lucide-react"
 import {
   memo,
+  type ReactNode,
   useCallback,
   useDeferredValue,
   useEffect,
@@ -17,6 +18,7 @@ import {
   TierSelector,
   type TierSelectorValue,
 } from "@/components/Common/TierSelector"
+import { useGlobalPreferences } from "@/components/global-preferences-provider"
 import { formatRecordTime } from "@/components/Records/utils"
 import { TierBadge } from "@/components/Servers/TierBadge"
 import { useScope } from "@/components/scope-provider"
@@ -32,6 +34,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
+import { useHiddenMaps } from "@/hooks/useHiddenMaps"
 
 import {
   buildProfileUnfinishedRows,
@@ -161,6 +164,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
   title,
   type,
   onSortChange,
+  mapMenu,
 }: {
   emptyMessage: string
   hasMore: boolean
@@ -170,6 +174,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
   title: string
   type: ProfileUnfinishedType
   onSortChange: (column: ProfileUnfinishedSortColumn) => void
+  mapMenu: (mapId: number) => ReactNode
 }) {
   const { t } = useTranslation()
   return (
@@ -229,7 +234,11 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
                   data-testid={`profile-unfinished-${type.toLowerCase()}-row-${row.mapId}`}
                 >
                   <TableCell>
-                    <MapDisplay mapName={row.mapName} />
+                    <MapDisplay
+                      mapName={row.mapName}
+                      mapId={row.mapId}
+                      playerMenuItems={mapMenu(row.mapId)}
+                    />
                   </TableCell>
                   <TableCell>
                     <TierBadge tier={row.tier} />
@@ -265,6 +274,7 @@ const UnfinishedColumn = memo(function UnfinishedColumn({
 })
 
 export function ProfileUnfinishedTab({
+  isOwnProfile,
   isProOnly,
   maps,
   mapsError,
@@ -278,6 +288,7 @@ export function ProfileUnfinishedTab({
   proRecordsLoading,
   useWrBasedProCompletion,
 }: {
+  isOwnProfile: boolean
   isProOnly: boolean
   maps: MapPublic[]
   mapsError: boolean
@@ -293,6 +304,12 @@ export function ProfileUnfinishedTab({
 }) {
   const { t } = useTranslation()
   const { scope } = useScope()
+  const hiddenMaps = useHiddenMaps(isOwnProfile)
+  const { showHiddenMaps: showHidden } = useGlobalPreferences()
+  const visibleMaps = useMemo(
+    () => maps.filter((map) => showHidden || !hiddenMaps.ids.has(map.id)),
+    [maps, showHidden, hiddenMaps.ids],
+  )
   const [isSplitLayout, setIsSplitLayout] = useState(false)
   const [mapSearch, setMapSearch] = useState("")
   const [selectedTier, setSelectedTier] = useState<TierSelectorValue>("all")
@@ -344,7 +361,7 @@ export function ProfileUnfinishedTab({
 
   const nubRows = useMemo(() => {
     return buildProfileUnfinishedRows({
-      maps,
+      maps: visibleMaps,
       records: nubRecords,
       wrs: nubWrsQuery.data ?? [],
       scope,
@@ -363,7 +380,7 @@ export function ProfileUnfinishedTab({
       return true
     })
   }, [
-    maps,
+    visibleMaps,
     nubRecords,
     nubWrsQuery.data,
     normalizedMapSearch,
@@ -373,7 +390,7 @@ export function ProfileUnfinishedTab({
 
   const proRows = useMemo(() => {
     return buildProfileUnfinishedRows({
-      maps,
+      maps: visibleMaps,
       records: proRecords,
       wrs: proWrsQuery.data ?? [],
       scope,
@@ -393,7 +410,7 @@ export function ProfileUnfinishedTab({
       return true
     })
   }, [
-    maps,
+    visibleMaps,
     proRecords,
     proWrsQuery.data,
     normalizedMapSearch,
@@ -550,6 +567,7 @@ export function ProfileUnfinishedTab({
     return <ProfileUnfinishedTableSkeleton />
   }
 
+  if (hiddenMaps.loading || hiddenMaps.error) return null
   const nubEmptyMessage = t("profile.unfinished.emptyNub")
   const proEmptyMessage = t("profile.unfinished.emptyPro")
 
@@ -591,6 +609,7 @@ export function ProfileUnfinishedTab({
       {isSplitLayout ? (
         <div className="grid grid-cols-2 gap-4">
           <UnfinishedColumn
+            mapMenu={hiddenMaps.menuItem}
             emptyMessage={nubEmptyMessage}
             hasMore={visibleNubRows.length < sortedNubRows.length}
             loadMoreRef={nubLoadMoreRef}
@@ -601,6 +620,7 @@ export function ProfileUnfinishedTab({
             onSortChange={handleNubSortChange}
           />
           <UnfinishedColumn
+            mapMenu={hiddenMaps.menuItem}
             emptyMessage={proEmptyMessage}
             hasMore={visibleProRows.length < sortedProRows.length}
             loadMoreRef={proLoadMoreRef}
@@ -613,6 +633,7 @@ export function ProfileUnfinishedTab({
         </div>
       ) : (
         <UnfinishedColumn
+          mapMenu={hiddenMaps.menuItem}
           emptyMessage={selectedEmptyMessage}
           hasMore={
             selectedType === "NUB"

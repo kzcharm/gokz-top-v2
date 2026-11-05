@@ -850,11 +850,13 @@ export function getProfilePinnedRecordKey({
 
 export function getProfileHiddenMapsQueryOptions({
   enabled,
+  playerId,
 }: {
   enabled: boolean
+  playerId: string | null
 }) {
   return queryOptions({
-    queryKey: ["profile-hidden-maps"],
+    queryKey: ["profile-hidden-maps", playerId],
     queryFn: async () => {
       const accessToken = localStorage.getItem("access_token")
       const response = await fetch(`${OpenAPI.BASE}/v1/me/hidden-maps`, {

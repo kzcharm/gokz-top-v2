@@ -1,5 +1,6 @@
 import { Link } from "@tanstack/react-router"
 import { Star } from "lucide-react"
+import type { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import type {
   MapLeaderboardEntryPublic,
@@ -40,6 +41,7 @@ import { MapMetricTooltip } from "./MapMetricTooltip"
 import { MapReviewSummary, MapSkillBreakdown } from "./MapOverviewSections"
 
 interface MapCardProps {
+  playerMenuItems?: ReactNode
   activeTier: number | null
   map: MapPublic
   wrRecord?: MapWrPublic | null
@@ -65,6 +67,7 @@ function formatAveragePlaytime(seconds: number) {
 }
 
 export function MapCard({
+  playerMenuItems,
   activeTier,
   map,
   wrRecord = null,
@@ -179,6 +182,7 @@ export function MapCard({
         <div className="absolute inset-x-2 top-2 z-10 flex min-w-0 items-center gap-2">
           <h2 className="flex min-w-0 flex-1 items-center gap-1 select-text text-sm font-semibold text-white">
             <MapNameContextMenu
+              playerMenuItems={playerMenuItems}
               mapName={map.name}
               mapId={map.id}
               downloadUrl={downloadUrl}

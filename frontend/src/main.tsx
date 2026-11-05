@@ -11,6 +11,7 @@ import { ApiError, OpenAPI } from "./client"
 import { AdminModeProvider } from "./components/admin-mode-provider"
 import { WASDNavigationProvider } from "./components/Common/WASDNavigation"
 import { DateTimeFormatProvider } from "./components/date-time-format-provider"
+import { GlobalPreferencesProvider } from "./components/global-preferences-provider"
 import { PlayerDisplayPreferencesProvider } from "./components/player-display-preferences-provider"
 import { PlayerSteamProfileUpdatesProvider } from "./components/player-steam-profile-updates-provider"
 import { ScopeProvider } from "./components/scope-provider"
@@ -78,22 +79,24 @@ declare module "@tanstack/react-router" {
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-      <ScopeProvider defaultScope="OVR" storageKey="gokz-app-scope">
-        <PlayerDisplayPreferencesProvider>
-          <DateTimeFormatProvider>
-            <QueryClientProvider client={queryClient}>
-              <PlayerSteamProfileUpdatesProvider>
-                <AdminModeProvider>
-                  <WASDNavigationProvider>
-                    <RouterProvider router={router} />
-                  </WASDNavigationProvider>
-                </AdminModeProvider>
-                <Toaster richColors closeButton />
-              </PlayerSteamProfileUpdatesProvider>
-            </QueryClientProvider>
-          </DateTimeFormatProvider>
-        </PlayerDisplayPreferencesProvider>
-      </ScopeProvider>
+      <GlobalPreferencesProvider>
+        <ScopeProvider defaultScope="OVR" storageKey="gokz-app-scope">
+          <PlayerDisplayPreferencesProvider>
+            <DateTimeFormatProvider>
+              <QueryClientProvider client={queryClient}>
+                <PlayerSteamProfileUpdatesProvider>
+                  <AdminModeProvider>
+                    <WASDNavigationProvider>
+                      <RouterProvider router={router} />
+                    </WASDNavigationProvider>
+                  </AdminModeProvider>
+                  <Toaster richColors closeButton />
+                </PlayerSteamProfileUpdatesProvider>
+              </QueryClientProvider>
+            </DateTimeFormatProvider>
+          </PlayerDisplayPreferencesProvider>
+        </ScopeProvider>
+      </GlobalPreferencesProvider>
     </ThemeProvider>
   </StrictMode>,
 )

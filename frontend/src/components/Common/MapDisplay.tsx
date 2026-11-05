@@ -29,6 +29,7 @@ import { PronunciationMenuItems } from "./PronunciationControls"
 export { getMapImageUrl, getMapPreviewImageUrl, getWorkshopPreviewImageUrl }
 
 interface MapDisplayProps {
+  playerMenuItems?: ReactNode
   mapName: string | null | undefined
   className?: string
   containerClassName?: string
@@ -40,6 +41,7 @@ interface MapDisplayProps {
 }
 
 interface MapNameContextMenuProps {
+  playerMenuItems?: ReactNode
   children: (handlers: {
     onContextMenu: (event: MouseEvent<HTMLElement>) => void
     onKeyDown: (event: KeyboardEvent<HTMLElement>) => void
@@ -62,6 +64,7 @@ export function getMapImageUrls(
 }
 
 export function MapNameContextMenu({
+  playerMenuItems,
   children,
   contextMenuItems,
   downloadUrl,
@@ -223,6 +226,7 @@ export function MapNameContextMenu({
                 <MessageSquarePlus />
                 Add Review
               </DropdownMenuItem>
+              {playerMenuItems}
             </>
           ) : null}
           {contextMenuItems ? <DropdownMenuSeparator /> : null}
@@ -252,6 +256,7 @@ export function MapNameContextMenu({
 }
 
 export function MapDisplay({
+  playerMenuItems,
   mapName,
   className,
   containerClassName,
@@ -455,6 +460,7 @@ export function MapDisplay({
                 <MessageSquarePlus />
                 Add Review
               </DropdownMenuItem>
+              {playerMenuItems}
             </>
           ) : null}
           {contextMenuItems ? <DropdownMenuSeparator /> : null}

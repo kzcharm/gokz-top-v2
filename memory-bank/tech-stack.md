@@ -12,6 +12,7 @@ Staging and production deployments enable the reviewed rank-based NUB and modera
 - Monorepo with:
   - FastAPI backend in `backend/`
   - React + TypeScript frontend in `frontend/`
+  - `GlobalPreferencesProvider` shares browser-persisted preferences across routes. The navbar gear immediately after the language switch exposes Show hidden maps, stored under `gokz-show-hidden-maps`; it reveals hidden maps alongside normal maps in the catalog and the owner's Runs/Unfinished tabs without changing completion calculations. The private hidden-map list remains database-backed through `/v1/me/hidden-maps`.
   - SourceMod plugin code tracked in the `sourcemod/` git submodule (`kzcharm/gokz-top-plugins`)
   - Official QQ and Discord NoneBot application tracked in the `qqbot/` git submodule (`kzcharm/qqbot-saki-chan`), with its own deployment on E
   - GOKZ replay viewer tracked in the `replay-viewer/` git submodule (`kzcharm/replay-viewer`) and deployed as a separate Traefik-routed frontend service
