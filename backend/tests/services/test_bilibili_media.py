@@ -238,7 +238,7 @@ async def test_sync_bilibili_media_creates_posts_for_verified_links(
         return [
             {
                 "bvid": "BV1media",
-                "created": 1_786_032_000,
+                "created": int((cutoff + timedelta(days=30)).timestamp()),
                 "title": upload_title,
                 "description": "A precise run",
                 "pic": "https://example.com/thumb.jpg",
@@ -329,7 +329,9 @@ async def test_sync_bilibili_media_retries_failed_tags_and_promotes_hidden_post(
 
     async def _fetch_posts(_: int, *, cutoff: datetime) -> list[dict[str, Any]]:
         assert cutoff < datetime.now(UTC)
-        return [{"bvid": "BVtag", "created": 1_786_032_000}]
+        return [
+            {"bvid": "BVtag", "created": int((cutoff + timedelta(days=30)).timestamp())}
+        ]
 
     async def _fetch_detail(_: str) -> dict[str, Any]:
         return {
