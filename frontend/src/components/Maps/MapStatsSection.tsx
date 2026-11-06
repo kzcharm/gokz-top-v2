@@ -1,5 +1,3 @@
-import type { EChartsOption } from "echarts"
-import * as echarts from "echarts"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import type {
@@ -14,6 +12,8 @@ import { formatWrGap, wrGapScaleToRatio } from "@/components/Records/wr-gap"
 import { useTheme } from "@/components/theme-provider"
 import { Card, CardContent } from "@/components/ui/card"
 import { useMediaQuery } from "@/hooks/useMobile"
+import type { EChartsOption } from "@/lib/echarts"
+import * as echarts from "@/lib/echarts"
 
 function escapeHtml(value: string) {
   return value

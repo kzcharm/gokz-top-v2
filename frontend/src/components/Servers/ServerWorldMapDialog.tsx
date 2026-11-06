@@ -1,9 +1,6 @@
-import type { EChartsOption, EChartsType } from "echarts"
-import * as echarts from "echarts"
 import type { TFunction } from "i18next"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import type { ServerPublic } from "@/client"
 import { getCountryName } from "@/components/Common/CountryFlag"
 import { useTheme } from "@/components/theme-provider"
@@ -14,6 +11,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog"
 import worldMapGeoJson from "@/data/world.geo.json"
+import type { EChartsOption, EChartsType } from "@/lib/echarts"
+import * as echarts from "@/lib/echarts"
 
 import { getServerAddress, getServerHostname, isServerOnline } from "./utils"
 

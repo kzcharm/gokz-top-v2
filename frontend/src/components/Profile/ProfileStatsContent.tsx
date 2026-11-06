@@ -1,9 +1,6 @@
-import type { EChartsOption, EChartsType } from "echarts"
-import * as echarts from "echarts"
 import { Pause, Play } from "lucide-react"
 import { type ReactNode, useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import type {
   PlayerMostPlayedMapsPeriodPublic,
   PlayerMostPlayedMapsPublic,
@@ -17,6 +14,8 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useMediaQuery } from "@/hooks/useMobile"
+import type { EChartsOption, EChartsType } from "@/lib/echarts"
+import * as echarts from "@/lib/echarts"
 import { cn } from "@/lib/utils"
 import { ProfileDurationControls } from "./ProfileDurationControls"
 

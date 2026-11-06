@@ -1,10 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import type { ColumnDef } from "@tanstack/react-table"
-import type { EChartsOption, EChartsType } from "echarts"
-import * as echarts from "echarts"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-
 import {
   MapsService,
   type MapWrHistoryEntryPublic,
@@ -30,6 +27,8 @@ import { Badge } from "@/components/ui/badge"
 import { Card, CardContent } from "@/components/ui/card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import type { EChartsOption, EChartsType } from "@/lib/echarts"
+import * as echarts from "@/lib/echarts"
 import { cn } from "@/lib/utils"
 
 const HOLDER_COLORS = [
