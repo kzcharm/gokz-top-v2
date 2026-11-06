@@ -1142,6 +1142,18 @@ test("Public servers map keeps user zoom after live server updates", async ({
   )
 
   expect(updateDifference).toBeLessThan(zoomDifference * 0.25)
+
+  await page.keyboard.press("Escape")
+  await expect(page.getByTestId("server-world-map-chart")).toHaveCount(0)
+  await page.getByTestId("open-servers-map-button").click()
+  await page.locator('[data-testid="server-world-map-chart"] canvas').waitFor({
+    state: "visible",
+  })
+  await page.waitForTimeout(300)
+  const reopenedCanvas = await readMapCanvasSample(page)
+  expect(
+    getCanvasSampleDifference(afterUpdateCanvas, reopenedCanvas),
+  ).toBeLessThan(zoomDifference * 0.25)
 })
 
 test("Public servers page downloads a generic config for the visible sorted servers", async ({

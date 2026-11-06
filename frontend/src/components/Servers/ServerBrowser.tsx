@@ -11,6 +11,8 @@ import {
   Share2,
 } from "lucide-react"
 import {
+  lazy,
+  Suspense,
   startTransition,
   useCallback,
   useDeferredValue,
@@ -30,7 +32,6 @@ import { PendingServers } from "@/components/Servers/PendingServers"
 import { ServerCard } from "@/components/Servers/ServerCard"
 import { ServerDetailSheet } from "@/components/Servers/ServerDetailSheet"
 import { ServerTable } from "@/components/Servers/ServerTable"
-import { ServerWorldMapDialog } from "@/components/Servers/ServerWorldMapDialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -80,6 +81,11 @@ import {
   UNASSIGNED_SERVER_GROUP_ID,
   writeServersFilterPreferences,
 } from "./utils"
+
+const ServerWorldMapDialog = lazy(async () => {
+  const module = await import("@/components/Servers/ServerWorldMapDialog")
+  return { default: module.ServerWorldMapDialog }
+})
 
 interface ServerBrowserProps {
   initialSearchString: string
@@ -220,6 +226,8 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     useState<ConnectionState>("connecting")
   const [configDialogOpen, setConfigDialogOpen] = useState(false)
   const [mapDialogOpen, setMapDialogOpen] = useState(false)
+  // Retain zoom after the first lazy load, including across dialog closes.
+  const [mapDialogMounted, setMapDialogMounted] = useState(false)
   const seededRef = useRef(false)
 
   const serversQuery = useQuery({
@@ -230,7 +238,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     retry: 1,
   })
   const mapsQuery = useQuery({
-    queryKey: ["servers", "map-downloads"],
+    queryKey: ["maps", "validated"],
     queryFn: () =>
       MapsService.readMaps({ offset: 0, limit: 10000, isValidated: true }),
     staleTime: 1000 * 60 * 5,
@@ -911,7 +919,10 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                     type="button"
                     variant="outline"
                     size="icon-sm"
-                    onClick={() => setMapDialogOpen(true)}
+                    onClick={() => {
+                      setMapDialogMounted(true)
+                      setMapDialogOpen(true)
+                    }}
                     disabled={servers.length === 0}
                     aria-label={t("serverBrowser.openMap")}
                     title={t("serverBrowser.openMap")}
@@ -1047,15 +1058,30 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
         onCopyAddress={handleCopyAddress}
         onSteamConnect={handleSteamConnect}
       />
-      <ServerWorldMapDialog
-        open={mapDialogOpen}
-        servers={servers}
-        onOpenChange={setMapDialogOpen}
-        onSelectServer={(server) => {
-          setMapDialogOpen(false)
-          handleSelectServer(server)
-        }}
-      />
+      {mapDialogMounted ? (
+        <Suspense
+          fallback={
+            <Dialog open={mapDialogOpen} onOpenChange={setMapDialogOpen}>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{t("serverBrowser.worldMapTitle")}</DialogTitle>
+                </DialogHeader>
+                <output>{t("common.loading")}</output>
+              </DialogContent>
+            </Dialog>
+          }
+        >
+          <ServerWorldMapDialog
+            open={mapDialogOpen}
+            servers={servers}
+            onOpenChange={setMapDialogOpen}
+            onSelectServer={(server) => {
+              setMapDialogOpen(false)
+              handleSelectServer(server)
+            }}
+          />
+        </Suspense>
+      ) : null}
       <Dialog open={configDialogOpen} onOpenChange={setConfigDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

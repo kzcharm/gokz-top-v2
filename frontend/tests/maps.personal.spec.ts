@@ -214,6 +214,37 @@ async function completion(page: Page, label: string) {
   }
 }
 
+test("map metrics stay cached across catalog and leaderboard navigation", async ({
+  page,
+}) => {
+  await install(page, { guest: true })
+  const scopes: string[] = []
+  page.on("request", (request) => {
+    const url = new URL(request.url())
+    if (url.pathname === "/v1/leaderboards/maps") {
+      scopes.push(url.searchParams.get("scope") ?? "")
+    }
+  })
+  await page.goto("/maps")
+  await expect(page.getByTestId("map-card-kz_pick_00")).toBeVisible()
+  await expect.poll(() => scopes).toEqual(["OVR"])
+  await page
+    .getByRole("link", { name: "Leaderboards", exact: true })
+    .first()
+    .click()
+  await page.getByRole("tab", { name: "Maps", exact: true }).click()
+  await expect(
+    page.getByRole("combobox", { name: "Filter maps leaderboard by tier" }),
+  ).toBeVisible()
+  await expect(
+    page.getByText("kz_pick_00", { exact: true }).first(),
+  ).toBeVisible()
+  expect(scopes).toEqual(["OVR"])
+  await page.getByRole("button", { name: "Select record scope" }).click()
+  await page.getByRole("menuitemradio", { name: "SKZ" }).click()
+  await expect.poll(() => scopes).toEqual(["OVR", "SKZ"])
+})
+
 async function order(page: Page, names: string[]) {
   await expect(page.locator('[data-testid^="map-card-"]')).toHaveCount(
     names.length,
@@ -221,6 +252,59 @@ async function order(page: Page, names: string[]) {
   await expect(page.locator('[data-testid^="map-card-"] h2 a')).toHaveText(
     names,
   )
+}
+
+for (const first of ["servers", "profile"] as const) {
+  test(`validated maps stay cached when ${first} is opened first`, async ({
+    page,
+  }) => {
+    await install(page)
+    const mapRequests: string[] = []
+    page.on("request", (request) => {
+      const url = new URL(request.url())
+      if (
+        url.pathname === "/v1/maps" &&
+        url.searchParams.get("limit") === "10000"
+      ) {
+        expect(url.searchParams.get("is_validated")).toBe("true")
+        expect(url.searchParams.has("scope")).toBe(false)
+        mapRequests.push(url.search)
+      }
+    })
+    await page.goto(
+      first === "servers" ? "/servers" : `/profile/${steamid64}/runs`,
+    )
+    await expect.poll(() => mapRequests.length).toBe(1)
+    if (first === "servers") {
+      await expect(page.getByTestId("open-servers-map-button")).toBeVisible()
+      await page.locator(`a[href="/profile/${steamid64}"]`).first().click()
+      await page.getByRole("tab", { name: "Runs", exact: true }).click()
+      await expect(page.getByText(maps[0].name).first()).toBeVisible()
+    } else {
+      await expect(page.getByText(maps[0].name).first()).toBeVisible()
+      await page
+        .getByRole("link", { name: "Servers", exact: true })
+        .first()
+        .click()
+      await expect(page.getByTestId("open-servers-map-button")).toBeVisible()
+    }
+    expect(mapRequests).toHaveLength(1)
+    if (first === "profile") {
+      await page.locator(`a[href="/profile/${steamid64}"]`).first().click()
+      await page.getByRole("tab", { name: "Runs", exact: true }).click()
+      await expect(page.getByText(maps[0].name).first()).toBeVisible()
+    }
+    await page.clock.install()
+    await page.clock.fastForward(5 * 60 * 1000 + 1000)
+    await page
+      .getByRole("link", { name: "Servers", exact: true })
+      .first()
+      .click()
+    await expect(page.getByTestId("open-servers-map-button")).toBeVisible()
+    await expect.poll(() => mapRequests.length).toBe(2)
+    await page.reload()
+    await expect.poll(() => mapRequests.length).toBe(3)
+  })
 }
 
 test("Hiding the final catalog page clamps pagination and restores through the shared list", async ({

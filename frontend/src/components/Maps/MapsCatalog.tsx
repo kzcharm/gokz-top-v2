@@ -1458,7 +1458,7 @@ export function MapsCatalog() {
     ],
   )
   const mapLeaderboardQuery = useQuery({
-    queryKey: ["leaderboards", "maps", "catalog", scope],
+    queryKey: ["leaderboards", "maps", scope],
     queryFn: () => LeaderboardsService.readMapLeaderboard({ scope }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,

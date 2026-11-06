@@ -466,7 +466,7 @@ export function ProfileUnfinishedTab({
   )
 
   const metricsQuery = useQuery({
-    queryKey: ["leaderboards", "maps", "catalog", scope],
+    queryKey: ["leaderboards", "maps", scope],
     queryFn: () => LeaderboardsService.readMapLeaderboard({ scope }),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
