@@ -75,7 +75,7 @@ async def test_write_refresh_plans_can_use_partial_course_indexes(db, monkeypatc
         ]
 
     scans = [scan for plan in plans for scan in record_scans(plan)]
-    assert len(scans) >= 3
+    assert len(plans) == 2 and len(scans) == 2
     assert all(
         scan.get("Index Name", "").startswith(("ix_record_valid_", "ix_pb_map_"))
         for scan in scans

@@ -198,6 +198,7 @@ async def test_record_filter_exists_for_course_mode_returns_false_when_missing(
 
 async def test_load_map_tiers_by_scope_ignores_zero_vnl_tiers_in_aggregate(
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await _create_map(db, id=981300, difficulty=6)
     await _create_record_filter(
@@ -227,7 +228,23 @@ async def test_load_map_tiers_by_scope_ignores_zero_vnl_tiers_in_aggregate(
         tier=0,
     )
 
-    tiers = await crud.load_map_tiers_by_scope(session=db, map_ids=[981300])
+    queries = 0
+    original_exec = db.exec
+
+    async def counted_exec(*args, **kwargs):
+        nonlocal queries
+        queries += 1
+        return await original_exec(*args, **kwargs)
+
+    monkeypatch.setattr(db, "exec", counted_exec)
+    tiers = await crud.load_map_tiers_by_scope(
+        session=db, map_ids=[981300, 981300, -123]
+    )
+    assert queries == 1
+    assert set(tiers) == {981300, -123}
+    assert set(tiers[-123].model_dump().values()) == {0}
+    assert await crud.load_map_tiers_by_scope(session=db, map_ids=[]) == {}
+    assert queries == 1
 
     assert tiers[981300].OVR == 6
     assert tiers[981300].KZT == 6
@@ -237,6 +254,7 @@ async def test_load_map_tiers_by_scope_ignores_zero_vnl_tiers_in_aggregate(
 
 async def test_load_scoped_course_tiers_ignores_zero_vnl_tiers_for_ovr_scope(
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     await _create_map(db, id=981301, difficulty=4)
     await _create_record_filter(
@@ -257,11 +275,29 @@ async def test_load_scoped_course_tiers_ignores_zero_vnl_tiers_for_ovr_scope(
         tier=0,
     )
 
+    queries = 0
+    original_exec = db.exec
+
+    async def counted_exec(*args, **kwargs):
+        nonlocal queries
+        queries += 1
+        return await original_exec(*args, **kwargs)
+
+    monkeypatch.setattr(db, "exec", counted_exec)
     ovr_tiers = await crud.load_scoped_course_tiers(
         session=db,
-        course_keys=[(981301, 0)],
+        course_keys=[(981301, 0), (981301, 0), (981301, 7), (-123, 0)],
         scope=ModeScope.OVR,
     )
+    assert queries == 1
+    assert ovr_tiers == {(981301, 0): 4, (981301, 7): 0, (-123, 0): 0}
+    assert (
+        await crud.load_scoped_course_tiers(
+            session=db, course_keys=[], scope=ModeScope.OVR
+        )
+        == {}
+    )
+    assert queries == 1
     vnl_tiers = await crud.load_scoped_course_tiers(
         session=db,
         course_keys=[(981301, 0)],

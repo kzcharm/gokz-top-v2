@@ -165,7 +165,9 @@ async def replay_buckets(
         for record_type in RecordType:
             if record_type.is_pro and payload.teleports:
                 continue
-            statement = select(Record.steamid64, func.min(Record.time)).where(
+            statement = select(
+                Record.steamid64, func.min(Record.time).label("best_time")
+            ).where(
                 Record.map_id == map_id,
                 Record.stage == payload.stage,
                 col(Record.mode).in_(mode_scope_modes(scope)),
@@ -176,21 +178,28 @@ async def replay_buckets(
                 statement = statement.where(Record.uuid != exclude_uuid)
             if record_type.is_pro:
                 statement = statement.where(Record.teleports == 0)
-            bests = dict(
-                (await session.exec(statement.group_by(col(Record.steamid64)))).all()
-            )
+            bests = statement.group_by(col(Record.steamid64)).subquery()
+            previous_pb, previous_wr, faster_players = (
+                await session.exec(
+                    select(
+                        func.min(bests.c.best_time).filter(
+                            bests.c.steamid64 == payload.steamid64
+                        ),
+                        func.min(bests.c.best_time),
+                        func.count().filter(
+                            bests.c.steamid64 != payload.steamid64,
+                            bests.c.best_time < payload.time,
+                        ),
+                    )
+                )
+            ).one()
             buckets.append(
                 ReplayBucketResult(
                     scope=scope,
                     type=record_type,
-                    previous_pb=bests.get(payload.steamid64),
-                    previous_wr=min(bests.values(), default=None),
-                    rank=1
-                    + sum(
-                        time < payload.time
-                        for player, time in bests.items()
-                        if player != payload.steamid64
-                    ),
+                    previous_pb=previous_pb,
+                    previous_wr=previous_wr,
+                    rank=1 + faster_players,
                 )
             )
     return buckets

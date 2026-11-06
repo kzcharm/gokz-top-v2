@@ -2,7 +2,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from datetime import datetime
 
-from sqlalchemy import and_, case, delete, func, true
+from sqlalchemy import case, delete, func, true
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
@@ -99,11 +99,42 @@ async def _build_map_leaderboard_values_for_scope(
     if map_ids is not None:
         record_filters.append(col(Record.map_id).in_(list(map_ids)))
 
-    first_finishes = (
+    player_partition = [col(Record.map_id), col(Record.steamid64)]
+    finish_order = [col(Record.created_at), col(Record.uuid)]
+    # Keep full-player totals while selecting the chronological first run.
+    per_player = (
         select_row(
             col(Record.map_id).label("map_id"),
             col(Record.steamid64).label("steamid64"),
-            col(Record.time).label("time"),
+            func.count()
+            .over(
+                partition_by=player_partition,
+                order_by=finish_order,
+                rows=(None, None),
+            )
+            .label("player_finishes"),
+            func.sum(Record.time)
+            .over(
+                partition_by=player_partition,
+                order_by=finish_order,
+                rows=(None, None),
+            )
+            .label("player_playtime"),
+            func.min(Record.time)
+            .over(
+                partition_by=player_partition,
+                order_by=finish_order,
+                rows=(None, None),
+            )
+            .label("first_completion_time"),
+            func.bool_or(col(Record.teleports) == 0)
+            .over(
+                partition_by=player_partition,
+                order_by=finish_order,
+                rows=(None, None),
+            )
+            .label("has_pro_finish"),
+            col(Record.time).label("first_finish_time"),
         )
         .where(*record_filters)
         .distinct(col(Record.map_id), col(Record.steamid64))
@@ -113,21 +144,6 @@ async def _build_map_leaderboard_values_for_scope(
             col(Record.created_at),
             col(Record.uuid),
         )
-        .subquery()
-    )
-
-    per_player = (
-        select_row(
-            col(Record.map_id).label("map_id"),
-            col(Record.steamid64).label("steamid64"),
-            func.count().label("player_finishes"),
-            func.coalesce(func.sum(Record.time), 0).label("player_playtime"),
-            func.min(Record.time).label("first_completion_time"),
-            func.bool_or(col(Record.teleports) == 0).label("has_pro_finish"),
-        )
-        .select_from(Record)
-        .where(*record_filters)
-        .group_by(col(Record.map_id), col(Record.steamid64))
         .subquery()
     )
 
@@ -148,7 +164,7 @@ async def _build_map_leaderboard_values_for_scope(
             .within_group(per_player.c.first_completion_time)
             .label("median_first_completion_time"),
             func.percentile_cont(0.5)
-            .within_group(first_finishes.c.time)
+            .within_group(per_player.c.first_finish_time)
             .label("median_first_finish_time"),
             func.avg(per_player.c.player_playtime).label("average_playtime_per_player"),
             func.percentile_cont(0.5)
@@ -164,13 +180,6 @@ async def _build_map_leaderboard_values_for_scope(
             ).label("unique_pro_finishes"),
         )
         .select_from(per_player)
-        .join(
-            first_finishes,
-            and_(
-                per_player.c.map_id == first_finishes.c.map_id,
-                per_player.c.steamid64 == first_finishes.c.steamid64,
-            ),
-        )
         .group_by(per_player.c.map_id)
         .order_by(per_player.c.map_id.asc())
     )

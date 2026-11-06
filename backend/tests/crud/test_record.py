@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
@@ -546,9 +546,41 @@ async def test_get_recent_record_public_by_uuid_uses_bonus_fallback_zero(
     assert recent_record.map.tier == 0
 
 
+@pytest.mark.parametrize("extra_ids", [0, 70_000])
+async def test_active_ban_lookup_handles_large_buckets_and_expiry(
+    db: AsyncSession, extra_ids: int
+) -> None:
+    players = [random_steamid64() for _ in range(4)]
+    db.add_all(Player(steamid64=player, name="Ban lookup") for player in players)
+    await db.flush()
+    now = datetime.now(UTC)
+    db.add_all(
+        Ban(steamid64=player, ban_type=BanType.EXPLOITING, expires_at=expiry)
+        for player, expiry in [
+            (players[0], None),
+            (players[0], now + timedelta(days=1)),
+            (players[1], now + timedelta(days=1)),
+            (players[2], now - timedelta(days=1)),
+            (players[3], None),
+        ]
+    )
+    await db.flush()
+
+    assert await record_crud._load_active_banned_steamid64s(
+        session=db,
+        steamid64s=[*range(extra_ids), *players[:3], players[0]],
+    ) == {players[0], players[1]}
+    assert (
+        await record_crud._load_active_banned_steamid64s(session=db, steamid64s=[])
+        == set()
+    )
+
+
+@pytest.mark.parametrize("scope", [ModeScope.OVR, ModeScope.KZT])
 async def test_rebuild_record_pb_points_bucket_updates_real_points(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
+    scope: ModeScope,
 ) -> None:
     first_player = random_steamid64()
     second_player = random_steamid64()
@@ -589,7 +621,7 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
         await db.exec(
             select(RecordPb).where(
                 RecordPb.course_id == course.id,
-                RecordPb.scope == ModeScope.OVR,
+                RecordPb.scope == scope,
                 RecordPb.type == RecordType.NUB,
             )
         )
@@ -601,10 +633,20 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
         db.add(row)
     await db.commit()
 
+    other_scope_rows = (
+        await db.exec(
+            select(
+                RecordPb.scope, RecordPb.steamid64, RecordPb.points, RecordPb.updated_at
+            )
+            .where(RecordPb.course_id == course.id, RecordPb.scope != scope)
+            .order_by(RecordPb.scope, RecordPb.steamid64)
+        )
+    ).all()
+    assert other_scope_rows
     updated_rows = await crud.rebuild_record_pb_points_bucket(
         session=db,
         course_id=course.id,
-        scope_id=0,
+        scope_id=scope.scope_id,
         record_type=RecordType.NUB,
     )
     await db.commit()
@@ -614,7 +656,7 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
             select(RecordPb)
             .where(
                 RecordPb.course_id == course.id,
-                RecordPb.scope == ModeScope.OVR,
+                RecordPb.scope == scope,
                 RecordPb.type == RecordType.NUB,
             )
             .order_by(RecordPb.time.asc(), RecordPb.record_uuid.asc())
@@ -627,6 +669,15 @@ async def test_rebuild_record_pb_points_bucket_updates_real_points(
     assert refreshed_rows[1].time == Decimal("12.000")
     assert refreshed_rows[0].updated_at == original_updated_on
     assert refreshed_rows[1].updated_at == original_updated_on
+    assert (
+        await db.exec(
+            select(
+                RecordPb.scope, RecordPb.steamid64, RecordPb.points, RecordPb.updated_at
+            )
+            .where(RecordPb.course_id == course.id, RecordPb.scope != scope)
+            .order_by(RecordPb.scope, RecordPb.steamid64)
+        )
+    ).all() == other_scope_rows
 
     # WR ownership can move between separate write chunks without violating
     # the partial unique index or changing PB timestamps.
@@ -1396,6 +1447,7 @@ async def test_rebuild_record_pbs_for_course_keeps_bonus_points_for_validated_ma
 
 async def test_read_map_wrs_uses_record_pb_main_course_rows(
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     nub_player = random_steamid64()
     pro_player = random_steamid64()
@@ -1427,6 +1479,19 @@ async def test_read_map_wrs_uses_record_pb_main_course_rows(
         teleports=0,
     )
 
+    player = await db.get(Player, nub_player)
+    assert player is not None
+    player.alias = "WR alias"
+    await db.flush()
+    queries = 0
+    original_exec = db.exec
+
+    async def counted_exec(*args, **kwargs):
+        nonlocal queries
+        queries += 1
+        return await original_exec(*args, **kwargs)
+
+    monkeypatch.setattr(db, "exec", counted_exec)
     wr_rows = await crud.read_map_wrs(
         session=db,
         map_id=981024,
@@ -1437,6 +1502,8 @@ async def test_read_map_wrs_uses_record_pb_main_course_rows(
         (RecordType.PRO, pro_record.uuid),
     ]
     assert [row.teleports for row in wr_rows] == [1, 0]
+    assert [row.player.display_name for row in wr_rows] == ["WR alias", "Pro WR"]
+    assert queries == 1
 
     main_course = (
         await db.exec(

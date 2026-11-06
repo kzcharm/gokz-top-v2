@@ -10,6 +10,7 @@ from typing import Any, Literal
 
 from sqlalchemy import (
     ARRAY,
+    BigInteger,
     SQLColumnExpression,
     Uuid,
     and_,
@@ -26,7 +27,7 @@ from sqlalchemy import (
     tuple_,
     update,
 )
-from sqlalchemy.orm import aliased
+from sqlalchemy.orm import aliased, load_only
 from sqlalchemy.orm.attributes import set_committed_value
 from sqlalchemy.sql.elements import ColumnElement
 from sqlmodel import col, select
@@ -99,7 +100,7 @@ from app.services.record_replay_catalog import available_record_uuids
 from .ban import active_ban_exists_clause, not_active_ban_exists_clause
 from .map import get_map_by_name
 from .map_leaderboard import rebuild_map_leaderboards_for_keys
-from .player import read_players_batch, steamid64_to_steam2, to_player_ref_public
+from .player import steamid64_to_steam2, to_player_ref_public
 from .player_notification import (
     create_reported_record_invalidated_notifications,
     create_wr_beaten_notification,
@@ -117,7 +118,6 @@ _record_pb_table = get_sqlmodel_table(RecordPb)
 class _WinnerPbEntry:
     record_uuid: uuid.UUID
     time: Decimal
-    time_ms: int
     created_at: datetime
 
 
@@ -341,7 +341,8 @@ async def _load_active_banned_steamid64s(
         return set()
 
     statement = select(col(Ban.steamid64)).where(
-        col(Ban.steamid64).in_(list(dict.fromkeys(steamid64s))),
+        col(Ban.steamid64)
+        == any_(literal(list(dict.fromkeys(steamid64s)), type_=ARRAY(BigInteger()))),
         or_(col(Ban.expires_at).is_(None), col(Ban.expires_at) >= func.now()),
     )
     return set((await session.exec(statement)).all())
@@ -578,7 +579,6 @@ async def _load_bucket_winner_entries(
         col(Record.uuid).label("record_uuid"),
         col(Record.time).label("time_seconds"),
         col(Record.created_at).label("created_at"),
-        col(Record.id).label("record_id"),
     ).where(
         col(Record.is_valid) == true(),
         col(Record.map_id) == course.map_id,
@@ -593,34 +593,17 @@ async def _load_bucket_winner_entries(
         col(Record.time).asc(),
         *_record_tie_breakers(),
     )
-    winner_rows_subquery = winner_rows.subquery()
-
-    ordered_winners = (
-        await session.exec(
-            select_row(
-                winner_rows_subquery.c.steamid64,
-                winner_rows_subquery.c.record_uuid,
-                winner_rows_subquery.c.time_seconds,
-                winner_rows_subquery.c.created_at,
-                winner_rows_subquery.c.record_id,
-            ).order_by(
-                winner_rows_subquery.c.time_seconds.asc(),
-                winner_rows_subquery.c.record_id.asc().nullslast(),
-                winner_rows_subquery.c.record_uuid.asc(),
-            )
-        )
-    ).all()
+    winners = (await session.exec(winner_rows)).all()
     return [
         (
             steamid64,
             _WinnerPbEntry(
                 record_uuid=record_uuid,
                 time=time_seconds,
-                time_ms=seconds_to_time_ms(time_seconds),
                 created_at=created_at,
             ),
         )
-        for steamid64, record_uuid, time_seconds, created_at, _record_id in ordered_winners
+        for steamid64, record_uuid, time_seconds, created_at in winners
     ]
 
 
@@ -1076,20 +1059,18 @@ async def rebuild_record_pb_points_bucket(
     record_type: RecordType,
     tier: int | None = None,
 ) -> int:
+    scope = mode_scope_from_id(scope_id)
     rows = (
         await session.exec(
             select_row(
-                col(RecordPb.scope),
-                col(RecordPb.course_id),
                 col(RecordPb.steamid64),
-                col(RecordPb.type),
                 col(RecordPb.record_uuid),
                 col(RecordPb.time),
                 col(RecordPb.points),
                 col(RecordPb.updated_at),
             )
             .where(
-                col(RecordPb.scope) == mode_scope_from_id(scope_id),
+                col(RecordPb.scope) == scope,
                 col(RecordPb.course_id) == course_id,
                 col(RecordPb.type) == record_type,
             )
@@ -1101,7 +1082,7 @@ async def rebuild_record_pb_points_bucket(
 
     banned_steamid64s = await _load_active_banned_steamid64s(
         session=session,
-        steamid64s=[steamid64 for _scope, _course, steamid64, *_rest in rows],
+        steamid64s=[steamid64 for steamid64, *_rest in rows],
     )
 
     resolved_tier = (
@@ -1120,10 +1101,7 @@ async def rebuild_record_pb_points_bucket(
                 time_seconds=time_seconds,
             )
             for (
-                _row_scope_id,
-                _row_course_id,
                 steamid64,
-                _row_record_type,
                 record_uuid,
                 time_seconds,
                 _current_points,
@@ -1145,10 +1123,10 @@ async def rebuild_record_pb_points_bucket(
     updates = [
         (
             _record_pb_points_update_params(
-                scope=row_scope_id,
-                course_id=row_course_id,
+                scope=scope,
+                course_id=course_id,
                 steamid64=steamid64,
-                record_type=row_record_type,
+                record_type=record_type,
                 points=(
                     _stored_points_for_banned_record()
                     if steamid64 in banned_steamid64s
@@ -1162,10 +1140,7 @@ async def rebuild_record_pb_points_bucket(
             else points_by_uuid[record_uuid],
         )
         for (
-            row_scope_id,
-            row_course_id,
             steamid64,
-            row_record_type,
             record_uuid,
             _time_seconds,
             current_points,
@@ -1454,13 +1429,16 @@ async def read_map_wrs(
             col(RecordPb.record_uuid),
             col(RecordPb.updated_at),
             col(Record.mode),
-            col(Record.steamid64),
+            Player,
             col(RecordPb.time),
             col(Record.teleports),
         )
         .join(MapCourse, col(MapCourse.id) == col(RecordPb.course_id))
         .join(Map, col(Map.id) == col(MapCourse.map_id))
         .join(Record, col(Record.uuid) == col(RecordPb.record_uuid))
+        .join(Player, col(Player.steamid64) == col(Record.steamid64))
+        # SQLModel types class attributes as values rather than ORM descriptors.
+        .options(load_only(Player.steamid64, Player.name, Player.alias))  # type: ignore[arg-type]
         .where(
             RecordPb.scope == scope,
             RecordPb.points == 1000,
@@ -1475,11 +1453,6 @@ async def read_map_wrs(
         statement = statement.where(RecordPb.type == record_type)
 
     rows = (await session.exec(statement)).all()
-    unique_steamid64s = list(dict.fromkeys(row[6] for row in rows))
-    players = await read_players_batch(session=session, steamid64s=unique_steamid64s)
-    players_by_steamid64 = {
-        player.steamid64: player for player in players if player is not None
-    }
 
     return [
         MapWrPublic(
@@ -1488,7 +1461,7 @@ async def read_map_wrs(
             scope=row_scope,
             type=row_record_type,
             mode_id=mode.mode_id,
-            player=to_player_ref_public(player=players_by_steamid64[player_steamid64]),
+            player=to_player_ref_public(player=player),
             time=float(record_time),
             teleports=record_teleports,
             updated_at=updated_at,
@@ -1500,7 +1473,7 @@ async def read_map_wrs(
             record_uuid,
             updated_at,
             mode,
-            player_steamid64,
+            player,
             record_time,
             record_teleports,
         ) in rows
@@ -1524,8 +1497,6 @@ async def read_map_wr_history(
             col(Record.uuid).label("record_uuid"),
             col(Record.steamid64),
             col(Record.server_id),
-            col(Record.native_server_id),
-            col(Record.native_server_name).label("native_server_name"),
             col(Record.mode),
             col(Record.teleports),
             col(Record.time),
@@ -1538,7 +1509,7 @@ async def read_map_wr_history(
         .where(
             col(Record.map_id) == map_id,
             col(Record.stage) == 0,
-            col(Record.is_valid).is_(True),
+            col(Record.is_valid) == true(),
             col(Record.mode).in_(list(mode_scope_modes(scope))),
             not_active_ban_exists_clause(steamid64_column=col(Record.steamid64)),
         )
@@ -1564,14 +1535,15 @@ async def read_map_wr_history(
                 events_cte.c.record_uuid,
                 Player,
                 events_cte.c.server_id,
-                func.coalesce(
-                    col(ServerGlobalapi.name), events_cte.c.native_server_name
-                ),
+                func.coalesce(col(ServerGlobalapi.name), Record.native_server_name),
                 Mode,
                 events_cte.c.teleports,
                 events_cte.c.time,
                 events_cte.c.created_at,
+                col(Record.native_server_id),
             )
+            .select_from(events_cte)
+            .join(Record, col(Record.uuid) == events_cte.c.record_uuid)
             .join(Player, col(Player.steamid64) == events_cte.c.steamid64)
             .outerjoin(
                 ServerGlobalapi, col(ServerGlobalapi.id) == events_cte.c.server_id
@@ -1598,21 +1570,12 @@ async def read_map_wr_history(
             *(row for row in rows if row[7] >= stabilization_end),
         ]
 
-    native_ids = dict(
-        (
-            await session.exec(
-                select(Record.uuid, Record.native_server_id).where(
-                    col(Record.uuid).in_([row[0] for row in rows])
-                )
-            )
-        ).all()
-    )
     entries = [
         MapWrHistoryEntryPublic(
             record_uuid=record_uuid,
             player=to_player_ref_public(player=player),
             server_id=server_id,
-            native_server_id=native_ids.get(record_uuid),
+            native_server_id=native_server_id,
             server_name=server_name or "",
             mode_id=mode.name_short.mode_id,
             mode=mode.name_short,
@@ -1629,6 +1592,7 @@ async def read_map_wr_history(
             teleports,
             record_time,
             created_on,
+            native_server_id,
         ) in rows
     ]
     return MapWrHistoryPublic(data=entries, count=len(entries))
@@ -2339,7 +2303,7 @@ async def read_recent_records(
                 col(ovr_pb.type) == RecordType.NUB,
             ),
         )
-        .where(col(Record.is_valid).is_(True))
+        .where(col(Record.is_valid) == true())
     )
     statement = apply_recent_record_filters(statement)
 
@@ -2488,7 +2452,7 @@ async def read_record_run_history(
         .outerjoin(ServerGlobalapi, col(Record.server_id) == col(ServerGlobalapi.id))
         .join(Map, col(Record.map_id) == col(Map.id))
         .where(
-            col(Record.is_valid).is_(True),
+            col(Record.is_valid) == true(),
             col(Record.steamid64) == steamid64,
             col(Record.map_id) == map_id,
             col(Record.stage) == stage,
@@ -3072,19 +3036,19 @@ async def get_pb_record_publics(
     limit: int = 100,
 ) -> list[RecordPublic]:
     anchor_pb = aliased(RecordPb)
-    pro_pb = aliased(RecordPb)
-    ovr_pb = aliased(RecordPb)
-    scoped_points = (
-        pro_pb.points if record_type.is_pro else func.coalesce(ovr_pb.points, 0)
+    public_scoped_points: SQLColumnExpression[int] = col(anchor_pb.points)
+    public_raw_rating_contribution: SQLColumnExpression[int] = col(
+        anchor_pb.raw_rating_contribution
     )
-    public_scoped_points = case(
-        (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
-        else_=scoped_points,
-    )
-    public_raw_rating_contribution = case(
-        (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
-        else_=anchor_pb.raw_rating_contribution,
-    )
+    if not exclude_cheaters:
+        public_scoped_points = case(
+            (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
+            else_=anchor_pb.points,
+        )
+        public_raw_rating_contribution = case(
+            (active_ban_exists_clause(steamid64_column=col(Record.steamid64)), 0),
+            else_=anchor_pb.raw_rating_contribution,
+        )
     sort_expressions: dict[RecordPbSortBy, SQLColumnExpression[Any]] = {
         "time": col(anchor_pb.time),
         "points": public_scoped_points,
@@ -3155,6 +3119,8 @@ async def get_pb_record_publics(
             col(Record.updated_by),
             col(Record.replay_id),
             col(Record.is_valid),
+            col(Record.native_server_id),
+            col(Record.native_server_name),
         )
         .select_from(anchor_pb)
         .join(Record, col(Record.uuid) == col(anchor_pb.record_uuid))
@@ -3168,22 +3134,6 @@ async def get_pb_record_publics(
         .join(Map, col(Record.map_id) == col(Map.id))
         .join(Mode, col(Record.mode) == col(Mode.name_short))
         .where(col(Map.validated).is_(True))
-        .outerjoin(
-            pro_pb,
-            and_(
-                col(pro_pb.record_uuid) == col(Record.uuid),
-                col(pro_pb.scope) == scope,
-                col(pro_pb.type) == RecordType.PRO,
-            ),
-        )
-        .outerjoin(
-            ovr_pb,
-            and_(
-                col(ovr_pb.record_uuid) == col(Record.uuid),
-                col(ovr_pb.scope) == scope,
-                col(ovr_pb.type) == RecordType.NUB,
-            ),
-        )
     )
     geography_country_codes = (
         (country,) if country is not None else get_region_country_codes(region)
@@ -3274,6 +3224,8 @@ async def get_pb_record_publics(
                 _updated_by,
                 _replay_id,
                 _is_valid,
+                _native_server_id,
+                _native_server_name,
             ) in rows
         ],
         scope=scope,
@@ -3291,16 +3243,6 @@ async def get_pb_record_publics(
         else {}
     )
     replay_uuids = await available_record_uuids(session, [row[0] for row in rows])
-    native_servers = {
-        row[0]: (row[1], row[2])
-        for row in (
-            await session.exec(
-                select(
-                    Record.uuid, Record.native_server_id, Record.native_server_name
-                ).where(col(Record.uuid).in_([row[0] for row in rows]))
-            )
-        ).all()
-    }
     return [
         RecordPublic(
             uuid=record_uuid,
@@ -3312,8 +3254,8 @@ async def get_pb_record_publics(
             },
             steam_id=None,
             server_id=server_id,
-            native_server_id=native_servers[record_uuid][0],
-            native_server_name=native_servers[record_uuid][1],
+            native_server_id=native_server_id,
+            native_server_name=native_server_name,
             server_name=server_name or "",
             server_group=_to_server_group_summary_from_values(
                 group_id=server_group_id,
@@ -3366,6 +3308,8 @@ async def get_pb_record_publics(
             updated_by,
             replay_id,
             is_valid,
+            native_server_id,
+            native_server_name,
         ) in rows
     ]
 

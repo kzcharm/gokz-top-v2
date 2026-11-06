@@ -9,6 +9,8 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.crud.player_stats import DAILY_ACTIVITY_CACHE_VERSION
 from app.models import (
+    Ban,
+    BanType,
     KZMode,
     Map,
     MapCourse,
@@ -21,13 +23,14 @@ from app.models import (
     Record,
     RecordFilter,
     RecordPb,
+    RecordType,
     ServerGroupStatus,
     generate_uuid7,
     get_datetime_utc,
     mode_scope_modes,
 )
 from app.models.record_upload import RecordFinish, RecordIntegrity
-from app.services.record_ingestion import accept_record, check_record
+from app.services.record_ingestion import accept_record, check_record, replay_buckets
 from tests.utils.server import create_server, create_server_group
 
 
@@ -78,6 +81,74 @@ async def setup_finish(db: AsyncSession, mode: KZMode = KZMode.NKZ):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("exclude_previous", [False, True])
+@pytest.mark.parametrize("teleports", [0, 1])
+async def test_replay_bucket_summaries_preserve_eligibility(
+    db: AsyncSession, exclude_previous: bool, teleports: int
+):
+    _, _, payload = await setup_finish(db)
+    payload = payload.model_copy(update={"time": Decimal("30"), "teleports": teleports})
+    players = [payload.steamid64 + index for index in range(9)]
+    db.add_all(Player(steamid64=player, name="Replay fixture") for player in players)
+    await db.flush()
+    previous = generate_uuid7()
+    rows = [
+        (0, "20", {"uuid": previous}),
+        (0, "40", {}),
+        (1, "10", {}),
+        (1, "15", {}),
+        (2, "30", {}),
+        (3, "5", {"is_valid": False}),
+        (4, "1", {}),
+        (5, "25", {"mode": KZMode.SKZ}),
+        (6, "27", {"mode": KZMode.NKZ}),
+        (7, "8", {"teleports": 1}),
+        (8, "2", {"stage": 1}),
+    ]
+    db.add_all(
+        Record(
+            **{
+                "steamid64": players[player],
+                "map_id": 982345,
+                "mode": KZMode.KZT,
+                "time": Decimal(time),
+            }
+            | overrides
+        )
+        for player, time, overrides in rows
+    )
+    db.add(Ban(steamid64=players[4], ban_type=BanType.OTHER))
+    db.add(
+        Ban(
+            steamid64=players[1],
+            ban_type=BanType.OTHER,
+            expires_at=get_datetime_utc() - timedelta(days=1),
+        )
+    )
+    await db.flush()
+    buckets = await replay_buckets(
+        db, payload, 982345, previous if exclude_previous else None
+    )
+    expected = [
+        (ModeScope.OVR, RecordType.NUB, Decimal("8"), 5),
+        (ModeScope.OVR, RecordType.PRO, Decimal("10"), 4),
+        (ModeScope.KZT, RecordType.NUB, Decimal("8"), 4),
+        (ModeScope.KZT, RecordType.PRO, Decimal("10"), 3),
+    ]
+    if teleports:
+        expected = [row for row in expected if row[1] is RecordType.NUB]
+    assert [(b.scope, b.type, b.previous_wr, b.rank) for b in buckets] == expected
+    assert all(
+        b.previous_pb == Decimal("40" if exclude_previous else "20") for b in buckets
+    )
+    empty = await replay_buckets(db, payload.model_copy(update={"stage": 2}), 982345)
+    assert len(empty) == len(expected)
+    assert all(
+        b.previous_pb is None and b.previous_wr is None and b.rank == 1 for b in empty
+    )
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("mode", list(KZMode))
 async def test_accept_all_modes_and_retry(db: AsyncSession, mode: KZMode):
     group, server, payload = await setup_finish(db, mode)
@@ -116,6 +187,15 @@ async def test_ties_are_distinct_and_not_replay_eligible(db: AsyncSession):
     second = payload.model_copy(update={"record_uuid": generate_uuid7()})
     result = await accept_record(db, group, second, "second")
     assert result["replay_eligible"] is False
+    personal_bests = (
+        await db.exec(select(RecordPb).where(RecordPb.steamid64 == payload.steamid64))
+    ).all()
+    assert len(personal_bests) == 4
+    assert all(
+        pb.record_uuid == min(payload.record_uuid, second.record_uuid)
+        and pb.time == payload.time
+        for pb in personal_bests
+    )
 
 
 @pytest.mark.asyncio
@@ -275,8 +355,6 @@ async def test_http_auth_ownership_optional_uuid_and_native_reads(db, client):
 
 @pytest.mark.asyncio
 async def test_bans_integrity_and_group_eligibility(db):
-    from app.models import Ban, BanType, Player
-
     group, _, payload = await setup_finish(db)
     invalid = payload.model_copy(
         update={
@@ -560,6 +638,7 @@ async def test_heartbeat_registers_steam_identity_and_tracks_address(
 ):
     from unittest.mock import AsyncMock
 
+    from app.crud import server as server_crud
     from app.crud.server import upsert_server_from_plugin_heartbeat
     from app.models import ServerStatusPut
 
@@ -585,17 +664,24 @@ async def test_heartbeat_registers_steam_identity_and_tracks_address(
         if existing
         else None
     )
+    hydrate = AsyncMock(wraps=server_crud._hydrate_servers)
+    monkeypatch.setattr(server_crud, "_hydrate_servers", hydrate)
     server = await upsert_server_from_plugin_heartbeat(
         session=db, group=group, payload=heartbeat
     )
+    assert hydrate.await_count == 1
+    assert server.live_status.hostname == heartbeat.hostname
+    assert server.group.id == group.id
     if previous is not None:
         assert server.id == previous.id
     original = server.id
     assert server.steamid64 == steamid
     heartbeat.ip = "192.0.2.52"
+    hydrate.reset_mock()
     moved = await upsert_server_from_plugin_heartbeat(
         session=db, group=group, payload=heartbeat
     )
+    assert hydrate.await_count == 1
     assert moved.id == original and moved.ip == heartbeat.ip
     other, _ = await create_server_group(db)
     with pytest.raises(ValueError, match="does not belong"):

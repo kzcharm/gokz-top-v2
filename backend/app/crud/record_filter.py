@@ -1,7 +1,7 @@
 from collections import defaultdict
 from collections.abc import Sequence
 
-from sqlalchemy import case, or_
+from sqlalchemy import case, or_, tuple_
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -238,49 +238,26 @@ async def load_scoped_course_tiers(
     if not unique_course_keys:
         return {}
 
-    map_ids = sorted({map_id for map_id, _stage in unique_course_keys})
-    stages = sorted({stage for _map_id, stage in unique_course_keys})
-    courses = list(
-        (
-            await session.exec(
-                select(MapCourse).where(
-                    col(MapCourse.map_id).in_(map_ids),
-                    col(MapCourse.stage).in_(stages),
-                )
+    rows = (
+        await session.exec(
+            select(col(MapCourse.map_id), col(MapCourse.stage), col(MapCourseTier.tier))
+            .join(MapCourseTier, col(MapCourseTier.course_id) == col(MapCourse.id))
+            .where(
+                tuple_(col(MapCourse.map_id), col(MapCourse.stage)).in_(
+                    unique_course_keys
+                ),
+                col(MapCourseTier.mode).in_(list(mode_scope_modes(scope))),
             )
-        ).all()
-    )
-    course_by_key = {
-        (course.map_id, course.stage): course
-        for course in courses
-        if course.id is not None
-    }
-
-    tiers_by_course_id: dict[int, list[int]] = defaultdict(list)
-    course_ids = [course.id for course in courses if course.id is not None]
-    if course_ids:
-        tier_rows = (
-            await session.exec(
-                select(col(MapCourseTier.course_id), col(MapCourseTier.tier)).where(
-                    col(MapCourseTier.course_id).in_(course_ids),
-                    col(MapCourseTier.mode).in_(list(mode_scope_modes(scope))),
-                )
-            )
-        ).all()
-        for course_id, tier in tier_rows:
-            tiers_by_course_id[int(course_id)].append(int(tier))
-
-    resolved_tiers: dict[tuple[int, int], int] = {}
-    for map_id, stage in unique_course_keys:
-        course = course_by_key.get((map_id, stage))
-        if course is None or course.id is None:
-            resolved_tiers[(map_id, stage)] = 0
-            continue
-        resolved_tiers[(map_id, stage)] = _aggregate_scope_tier(
-            tiers_by_course_id.get(course.id, [])
         )
+    ).all()
+    tiers_by_course: dict[tuple[int, int], list[int]] = defaultdict(list)
+    for map_id, stage, tier in rows:
+        tiers_by_course[(map_id, stage)].append(int(tier))
 
-    return resolved_tiers
+    return {
+        key: _aggregate_scope_tier(tiers_by_course.get(key, []))
+        for key in unique_course_keys
+    }
 
 
 async def load_map_tiers_by_scope(
@@ -292,66 +269,48 @@ async def load_map_tiers_by_scope(
     if not unique_map_ids:
         return {}
 
-    courses = list(
-        (
-            await session.exec(
-                select(MapCourse)
-                .where(
-                    col(MapCourse.map_id).in_(unique_map_ids),
-                    col(MapCourse.stage) == 0,
-                )
-                .order_by(col(MapCourse.map_id).asc(), col(MapCourse.id).asc())
+    rows = (
+        await session.exec(
+            select(
+                col(MapCourse.map_id),
+                col(MapCourseTier.mode),
+                col(MapCourseTier.tier),
             )
-        ).all()
-    )
-    course_by_map_id = {
-        course.map_id: course for course in courses if course.id is not None
+            .join(MapCourseTier, col(MapCourseTier.course_id) == col(MapCourse.id))
+            .where(
+                col(MapCourse.map_id).in_(unique_map_ids),
+                col(MapCourse.stage) == 0,
+            )
+        )
+    ).all()
+    tiers_by_map_id_and_mode = {
+        (map_id, mode): int(tier) for map_id, mode, tier in rows
     }
-
-    course_ids = [course.id for course in courses if course.id is not None]
-    tiers_by_course_id_and_mode: dict[tuple[int, KZMode], int] = {}
-    if course_ids:
-        rows = (
-            await session.exec(
-                select(
-                    col(MapCourseTier.course_id),
-                    col(MapCourseTier.mode),
-                    col(MapCourseTier.tier),
-                ).where(col(MapCourseTier.course_id).in_(course_ids))
-            )
-        ).all()
-        tiers_by_course_id_and_mode = {
-            (int(course_id), mode): int(tier) for course_id, mode, tier in rows
-        }
 
     resolved_tiers: dict[int, MapTiers] = {}
     for map_id in unique_map_ids:
-        course = course_by_map_id.get(map_id)
-        if course is None or course.id is None:
-            resolved_tiers[map_id] = MapTiers()
-            continue
         resolved_tiers[map_id] = MapTiers(
             OVR=_aggregate_scope_tier(
                 [
-                    tiers_by_course_id_and_mode.get((course.id, mode), 0)
+                    tiers_by_map_id_and_mode.get((map_id, mode), 0)
                     for mode in mode_scope_modes(ModeScope.OVR)
                 ]
             ),
             KZT=_aggregate_scope_tier(
                 [
-                    tiers_by_course_id_and_mode.get((course.id, mode), 0)
+                    tiers_by_map_id_and_mode.get((map_id, mode), 0)
                     for mode in mode_scope_modes(ModeScope.KZT)
                 ]
             ),
             SKZ=_aggregate_scope_tier(
                 [
-                    tiers_by_course_id_and_mode.get((course.id, mode), 0)
+                    tiers_by_map_id_and_mode.get((map_id, mode), 0)
                     for mode in mode_scope_modes(ModeScope.SKZ)
                 ]
             ),
             VNL=_aggregate_scope_tier(
                 [
-                    tiers_by_course_id_and_mode.get((course.id, mode), 0)
+                    tiers_by_map_id_and_mode.get((map_id, mode), 0)
                     for mode in mode_scope_modes(ModeScope.VNL)
                 ]
             ),

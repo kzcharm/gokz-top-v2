@@ -5,6 +5,7 @@ import pytest
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
+from app.crud.map_stat import _build_wr_gap_distribution
 from app.models import (
     Ban,
     BanType,
@@ -20,6 +21,21 @@ from app.models import (
 from tests.utils.utils import random_steamid64
 
 pytestmark = pytest.mark.asyncio
+
+
+@pytest.mark.parametrize(
+    "record_times",
+    [[], [10.0], [10.0, 10.0], [10.0, 20.0, 15.0, 30.0, 10.0, 25.0]],
+)
+async def test_wr_gap_distribution_is_independent_of_input_order(
+    record_times: list[float],
+) -> None:
+    expected = _build_wr_gap_distribution(record_times=record_times)
+    for reordered in [
+        list(reversed(record_times)),
+        record_times[1:] + record_times[:1],
+    ]:
+        assert _build_wr_gap_distribution(record_times=reordered) == expected
 
 
 async def _create_player(db: AsyncSession, *, steamid64: int, name: str) -> None:

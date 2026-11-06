@@ -171,14 +171,12 @@ async def _load_wr_gap_record_times(
 ) -> list[float]:
     rows = (
         await session.exec(
-            select(col(RecordPb.time))
-            .where(
+            select(col(RecordPb.time)).where(
                 col(RecordPb.course_id) == course_id,
                 col(RecordPb.scope) == scope,
                 col(RecordPb.type) == record_type,
                 not_active_ban_exists_clause(steamid64_column=col(RecordPb.steamid64)),
             )
-            .order_by(col(RecordPb.time).asc(), col(RecordPb.record_uuid).asc())
         )
     ).all()
     return [float(record_time) for record_time in rows]
