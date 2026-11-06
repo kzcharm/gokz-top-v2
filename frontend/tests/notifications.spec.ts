@@ -154,6 +154,7 @@ test("notifications show unread badge and mark clicked item read", async ({
   )
 
   await page.goto("/notifications")
+  await expect(page).toHaveURL(/\/settings\/notifications$/)
 
   await expect(
     page.getByRole("heading", { name: "Notifications" }),
@@ -280,7 +281,7 @@ test("notifications show deleted map review comment text and map link", async ({
     },
   )
 
-  await page.goto("/notifications")
+  await page.goto("/settings/notifications")
 
   await expect(page.getByText("Review Admin")).toHaveCount(0)
   await expect(page.getByText("Your map review comment on")).toBeVisible()
