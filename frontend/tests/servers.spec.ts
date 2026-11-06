@@ -7,6 +7,14 @@ import { logInUser } from "./utils/user"
 
 test.use({ storageState: { cookies: [], origins: [] } })
 
+test.beforeEach(async ({ page }) => {
+  await page.route("**/v1/web-gokz/servers", (route) =>
+    route.fulfill({
+      json: { data: [], count: 0 },
+    }),
+  )
+})
+
 async function stubMapImageGraphql(
   page: Page,
   onBatch?: (
@@ -851,7 +859,9 @@ test("Public servers page supports live updates, filters, and route-bound detail
     .click()
   await expect(page).toHaveURL(/\/servers(\?|$)/)
 
-  await page.getByRole("link", { name: /\[kzt\]Runner One/ }).click()
+  const playerLink = page.getByRole("link", { name: /Runner One/ })
+  await expect(playerLink).toHaveClass(/group\/player-chip/)
+  await playerLink.click()
   await expect(page).toHaveURL(/\/profile\/76561198000000001$/)
   await page.goBack()
   await expect(page.getByTestId("server-card-10.0.0.3:27017")).toBeVisible()

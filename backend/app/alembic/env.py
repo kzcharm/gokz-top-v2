@@ -32,7 +32,7 @@ target_metadata = SQLModel.metadata
 
 def include_name(name, type_, parent_names):
     if type_ == "schema":
-        return name in {None, "public", "cache", "products"}
+        return name in {None, "public", "cache", "products", "web_gokz"}
     if type_ == "table":
         # Leave partition children and externally managed tables untouched.
         return parent_names["schema_qualified_table_name"] in target_metadata.tables

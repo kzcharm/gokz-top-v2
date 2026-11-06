@@ -4,6 +4,7 @@ import {
   ArrowDown,
   ArrowUp,
   Download,
+  Gamepad2,
   Grid,
   List,
   Map as MapIcon,
@@ -50,6 +51,11 @@ import useCustomToast from "@/hooks/useCustomToast"
 import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { cn } from "@/lib/utils"
+import {
+  buildWebGokzUrl,
+  getWebGokzRoomId,
+  webGokzRequest,
+} from "@/lib/web-gokz"
 
 import type {
   ServerRealtimeEvent,
@@ -220,7 +226,7 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   )
   const [searchInput, setSearchInput] = useState(() => hydratedInitialSearch.q)
   const deferredSearchInput = useDeferredValue(searchInput)
-  const [servers, setServers] = useState<ServerPublic[]>([])
+  const [nativeServers, setServers] = useState<ServerPublic[]>([])
   const [serversSeeded, setServersSeeded] = useState(false)
   const [connectionState, setConnectionState] =
     useState<ConnectionState>("connecting")
@@ -237,6 +243,25 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
     refetchOnWindowFocus: false,
     retry: 1,
   })
+  const webServersQuery = useQuery({
+    queryKey: ["web-gokz-servers"],
+    queryFn: () => webGokzRequest<{ data: ServerPublic[] }>("/servers"),
+    refetchInterval: 10000,
+  })
+  const servers = useMemo(
+    () => [
+      ...(webServersQuery.data?.data ?? []).map((server) =>
+        webServersQuery.isError && server.live_status
+          ? {
+              ...server,
+              live_status: { ...server.live_status, is_online: false },
+            }
+          : server,
+      ),
+      ...nativeServers,
+    ],
+    [webServersQuery.data, webServersQuery.isError, nativeServers],
+  )
   const mapsQuery = useQuery({
     queryKey: ["maps", "validated"],
     queryFn: () =>
@@ -567,7 +592,10 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   }
 
   const handleCopyAddress = async (server: ServerPublic) => {
-    const copied = await copyToClipboard(`connect ${getServerAddress(server)}`)
+    const room = getWebGokzRoomId(server)
+    const copied = await copyToClipboard(
+      room ? buildWebGokzUrl({ room }) : `connect ${getServerAddress(server)}`,
+    )
 
     if (copied) {
       playCopySuccessSound()
@@ -579,6 +607,11 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
   }
 
   const handleSteamConnect = (server: ServerPublic) => {
+    const room = getWebGokzRoomId(server)
+    if (room) {
+      window.open(buildWebGokzUrl({ room }), "_blank", "noopener,noreferrer")
+      return
+    }
     if (!canSteamConnect(server)) return
     window.location.href = `steam://connect/${getServerAddress(server)}`
   }
@@ -670,7 +703,11 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
       URL.revokeObjectURL(url)
 
       showSuccessToast(
-        t("serverBrowser.downloaded", { count: sortedServers.length }),
+        t("serverBrowser.downloaded", {
+          count: sortedServers.filter(
+            (server) => server.source.type !== "web_gokz",
+          ).length,
+        }),
       )
       setConfigDialogOpen(true)
     } catch {
@@ -780,6 +817,13 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                           activeSearch.group === groupId ? "default" : "outline"
                         }
                         size="sm"
+                        className={cn(
+                          group.customId === "web-gokz" &&
+                            "border-dashed border-primary/60",
+                          group.customId === "web-gokz" &&
+                            activeSearch.group !== groupId &&
+                            "bg-primary/5 text-primary hover:bg-primary/10",
+                        )}
                         onClick={() => handleGroupChange(groupId)}
                         title={
                           activeSearch.group === groupId
@@ -792,6 +836,9 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                               })
                         }
                       >
+                        {group.customId === "web-gokz" ? (
+                          <Gamepad2 className="size-4" aria-hidden="true" />
+                        ) : null}
                         <span className="max-w-40 truncate">
                           {groupId === UNASSIGNED_SERVER_GROUP_ID
                             ? t("serverBrowser.others")
@@ -935,7 +982,11 @@ export function ServerBrowser({ initialSearchString }: ServerBrowserProps) {
                     variant="outline"
                     size="icon-sm"
                     onClick={handleDownloadConfig}
-                    disabled={sortedServers.length === 0}
+                    disabled={
+                      !sortedServers.some(
+                        (server) => server.source.type !== "web_gokz",
+                      )
+                    }
                     aria-label={t("serverBrowser.downloadConfig")}
                     title={t("serverBrowser.downloadConfig")}
                     data-testid="download-servers-config-button"

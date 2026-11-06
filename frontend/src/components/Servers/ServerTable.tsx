@@ -1,4 +1,11 @@
-import { ArrowDown, ArrowUp, Copy, LoaderCircle, Play } from "lucide-react"
+import {
+  ArrowDown,
+  ArrowUp,
+  Copy,
+  Gamepad2,
+  LoaderCircle,
+  Play,
+} from "lucide-react"
 import { useTranslation } from "react-i18next"
 
 import type { ServerPublic } from "@/client"
@@ -19,7 +26,7 @@ import { cn } from "@/lib/utils"
 
 import type { ServerSortDirection, ServerSortKey } from "./utils"
 import {
-  canSteamConnect,
+  canConnectToServer,
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
@@ -145,6 +152,7 @@ export function ServerTable({
               const mapName = getServerMapName(server)
               const isSelected = selectedAddress === address
               const isRefreshing = isServerStatusRefreshing(server)
+              const isWeb = server.source.type === "web_gokz"
 
               return (
                 <TableRow
@@ -152,6 +160,7 @@ export function ServerTable({
                   data-testid={`server-row-${address}`}
                   className={cn(
                     "cursor-pointer",
+                    isWeb && "bg-primary/5",
                     !isServerOnline(server) && "opacity-60",
                     isSelected &&
                       "bg-muted/50 shadow-[inset_0_0_0_1px_var(--color-primary)] [animation:server-selected_650ms_ease-out]",
@@ -160,7 +169,14 @@ export function ServerTable({
                 >
                   <TableCell>
                     <div className="flex justify-center">
-                      <CountryFlag countryCode={server.country} />
+                      {isWeb ? (
+                        <Gamepad2
+                          className="size-4 text-primary"
+                          aria-label="Browser play"
+                        />
+                      ) : (
+                        <CountryFlag countryCode={server.country} />
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
@@ -221,20 +237,22 @@ export function ServerTable({
                   </TableCell>
                   <TableCell>
                     <div className="flex justify-end gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={(event) => {
-                          event.stopPropagation()
-                          onCopyAddress(server)
-                        }}
-                        title={t("serverBrowser.copyAddress")}
-                        aria-label={t("serverBrowser.copyAddress")}
-                      >
-                        <Copy className="h-4 w-4" />
-                      </Button>
-                      {canSteamConnect(server) && (
+                      {!isWeb && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={(event) => {
+                            event.stopPropagation()
+                            onCopyAddress(server)
+                          }}
+                          title={t("serverBrowser.copyAddress")}
+                          aria-label={t("serverBrowser.copyAddress")}
+                        >
+                          <Copy className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canConnectToServer(server) && (
                         <Button
                           variant="ghost"
                           size="icon"
@@ -244,8 +262,16 @@ export function ServerTable({
                             onSteamConnect(server)
                           }}
                           disabled={!isServerOnline(server)}
-                          title={t("serverBrowser.connect")}
-                          aria-label={t("serverBrowser.connect")}
+                          title={
+                            server.source.type === "web_gokz"
+                              ? "Play in browser"
+                              : t("serverBrowser.connect")
+                          }
+                          aria-label={
+                            server.source.type === "web_gokz"
+                              ? "Play in browser"
+                              : t("serverBrowser.connect")
+                          }
                         >
                           <Play className="h-4 w-4" />
                         </Button>

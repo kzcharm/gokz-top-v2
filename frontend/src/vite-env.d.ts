@@ -6,6 +6,7 @@ interface ImportMetaEnv {
   readonly VITE_API_URL: string
   readonly VITE_LOCAL_MAP_DOWNLOAD_URL?: string
   readonly VITE_REPLAY_VIEWER_URL?: string
+  readonly VITE_WEB_GOKZ_API_URL?: string
 }
 
 interface ImportMeta {

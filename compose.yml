@@ -285,6 +285,44 @@ services:
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-https.tls.certresolver=le
       - traefik.http.routers.${STACK_NAME?Variable not set}-frontend-redirect-https.middlewares=${STACK_NAME?Variable not set}-frontend-redirect
 
+  web-gokz:
+    image: '${DOCKER_IMAGE_BACKEND?Variable not set}:${TAG-latest}'
+    restart: always
+    command: uvicorn app.web_gokz:app --host 0.0.0.0 --port 8000 --workers 1 --ws-max-size 4096
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8000/v1/web-gokz/rooms"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - traefik-public
+      - default
+    depends_on:
+      db:
+        condition: service_healthy
+      prestart:
+        condition: service_completed_successfully
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_SERVER=db
+      - REPLAY_VIEWER_HOST=https://${REPLAY_VIEWER_HOSTNAME?Variable not set}
+      - FRONTEND_HOST=${FRONTEND_HOST?Variable not set}
+      - WEB_GOKZ_RESOURCES_DIR=/app/web-resources
+    volumes:
+      - ${REPLAY_VIEWER_RESOURCES_DIR?Variable not set}:/app/web-resources:ro
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=traefik-public
+      - traefik.constraint-label=traefik-public
+      - traefik.http.services.${STACK_NAME?Variable not set}-web-gokz.loadbalancer.server.port=8000
+      - traefik.http.routers.${STACK_NAME?Variable not set}-web-gokz.rule=Host(`${API_HOST?Variable not set}`) && PathPrefix(`/v1/web-gokz`)
+      - traefik.http.routers.${STACK_NAME?Variable not set}-web-gokz.priority=100
+      - traefik.http.routers.${STACK_NAME?Variable not set}-web-gokz.entrypoints=https
+      - traefik.http.routers.${STACK_NAME?Variable not set}-web-gokz.tls=true
+      - traefik.http.routers.${STACK_NAME?Variable not set}-web-gokz.tls.certresolver=le
+
   replayviewer:
     image: '${DOCKER_IMAGE_REPLAY_VIEWER?Variable not set}:${TAG-latest}'
     restart: always
@@ -297,6 +335,7 @@ services:
         VITE_API_BASE_URL: https://${API_HOST?Variable not set}/v1
         VITE_MAP_CATALOG_URL: https://${API_HOST?Variable not set}/v1/maps?offset=0&limit=10000&is_validated=true
         VITE_MAPS_BASE_URL: /resources/maps
+        VITE_WEBSITE_URL: ${FRONTEND_HOST?Variable not set}
     volumes:
       - ${REPLAY_VIEWER_RESOURCES_DIR?Variable not set}:/usr/share/nginx/html/resources:ro
     labels:

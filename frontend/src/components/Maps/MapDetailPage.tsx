@@ -4,6 +4,7 @@ import {
   Calculator,
   Copy,
   Download,
+  Gamepad2,
   LocateFixed,
   Trash2,
   Users,
@@ -63,6 +64,7 @@ import { getMapDownloadUrl } from "@/lib/map-downloads"
 import { getRegionsQueryOptions } from "@/lib/regions"
 import { canModerateBansAndRecords } from "@/lib/user-roles"
 import { cn } from "@/lib/utils"
+import { buildWebGokzUrl } from "@/lib/web-gokz"
 import {
   DeleteCourseRecordsButton,
   DeleteFasterRecordsDialog,
@@ -404,6 +406,16 @@ function MapHero({
             </div>
 
             <div className="flex flex-wrap gap-2">
+              <Button asChild variant="outline" className="rounded-full">
+                <a
+                  href={buildWebGokzUrl({ map: map.name })}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <Gamepad2 className="h-4 w-4" aria-hidden="true" />
+                  Play in browser
+                </a>
+              </Button>
               {downloadUrl ? (
                 <Button asChild variant="outline" className="rounded-full">
                   <a

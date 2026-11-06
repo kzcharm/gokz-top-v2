@@ -1344,6 +1344,11 @@ test("Map top shows grouped server links and ungrouped server names", async ({
 
   await page.goto("/maps/kz_alpha/maptop")
 
+  await expect(page.getByRole("link", { name: "Play in browser" })).toHaveAttribute(
+    "href",
+    "http://localhost:5173/web-gokz/connect?launch=1&map=kz_alpha",
+  )
+
   await expect(
     page.getByRole("link", { name: "Map Top Group" }),
   ).toHaveAttribute("href", "/servers/group/map-top-group")

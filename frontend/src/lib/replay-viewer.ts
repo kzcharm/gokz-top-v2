@@ -1,4 +1,4 @@
-function getReplayViewerBaseUrl() {
+export function getReplayViewerBaseUrl() {
   const configuredBase = import.meta.env.VITE_REPLAY_VIEWER_URL?.trim()
   const fallbackBase = import.meta.env.DEV
     ? "http://localhost:5180"

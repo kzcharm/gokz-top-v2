@@ -2,6 +2,12 @@
 
 GOKZ.TOP v2 is the FastAPI, React, and SourceMod-backed platform for GOKZ records, rankings, server status, player profiles, jumpstats, replays, and server-operator tooling.
 
+Web GOKZ adds browser practice and two shared rooms through the replay-viewer
+submodule. `/servers` lists the rooms, and map menus offer **Play in browser**.
+Players reuse their website login. Browser records are stored separately and
+displayed only inside Web GOKZ. See [deployment.md](deployment.md#web-gokz-service)
+for the required game assets and dedicated room service.
+
 ## Repository Layout
 
 - `backend/`: FastAPI service, SQLModel models, Alembic migrations, background tasks, and pytest suites.

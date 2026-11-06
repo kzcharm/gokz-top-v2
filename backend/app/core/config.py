@@ -51,6 +51,7 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 8
     FRONTEND_HOST: str = "http://localhost:5173"
     REPLAY_VIEWER_HOST: str | None = None
+    WEB_GOKZ_RESOURCES_DIR: Path = Path("../replay-viewer/resources")
     BACKEND_PUBLIC_URL: str = "http://localhost:8000"
     ENVIRONMENT: Literal["local", "staging", "production"] = "local"
     ENABLE_TEST_AUTH_HELPERS: bool = False

@@ -14,6 +14,7 @@ import { Route as MapsRouteImport } from './routes/maps'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LayoutRouteImport } from './routes/_layout'
 import { Route as LayoutIndexRouteImport } from './routes/_layout/index'
+import { Route as WebGokzConnectRouteImport } from './routes/web-gokz.connect'
 import { Route as ServersServerAddressRouteImport } from './routes/servers.$serverAddress'
 import { Route as MapsMapNameRouteImport } from './routes/maps.$mapName'
 import { Route as AuthCallbackRouteImport } from './routes/auth/callback'
@@ -98,6 +99,11 @@ const LayoutIndexRoute = LayoutIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => LayoutRoute,
+} as any)
+const WebGokzConnectRoute = WebGokzConnectRouteImport.update({
+  id: '/web-gokz/connect',
+  path: '/web-gokz/connect',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const ServersServerAddressRoute = ServersServerAddressRouteImport.update({
   id: '/$serverAddress',
@@ -442,6 +448,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
+  '/web-gokz/connect': typeof WebGokzConnectRoute
   '/admin/maps': typeof LayoutAdminMapsRoute
   '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
   '/admin/player-social-links': typeof LayoutAdminPlayerSocialLinksRoute
@@ -507,6 +514,7 @@ export interface FileRoutesByTo {
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
+  '/web-gokz/connect': typeof WebGokzConnectRoute
   '/': typeof LayoutIndexRoute
   '/admin/maps': typeof LayoutAdminMapsRoute
   '/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
@@ -574,6 +582,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/maps/$mapName': typeof MapsMapNameRouteWithChildren
   '/servers/$serverAddress': typeof ServersServerAddressRoute
+  '/web-gokz/connect': typeof WebGokzConnectRoute
   '/_layout/': typeof LayoutIndexRoute
   '/_layout/admin/maps': typeof LayoutAdminMapsRoute
   '/_layout/admin/player-sessions': typeof LayoutAdminPlayerSessionsRoute
@@ -643,6 +652,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/maps/$mapName'
     | '/servers/$serverAddress'
+    | '/web-gokz/connect'
     | '/admin/maps'
     | '/admin/player-sessions'
     | '/admin/player-social-links'
@@ -708,6 +718,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/maps/$mapName'
     | '/servers/$serverAddress'
+    | '/web-gokz/connect'
     | '/'
     | '/admin/maps'
     | '/admin/player-sessions'
@@ -774,6 +785,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/maps/$mapName'
     | '/servers/$serverAddress'
+    | '/web-gokz/connect'
     | '/_layout/'
     | '/_layout/admin/maps'
     | '/_layout/admin/player-sessions'
@@ -829,6 +841,7 @@ export interface RootRouteChildren {
   MapsRoute: typeof MapsRouteWithChildren
   ServersRoute: typeof ServersRouteWithChildren
   AuthCallbackRoute: typeof AuthCallbackRoute
+  WebGokzConnectRoute: typeof WebGokzConnectRoute
   CardsPlayerIdentifierRoute: typeof CardsPlayerIdentifierRoute
 }
 
@@ -868,6 +881,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof LayoutIndexRouteImport
       parentRoute: typeof LayoutRoute
+    }
+    '/web-gokz/connect': {
+      id: '/web-gokz/connect'
+      path: '/web-gokz/connect'
+      fullPath: '/web-gokz/connect'
+      preLoaderRoute: typeof WebGokzConnectRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/servers/$serverAddress': {
       id: '/servers/$serverAddress'
@@ -1515,6 +1535,7 @@ const rootRouteChildren: RootRouteChildren = {
   MapsRoute: MapsRouteWithChildren,
   ServersRoute: ServersRouteWithChildren,
   AuthCallbackRoute: AuthCallbackRoute,
+  WebGokzConnectRoute: WebGokzConnectRoute,
   CardsPlayerIdentifierRoute: CardsPlayerIdentifierRoute,
 }
 export const routeTree = rootRouteImport

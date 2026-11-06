@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils"
 import { getInitials } from "@/utils"
 
 import {
-  canSteamConnect,
+  canConnectToServer,
   getPlayerAvatarUrl,
   getPlayerBooleanValue,
   getPlayerNumberValue,
@@ -171,6 +171,7 @@ export const ServerCard = memo(function ServerCard({
   onSteamConnect,
 }: ServerCardProps) {
   const { t } = useTranslation()
+  const isWeb = server.source.type === "web_gokz"
   const mapName = getServerMapName(server)
   const mapImageUrls = useMapImageUrls(
     mapName,
@@ -192,25 +193,28 @@ export const ServerCard = memo(function ServerCard({
       data-testid={`server-card-${server.ip}:${server.port}`}
       className={cn(
         "group relative isolate overflow-hidden rounded-md border bg-white transition-all duration-200 dark:bg-gray-800",
+        isWeb && "flex flex-col border-primary/40 ring-1 ring-primary/10",
         offline && "opacity-60",
         getServerSurfaceClass(isSelected),
       )}
     >
       <div className="absolute right-2 top-2 z-20 flex gap-1">
-        <Button
-          size="icon"
-          variant="ghost"
-          onClick={(event) => {
-            event.stopPropagation()
-            onCopyAddress(server)
-          }}
-          className="h-6 w-6 bg-transparent text-white hover:bg-white/10"
-          aria-label={t("serverBrowser.copyAddress")}
-          title={t("serverBrowser.copyAddress")}
-        >
-          <Copy className="h-3 w-3" />
-        </Button>
-        {canSteamConnect(server) && (
+        {!isWeb && (
+          <Button
+            size="icon"
+            variant="ghost"
+            onClick={(event) => {
+              event.stopPropagation()
+              onCopyAddress(server)
+            }}
+            className="h-6 w-6 bg-transparent text-white hover:bg-white/10"
+            aria-label={t("serverBrowser.copyAddress")}
+            title={t("serverBrowser.copyAddress")}
+          >
+            <Copy className="h-3 w-3" />
+          </Button>
+        )}
+        {canConnectToServer(server) && (
           <Button
             size="icon"
             variant="ghost"
@@ -220,15 +224,28 @@ export const ServerCard = memo(function ServerCard({
             }}
             disabled={offline}
             className="h-6 w-6 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
-            aria-label={t("serverBrowser.connect")}
-            title={t("serverBrowser.connect")}
+            aria-label={
+              server.source.type === "web_gokz"
+                ? "Play in browser"
+                : t("serverBrowser.connect")
+            }
+            title={
+              server.source.type === "web_gokz"
+                ? "Play in browser"
+                : t("serverBrowser.connect")
+            }
           >
             <Play className="h-3 w-3" />
           </Button>
         )}
       </div>
 
-      <div className="relative aspect-video w-full overflow-hidden bg-gray-100 dark:bg-gray-800">
+      <div
+        className={cn(
+          "relative aspect-video w-full overflow-hidden bg-gray-100 dark:bg-gray-800",
+          isWeb && "shrink-0",
+        )}
+      >
         <button
           type="button"
           className="absolute inset-0 block w-full text-left"
@@ -290,14 +307,21 @@ export const ServerCard = memo(function ServerCard({
               className="shrink-0 rounded-md px-2 py-1 text-xs font-bold"
             />
           </div>
-          <div className="h-6 w-14 shrink-0" />
+          <div className={cn("h-6 shrink-0", isWeb ? "w-7" : "w-14")} />
         </div>
         <GlobalStatusBadge server={server} />
       </div>
 
-      <div className="relative z-10 bg-white p-3 dark:bg-gray-800">
+      <div
+        className={cn(
+          "relative z-10 p-3",
+          isWeb
+            ? "flex-1 border-t border-primary/20 bg-primary/10"
+            : "bg-white dark:bg-gray-800",
+        )}
+      >
         <div className="flex items-center gap-2">
-          <CountryFlag countryCode={server.country} />
+          {!isWeb && <CountryFlag countryCode={server.country} />}
           <span
             className="truncate font-semibold"
             title={getServerHostname(server)}

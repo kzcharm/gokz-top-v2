@@ -515,9 +515,14 @@ from .video_platform_followers import (
     PlayerVideoPlatformFollowerCache,
     VideoPlatformFollowerPublic,
 )
+from .web_gokz import WebCourse, WebMap, WebPlayer, WebTime
 from .workshop_preview_url import WorkshopPreviewUrlCache
 
 __all__ = [
+    "WebCourse",
+    "WebMap",
+    "WebPlayer",
+    "WebTime",
     "PlayerPronunciation",
     "PlayerPronunciationPublic",
     "MapPronunciation",

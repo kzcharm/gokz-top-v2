@@ -1,4 +1,4 @@
-import { Copy, LoaderCircle, Play } from "lucide-react"
+import { Copy, Gamepad2, LoaderCircle, Play } from "lucide-react"
 import { Trans, useTranslation } from "react-i18next"
 
 import type { ServerPublic } from "@/client"
@@ -19,7 +19,7 @@ import { useMapImageUrls } from "@/hooks/useMapImageUrls"
 import { cn } from "@/lib/utils"
 
 import {
-  canSteamConnect,
+  canConnectToServer,
   getOccupancyVariant,
   getServerAddress,
   getServerHostname,
@@ -49,6 +49,7 @@ export function ServerDetailSheet({
   onSteamConnect,
 }: ServerDetailSheetProps) {
   const { t } = useTranslation()
+  const isWeb = server?.source.type === "web_gokz"
   const mapName = server ? getServerMapName(server) : null
   const mapImageUrls = useMapImageUrls(
     mapName,
@@ -61,7 +62,7 @@ export function ServerDetailSheet({
     : null
   const subtitleParts = server
     ? [
-        getServerAddress(server),
+        isWeb ? "Browser play" : getServerAddress(server),
         server.city || null,
         server.group?.name || null,
       ].filter(Boolean)
@@ -74,7 +75,14 @@ export function ServerDetailSheet({
           <>
             <DialogHeader>
               <DialogTitle className="flex flex-wrap items-center gap-2">
-                <CountryFlag countryCode={server.country} />
+                {isWeb ? (
+                  <Gamepad2
+                    className="size-5 text-primary"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <CountryFlag countryCode={server.country} />
+                )}
                 <span>{getServerHostname(server)}</span>
                 <Badge className={cn(getOccupancyVariant(server))}>
                   {getServerPlayerCount(server)}/
@@ -161,18 +169,20 @@ export function ServerDetailSheet({
                         }}
                       />
                       <div className="absolute right-2 top-2 z-10 flex gap-1">
-                        <Button
-                          type="button"
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => onCopyAddress(server)}
-                          className="h-8 w-8 bg-transparent text-white hover:bg-white/10"
-                          aria-label={t("serverBrowser.copyAddress")}
-                          title={t("serverBrowser.copyAddress")}
-                        >
-                          <Copy className="h-4 w-4" />
-                        </Button>
-                        {canSteamConnect(server) && (
+                        {!isWeb && (
+                          <Button
+                            type="button"
+                            size="icon"
+                            variant="ghost"
+                            onClick={() => onCopyAddress(server)}
+                            className="h-8 w-8 bg-transparent text-white hover:bg-white/10"
+                            aria-label={t("serverBrowser.copyAddress")}
+                            title={t("serverBrowser.copyAddress")}
+                          >
+                            <Copy className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canConnectToServer(server) && (
                           <Button
                             type="button"
                             size="icon"
@@ -180,8 +190,16 @@ export function ServerDetailSheet({
                             onClick={() => onSteamConnect(server)}
                             disabled={!isServerOnline(server)}
                             className="h-8 w-8 bg-transparent text-white hover:bg-white/10 disabled:opacity-40"
-                            aria-label={t("serverBrowser.connect")}
-                            title={t("serverBrowser.connect")}
+                            aria-label={
+                              server.source.type === "web_gokz"
+                                ? "Play in browser"
+                                : t("serverBrowser.connect")
+                            }
+                            title={
+                              server.source.type === "web_gokz"
+                                ? "Play in browser"
+                                : t("serverBrowser.connect")
+                            }
                           >
                             <Play className="h-4 w-4" />
                           </Button>

@@ -118,6 +118,7 @@ export function ServerPlayerList({ players }: { players: ServerPlayer[] }) {
                             getPlayerStringValue(player, "clan_tag") ??
                             getPlayerStringValue(player, "tag"),
                           name,
+                          alias: getPlayerStringValue(player, "alias"),
                           avatar_hash: getPlayerStringValue(
                             player,
                             "avatar_hash",

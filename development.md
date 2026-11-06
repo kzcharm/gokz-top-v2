@@ -1,5 +1,38 @@
 # FastAPI Project - Development
 
+## Web GOKZ
+
+The browser game lives in the `replay-viewer` submodule. Its dedicated API can be
+run from `backend/` with `uv run uvicorn app.web_gokz:app --port 8001` after local
+migrations. Set `REPLAY_VIEWER_HOST=http://localhost:5180` and
+`WEB_GOKZ_RESOURCES_DIR` to the game's resource directory. The game and website
+must route `/v1/web-gokz` to this service while native API paths continue to the
+normal backend; the deployed Compose stack provides this routing via Traefik.
+The Compose override exposes the dedicated service on port 8001.
+For Vite development, set `VITE_WEB_GOKZ_API_URL=http://localhost:8001` in both
+frontends; leave their native API settings on port 8000. This optional value is
+the host only, without `/v1`. Set `VITE_WEBSITE_URL=http://localhost:5173` for the
+game and `VITE_REPLAY_VIEWER_URL=http://localhost:5180` for the website.
+The local Compose builds set these values automatically.
+
+Room poses accept `spectating` as an optional strict boolean, defaulting to
+`false`. It is relayed in live poses and room snapshots. Spectating does not
+remove membership or reduce the online count; game clients hide spectator
+models and exclude spectators from watch targets.
+
+Run focused checks against a dedicated local test database:
+
+```bash
+cd backend
+POSTGRES_DB=web_gokz_test uv run pytest tests/api/routes/test_web_gokz.py tests/api/routes/test_web_gokz_socket.py tests/services/test_web_gokz.py
+cd ../frontend
+bunx playwright test tests/web-gokz.spec.ts --project chromium --no-deps
+```
+
+The Web record tables are deliberately independent of native record tables and
+read models. A regression test verifies uploads leave native records and PBs
+unchanged. Keep Web record presentation inside the game.
+
 ## Docker Compose
 
 * Start the local stack with Docker Compose:

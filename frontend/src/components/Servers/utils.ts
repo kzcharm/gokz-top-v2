@@ -244,6 +244,10 @@ export function canSteamConnect(server: ServerPublic) {
   return server.live_status?.app_id === 4465480
 }
 
+export function canConnectToServer(server: ServerPublic) {
+  return server.source.type === "web_gokz" || canSteamConnect(server)
+}
+
 export function getServerAddress(server: ServerPublic) {
   return `${server.ip}:${server.port}`
 }
@@ -534,10 +538,11 @@ export function getRegionCounts(
   )
 }
 
-function isPinnedServerGroupName(groupName: string) {
+function serverGroupOrder(groupName: string) {
   const normalizedGroupName = groupName.trim().toUpperCase()
 
-  return PINNED_SERVER_GROUP_NAMES.includes(normalizedGroupName)
+  const index = PINNED_SERVER_GROUP_NAMES.indexOf(normalizedGroupName)
+  return index < 0 ? PINNED_SERVER_GROUP_NAMES.length : index
 }
 
 export function getServerGroupCounts(
@@ -594,6 +599,10 @@ export function getServerGroupCounts(
 
   return Array.from(counts.entries())
     .sort((left, right) => {
+      const webComparison =
+        Number(left[1].customId === "web-gokz") -
+        Number(right[1].customId === "web-gokz")
+      if (webComparison !== 0) return webComparison
       const unassignedComparison =
         Number(left[0] === UNASSIGNED_SERVER_GROUP_ID) -
         Number(right[0] === UNASSIGNED_SERVER_GROUP_ID)
@@ -602,8 +611,7 @@ export function getServerGroupCounts(
       }
 
       const pinnedComparison =
-        Number(isPinnedServerGroupName(right[1].name)) -
-        Number(isPinnedServerGroupName(left[1].name))
+        serverGroupOrder(left[1].name) - serverGroupOrder(right[1].name)
       if (pinnedComparison !== 0) {
         return pinnedComparison
       }
@@ -644,9 +652,11 @@ function getServerConfigComment(server: ServerPublic, index: number) {
 }
 
 export function buildServerConfigFile(servers: ServerPublic[]) {
-  const sortedServers = [...servers].sort((left, right) =>
-    getServerHostname(left).localeCompare(getServerHostname(right)),
-  )
+  const sortedServers = servers
+    .filter((server) => server.source.type !== "web_gokz")
+    .sort((left, right) =>
+      getServerHostname(left).localeCompare(getServerHostname(right)),
+    )
   const lines = [
     "// GOKZ.TOP public servers config",
     "// Generated from the current filtered servers browser results.",

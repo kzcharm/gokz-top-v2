@@ -49,11 +49,13 @@ from app.api.v1 import (
     servers,
     users,
     utils,
+    web_gokz,
     youtube_webhooks,
 )
 from app.core.config import settings
 
 api_router = APIRouter()
+api_router.include_router(web_gokz.router)
 api_router.include_router(admin_pronunciations.router)
 api_router.include_router(products.router)
 api_router.include_router(app_settings.router)

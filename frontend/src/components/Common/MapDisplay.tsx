@@ -1,5 +1,11 @@
 import { Link, useNavigate } from "@tanstack/react-router"
-import { Copy, Download, MapIcon, MessageSquarePlus } from "lucide-react"
+import {
+  Copy,
+  Download,
+  Gamepad2,
+  MapIcon,
+  MessageSquarePlus,
+} from "lucide-react"
 import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { useState } from "react"
 import { toast } from "sonner"
@@ -22,6 +28,7 @@ import {
   getWorkshopPreviewImageUrl,
 } from "@/lib/map-images"
 import { cn } from "@/lib/utils"
+import { buildWebGokzUrl } from "@/lib/web-gokz"
 import { MapReviewDialog } from "../Reviews/MapReviewDialog"
 import { MapAdminMenuSection } from "./PronunciationAdminDialog"
 import { PronunciationMenuItems } from "./PronunciationControls"
@@ -209,6 +216,16 @@ export function MapNameContextMenu({
           >
             <Download />
             Download
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a
+              href={buildWebGokzUrl({ map: mapName })}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Gamepad2 />
+              Play in browser
+            </a>
           </DropdownMenuItem>
           <PronunciationMenuItems
             target={{ kind: "map", name: mapName, id: mapId }}
@@ -443,6 +460,16 @@ export function MapDisplay({
           >
             <Download />
             Download
+          </DropdownMenuItem>
+          <DropdownMenuItem asChild>
+            <a
+              href={buildWebGokzUrl({ map: mapName })}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <Gamepad2 />
+              Play in browser
+            </a>
           </DropdownMenuItem>
           <PronunciationMenuItems
             target={{ kind: "map", name: mapName, id: mapId }}

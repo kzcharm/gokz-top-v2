@@ -1,5 +1,59 @@
 # GOKZ.TOP Deployment Workflow
 
+## Web GOKZ service
+
+The `web-gokz` Compose service runs `app.web_gokz:app` with exactly one worker.
+Its Traefik route takes precedence over the normal API for `/v1/web-gokz`.
+Deploy the backend image and run Alembic before starting this service; migration
+`888982fc689d` creates only the separate Web record schema. Do not copy Web times
+into native records or rebuild native rankings from them.
+
+Use matching `FRONTEND_HOST`, `REPLAY_VIEWER_HOSTNAME`, and the game build's
+`VITE_WEBSITE_URL`. `/web-gokz/connect` shares a scoped session only with the
+configured replay-viewer origin. Both rooms require authenticated website users.
+The main frontend launches through `/web-gokz/connect?launch=1&room=<id>` or
+`?launch=1&map=<name>`. Logged-in players receive a single-use, 60-second code in
+the game URL fragment; the game strips and exchanges it for its scoped session.
+Anonymous solo launches go directly to the game. Both flows use the configured
+`VITE_REPLAY_VIEWER_URL`; access tokens never appear in launch URLs.
+
+`REPLAY_VIEWER_RESOURCES_DIR` must contain both `maps/<name>/index.json` and
+`practice/<name>.json` with a `bspSha256` field for each advertised room map.
+Generate physics metadata with the replay-viewer's `scripts/export-practice-map.py`;
+renderer-only exports are insufficient. Include the game's prepared player,
+sound and font assets when deploying practice. The room service scans playable
+maps at startup, so restart it after adding maps. Mount these assets read-only.
+Use a separate staging asset directory when testing changed assets.
+
+Both deployment workflows check out the exact `replay-viewer` submodule revision,
+build the game, and start `web-gokz` and `replayviewer` alongside the website.
+The repository secret `WEB_GOKZ_READ_TOKEN` must grant access to read contents of
+the private `kzcharm/replay-viewer` repository; checkout does not persist it.
+Staging defaults to
+`/root/code/gokz-top-v2-staging/.temp/web-gokz-resources`; override it with
+`REPLAY_VIEWER_RESOURCES_DIR_STAGING` when moving the prepared assets.
+Prepare the production resource directory separately before promoting this feature;
+the staging asset transfer does not populate production.
+
+The November 6 staging verification covered two real Chrome clients, website
+login handoff, remote player rendering, chat, solo record submission and retry,
+`!maptop`, and a shared RTV map change. The temporary accounts and all three test
+finishes were removed; their native record and native PB counts remained zero.
+The subsequent staging website/backend refresh also verified the shared server
+cards (map tiers, Web group last, no country flags or copy controls), the real
+website Play button's single-use login-code exchange and room join, the reference
+replay endpoint, and an idempotent Web-only record submission. The temporary
+accounts and record were removed after confirming zero native records and PBs.
+Only `frontend`, `backend`, and `web-gokz` were replaced; the deployed game
+container and production services were preserved, with prior images retained
+for rollback.
+The prepared catalog contains 828 maps. Another 151 BSP exports failed validation
+and are excluded; prepared maps can still have unsupported collision features.
+
+Service restarts disconnect players and reset votes/maps; stored Web records
+survive. Keep one service instance until room state has shared ownership. Browser
+results remain explicitly client-submitted, not server-verified race results.
+
 This document describes the current trunk-based deployment workflow for future
 contributors and automation agents.
 

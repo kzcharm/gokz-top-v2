@@ -1,5 +1,16 @@
 # Product Requirements Document - GOKZ.TOP v2
 
+## Web GOKZ integration
+
+- `/servers` places Web GOKZ last, after Others. Its two rooms reuse the shared server cards, map images, tier badges, filters, and status contract, with a distinct browser-play accent and gamepad icon. Web rooms omit country flags and address-copy controls. Players share their existing GOKZ.TOP identity, see one another, and chat while using individual modes and timers.
+- Native and Web server cards share the original compact player chips, preserving the native card appearance, avatar size, mode/name order, profile links, and run telemetry. Web card backgrounds fill the complete area below the map image, including empty rooms. Detailed player lists use the canonical `PlayerDisplay` component.
+- Shared map context menus and map-top pages offer **Play in browser** for solo play without joining a room. Anonymous players may practice; saving Web finishes and joining rooms require website authentication.
+- Web GOKZ finishes belong exclusively to the dedicated `web_gokz` schema. Display their leaderboards, personal bests, and `!maptop` results only inside the game. Do not surface these records on main-site profiles, map tops, activity, feeds, rankings, or statistics.
+- Treat browser uploads as client-submitted results, separated by map version, movement revision, mode, course and NUB/PRO. Do not claim server-verified physics or native CS:GO equivalence.
+- RTV follows AXEKZ smart timer protection: a 30-second initial delay, 60% request threshold, nomination-backed map vote, blocked new starts during voting, then a map change after existing runs finish. Solo `!map` rechecks connected players after its three-second delay; website admins may change maps directly.
+- Advertise room maps only when collision metadata and renderer assets are both installed. Service restarts reset rooms while retaining stored Web records.
+- Website play links automatically carry authenticated players into the game through a 60-second, single-use launch code. Anonymous solo play remains available. Accepted room finishes broadcast once to peers; retries do not repeat announcements. Room status includes paused timers, elapsed time, teleports, and progress. Native main-course PRO replay files may supply read-only progress geometry, with the requested mode preferred and another mode as fallback; native records remain separate from Web rankings.
+
 - Status: Draft
 - Owner: gokz-top-v2 team
 - Last Updated: 2026-10-30
