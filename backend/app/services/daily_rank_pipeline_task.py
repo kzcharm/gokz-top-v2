@@ -15,6 +15,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 from app import crud
 from app.core.config import settings
 from app.core.db import async_session_maker
+from app.crud.leaderboard_player import rebuild_leaderboard_players_batch
 from app.models import (
     Record,
     RecordPb,
@@ -267,10 +268,21 @@ async def rebuild_daily_rank_leaderboards(
     session: AsyncSession,
     selection: DailyRankSelection,
 ) -> tuple[int, int]:
-    created, updated = await crud.rebuild_leaderboard_players_for_keys(
-        session=session,
-        keys=selection.leaderboard_keys,
-    )
+    created = updated = 0
+    for scope_id in sorted({scope_id for scope_id, _ in selection.leaderboard_keys}):
+        players = [
+            steamid64
+            for key_scope, steamid64 in selection.leaderboard_keys
+            if key_scope == scope_id
+        ]
+        for batch in _iter_batches(players, batch_size=500):
+            batch_created, batch_updated = await rebuild_leaderboard_players_batch(
+                session=session,
+                scope_id=scope_id,
+                steamid64s=batch,
+            )
+            created += batch_created
+            updated += batch_updated
     await session.commit()
     return created, updated
 

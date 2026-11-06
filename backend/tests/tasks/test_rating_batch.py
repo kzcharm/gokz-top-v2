@@ -15,6 +15,10 @@ from app.crud.leaderboard_player import (
 )
 from app.models import LeaderboardPlayer, ModeScope, RecordPb, RecordType
 from app.models.utils import get_datetime_utc
+from app.services.daily_rank_pipeline_task import (
+    DailyRankSelection,
+    rebuild_daily_rank_leaderboards,
+)
 from tests.api.routes.test_leaderboards import _create_ban, _seed_leaderboard_data
 
 pytestmark = pytest.mark.asyncio
@@ -22,8 +26,13 @@ pytestmark = pytest.mark.asyncio
 
 @pytest.mark.parametrize("ban_state", ["none", "active", "expired"])
 @pytest.mark.parametrize("preview", [False, True])
+@pytest.mark.parametrize("daily", [False, True])
 async def test_batch_matches_live_rebuild_and_is_idempotent(
-    db: AsyncSession, ban_state: str, preview: bool, monkeypatch: pytest.MonkeyPatch
+    db: AsyncSession,
+    ban_state: str,
+    preview: bool,
+    daily: bool,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     players = list((await _seed_leaderboard_data(db)).values())
     scope = ModeScope.OVR if preview else ModeScope.KZT
@@ -101,11 +110,27 @@ async def test_batch_matches_live_rebuild_and_is_idempotent(
             value == 0 for _, _, kind, value in expected[1] if kind == RecordType.PRO
         )
     await savepoint.rollback()
-    result = await rebuild_leaderboard_players_batch(
-        session=db,
-        scope_id=scope.scope_id,
-        steamid64s=players,
-    )
+    if daily:
+        now = get_datetime_utc()
+        result = await rebuild_daily_rank_leaderboards(
+            session=db,
+            selection=DailyRankSelection(
+                window_start=now - timedelta(days=1),
+                window_end=now,
+                pb_row_count=0,
+                point_buckets=[],
+                leaderboard_keys=[(scope.scope_id, player) for player in players],
+                map_leaderboard_keys=[],
+                map_stat_keys=[],
+                steamid64s=players,
+            ),
+        )
+    else:
+        result = await rebuild_leaderboard_players_batch(
+            session=db,
+            scope_id=scope.scope_id,
+            steamid64s=players,
+        )
     assert result == old_result
     assert await snapshot() == expected
     assert await rebuild_leaderboard_players_batch(

@@ -83,6 +83,34 @@ def _patch_session_maker(
     monkeypatch.setattr(daily_rank_pipeline_task, "async_session_maker", _session_maker)
 
 
+async def test_daily_leaderboard_batches_keep_every_scope_player_key(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    keys = [(2, player) for player in range(501)] + [(0, 0), (0, 1)]
+    received: list[tuple[int, int]] = []
+
+    async def _rebuild_batch(
+        *, session: AsyncSession, scope_id: int, steamid64s: list[int]
+    ) -> tuple[int, int]:
+        assert session is db
+        assert 0 < len(steamid64s) <= 500
+        received.extend((scope_id, player) for player in steamid64s)
+        return len(steamid64s), 0
+
+    monkeypatch.setattr(
+        daily_rank_pipeline_task, "rebuild_leaderboard_players_batch", _rebuild_batch
+    )
+    now = datetime.now(UTC)
+    selection = daily_rank_pipeline_task.DailyRankSelection(
+        now, now, 0, [], keys, [], [], []
+    )
+    assert await daily_rank_pipeline_task.rebuild_daily_rank_leaderboards(
+        session=db, selection=selection
+    ) == (len(keys), 0)
+    assert sorted(received) == sorted(keys)
+
+
 async def test_run_daily_rank_pipeline_task_uses_advisory_lock(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,
