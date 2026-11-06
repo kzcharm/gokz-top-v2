@@ -1091,7 +1091,7 @@ async def read_player_leaderboard(
         filtered_statement.order_by(*base_order_expressions)
         .offset(query.offset)
         .limit(query.limit)
-        .subquery()
+        .cte("leaderboard_page")
     )
     page_order_expressions = _leaderboard_order_expressions(
         sort_by=query.sort_by,
@@ -1113,8 +1113,22 @@ async def read_player_leaderboard(
         .where(
             col(LeaderboardPlayer.scope) == query.scope,
             _not_banned_clause(),
+            # Lower ratings cannot affect the selected page's global ranks.
+            col(LeaderboardPlayer.rating)
+            >= select(func.min(page_subquery.c.rating)).scalar_subquery(),
         )
         .subquery()
+    )
+    is_global_rating_page = (
+        query.sort_by == "rating"
+        and query.country is None
+        and query.region is None
+        and friends_viewer_steamid64 is None
+    )
+    global_rank_expression = (
+        func.row_number().over(order_by=page_order_expressions) + query.offset
+        if is_global_rating_page
+        else global_rank_subquery.c.global_rank
     )
 
     count = -1
@@ -1174,15 +1188,16 @@ async def read_player_leaderboard(
             page_subquery.c.records_900_plus,
             page_subquery.c.records_800_plus,
             page_subquery.c.unique_map_finishes,
-            global_rank_subquery.c.global_rank,
+            global_rank_expression,
         )
         .join(Player, col(Player.steamid64) == page_subquery.c.steamid64)
-        .join(
+        .order_by(*page_order_expressions)
+    )
+    if not is_global_rating_page:
+        statement = statement.join(
             global_rank_subquery,
             global_rank_subquery.c.steamid64 == page_subquery.c.steamid64,
         )
-        .order_by(*page_order_expressions)
-    )
     rows = (await session.execute(statement)).all()
 
     return (
@@ -1314,7 +1329,9 @@ async def read_player_leaderboard_rank(
         )
     home_region = get_region_code_for_country(player.country)
     global_rank: int | None = None
-    if leaderboard_row is not None:
+    if country is None and region is None and friends_viewer_steamid64 is None:
+        global_rank = rank
+    elif leaderboard_row is not None:
         global_rank = await _read_metric_rank(
             session=session,
             scope=scope,

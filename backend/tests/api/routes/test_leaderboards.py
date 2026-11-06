@@ -1,6 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
+from unittest.mock import AsyncMock
 
 import pytest
 from httpx import AsyncClient
@@ -9,6 +10,7 @@ from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
 from app.core.config import settings
+from app.crud import leaderboard_player
 from app.models import (
     Ban,
     BanType,
@@ -831,9 +833,12 @@ async def test_read_player_leaderboard_rejects_asc_sort_order(
 async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     client: AsyncClient,
     db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     players = await _seed_leaderboard_data(db)
     alpha_row = await _get_kzt_leaderboard_row(db, steamid64=players["alpha"])
+    metric_rank = AsyncMock(wraps=leaderboard_player._read_metric_rank)
+    monkeypatch.setattr(leaderboard_player, "_read_metric_rank", metric_rank)
 
     response = await client.get(
         f"{settings.API_V1_STR}/leaderboards/players/alpha",
@@ -846,6 +851,7 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     assert payload["player"]["steamid64"] == str(players["alpha"])
     assert payload["player"]["display_name"] == "Alpha"
     assert payload["rank"] == 1
+    assert payload["global_rank"] == 1
     assert payload["rank_regional"] == 1
     assert payload["region"] == "EU"
     assert "rating_rank" not in payload
@@ -853,6 +859,7 @@ async def test_read_player_leaderboard_rank_returns_rating_rank_as_rank(
     assert payload["rating"] == pytest.approx(_public_rating(alpha_row.rating))
     assert payload["rating_easy"] is None
     assert payload["rating_hard"] is None
+    assert metric_rank.await_count == 2
 
 
 async def test_read_player_leaderboard_rank_returns_zeroed_scope_row_when_ineligible(
