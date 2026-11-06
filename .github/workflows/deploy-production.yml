@@ -69,7 +69,7 @@ jobs:
         with:
           repository: kzcharm/replay-viewer
           ref: ${{ steps.game.outputs.sha }}
-          token: ${{ secrets.WEB_GOKZ_READ_TOKEN }}
+          ssh-key: ${{ secrets.WEB_GOKZ_READ_SSH_KEY }}
           persist-credentials: false
           path: ${{ env.CHECKOUT_DIRECTORY }}/replay-viewer
       - name: Resolve release and deploy SHA

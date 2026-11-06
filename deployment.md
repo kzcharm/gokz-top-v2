@@ -27,8 +27,9 @@ Use a separate staging asset directory when testing changed assets.
 
 Both deployment workflows check out the exact `replay-viewer` submodule revision,
 build the game, and start `web-gokz` and `replayviewer` alongside the website.
-The repository secret `WEB_GOKZ_READ_TOKEN` must grant access to read contents of
-the private `kzcharm/replay-viewer` repository; checkout does not persist it.
+The repository secret `WEB_GOKZ_READ_SSH_KEY` holds a dedicated read-only deploy
+key for the private `kzcharm/replay-viewer` repository; checkout does not persist
+it. Register its public half only on that game repository with write access off.
 Staging defaults to
 `/root/code/gokz-top-v2-staging/.temp/web-gokz-resources`; override it with
 `REPLAY_VIEWER_RESOURCES_DIR_STAGING` when moving the prepared assets.
