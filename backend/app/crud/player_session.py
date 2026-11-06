@@ -615,8 +615,16 @@ async def heartbeat_player_session(
     if payload.heartbeat_at <= player_session.last_heartbeat_at:
         return player_session
 
-    player_session.last_heartbeat_at = payload.heartbeat_at
-    session.add(player_session)
+    await session.exec(
+        update(PlayerSession)
+        .where(
+            col(PlayerSession.id) == payload.session_id,
+            col(PlayerSession.disconnect_at).is_(None),
+            col(PlayerSession.last_heartbeat_at) < payload.heartbeat_at,
+        )
+        .values(last_heartbeat_at=payload.heartbeat_at)
+        .execution_options(synchronize_session=False)
+    )
     await session.commit()
     await session.refresh(player_session)
     return player_session
@@ -641,11 +649,20 @@ async def disconnect_player_session(
     if payload.disconnect_at < player_session.connected_at:
         raise ValueError("disconnect_at must not be before connected_at")
 
-    player_session.disconnect_at = payload.disconnect_at
-    if payload.disconnect_at > player_session.last_heartbeat_at:
-        player_session.last_heartbeat_at = payload.disconnect_at
-    session.add(player_session)
-    await session.flush()
+    await session.exec(
+        update(PlayerSession)
+        .where(
+            col(PlayerSession.id) == payload.session_id,
+            col(PlayerSession.disconnect_at).is_(None),
+        )
+        .values(
+            disconnect_at=payload.disconnect_at,
+            last_heartbeat_at=func.greatest(
+                col(PlayerSession.last_heartbeat_at), payload.disconnect_at
+            ),
+        )
+        .execution_options(synchronize_session=False)
+    )
     await session.exec(
         delete(PlayerStatCache).where(
             col(PlayerStatCache.steamid64) == player_session.player_steamid64,
