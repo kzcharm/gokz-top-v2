@@ -290,7 +290,7 @@ test.describe("Leaderboards page", () => {
     })
   })
 
-  test("keeps profile history open after selecting it from a player menu", async ({
+  test("opens and reopens player history and edit dialogs from the menu", async ({
     page,
     request,
   }) => {
@@ -371,6 +371,41 @@ test.describe("Leaderboards page", () => {
     await expect(page.getByTestId("profile-history-dialog")).toContainText(
       "Profile History",
     )
+    await page.keyboard.press("Escape")
+    await expect(page.getByTestId("profile-history-dialog")).not.toBeVisible()
+
+    const playerLink = page.locator(`a[href="/profile/${steamid64}"]`)
+    await playerLink.click({ button: "right" })
+    await page.getByTestId("profile-history-menu-item").click()
+    await expect(page.getByTestId("profile-history-dialog")).toBeVisible()
+    await page.keyboard.press("Escape")
+    await expect(page.getByTestId("profile-history-dialog")).not.toBeVisible()
+    await playerLink.click({ button: "right" })
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click()
+    const editDialog = page.getByRole("dialog", {
+      name: "Edit Player",
+      exact: true,
+    })
+    await expect(editDialog).toBeVisible()
+    await editDialog
+      .getByRole("textbox", { name: "Alias" })
+      .fill("Unsaved alias")
+    await editDialog
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click()
+    await expect(editDialog).not.toBeVisible()
+    await page.keyboard.press("Escape")
+    await playerLink.click({ button: "right" })
+    await page.getByRole("menuitem", { name: "Edit", exact: true }).click()
+    await expect(
+      editDialog.getByRole("textbox", { name: "Alias" }),
+    ).toHaveValue("")
+    await editDialog
+      .getByRole("button", { name: "Cancel", exact: true })
+      .click()
+    await page.keyboard.press("Escape")
+
+    await expect(page).toHaveURL(/\/leaderboards\/players$/)
   })
 
   test("renders leaderboard empty state", async ({ page }) => {
@@ -559,6 +594,15 @@ test.describe("Leaderboards page", () => {
     page,
   }) => {
     const playerBatchRequests: string[][] = []
+    const moderationScripts: string[] = []
+    page.on("request", (request) => {
+      if (
+        request.resourceType() === "script" &&
+        /\/(?:AddBanDialog|EditPlayer|ProfileHistoryDialog)-/.test(request.url())
+      ) {
+        moderationScripts.push(request.url())
+      }
+    })
 
     await page.addInitScript(() => {
       localStorage.clear()
@@ -632,6 +676,7 @@ test.describe("Leaderboards page", () => {
       "76561198000000001",
       "76561198000000002",
     ])
+    expect(moderationScripts).toEqual([])
   })
 
   test("country leaderboard floors ratings and preserves unavailable values", async ({
@@ -793,6 +838,16 @@ test.describe("Leaderboards page", () => {
 
     await page.goto("/leaderboards/players")
     await expect(page.getByText("Scoped Alpha")).toBeVisible()
+    const flag = page.getByTestId("country-flag-76561198000000001")
+    await expect
+      .poll(() =>
+        flag
+          .locator("img")
+          .evaluate((element) => (element as HTMLImageElement).naturalWidth),
+      )
+      .toBeGreaterThan(0)
+    await flag.hover()
+    await expect(page.getByRole("tooltip")).toHaveText("Germany")
 
     await page.getByRole("button", { name: "Select record scope" }).click()
     await page.getByRole("menuitemradio", { name: "KZT" }).click()
@@ -803,6 +858,19 @@ test.describe("Leaderboards page", () => {
     await expect.poll(() => playerHydrationScopes).toContainEqual("OVR")
     await expect.poll(() => playerHydrationScopes).toContainEqual("KZT")
     expect(playerHydrationScopes).not.toContain(null)
+    await page.getByRole("button", { name: "country", exact: true }).click()
+    const germany = page.getByRole("button", { name: "Germany" })
+    await germany.scrollIntoViewIfNeeded()
+    await expect
+      .poll(() =>
+        germany
+          .locator("img")
+          .evaluate((element) => (element as HTMLImageElement).naturalWidth),
+      )
+      .toBeGreaterThan(0)
+    await germany.click()
+    await expect(page.getByRole("menu")).not.toBeVisible()
+    await expect(page.getByRole("button", { name: "Germany" })).toBeVisible()
   })
 
   test("searching and selecting a player jumps to their leaderboard page", async ({

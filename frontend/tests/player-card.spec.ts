@@ -155,7 +155,15 @@ for (const lang of ["en", "zh-CN", "ru"]) {
         await expect(card).toContainText("路线")
         await expect(card).toContainText("攀岩")
       }
-      await expect(card.locator('[aria-label="Germany"]')).toHaveCount(1)
+      const flag = card.getByRole("img", { name: "Germany", exact: true })
+      await expect(flag).toHaveCount(1)
+      await expect
+        .poll(() =>
+          flag.evaluate(
+            (element) => (element as HTMLImageElement).naturalWidth,
+          ),
+        )
+        .toBeGreaterThan(0)
       await expect(card).not.toContainText(steamid64)
       await expect(card).not.toContainText(/gokz\.top/i)
       await expect(card.locator("a, button")).toHaveCount(0)

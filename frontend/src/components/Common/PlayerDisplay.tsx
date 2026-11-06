@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link, useNavigate } from "@tanstack/react-router"
-import * as Flags from "country-flag-icons/react/3x2"
 import {
   Copy,
   ExternalLink,
@@ -14,13 +13,7 @@ import {
   UserRound,
   Users,
 } from "lucide-react"
-import type {
-  ComponentType,
-  KeyboardEvent,
-  MouseEvent,
-  ReactNode,
-  SVGProps,
-} from "react"
+import type { KeyboardEvent, MouseEvent, ReactNode } from "react"
 import { Children, lazy, Suspense, useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import noneFlagSrc from "@/assets/flags/none.svg"
@@ -33,7 +26,7 @@ import {
   type RecordType,
   type UserRole,
 } from "@/client"
-import EditPlayer from "@/components/AdminPlayers/EditPlayer"
+import { getCountryFlagSrc } from "@/components/Common/CountryFlag"
 import { suppressRowInteractions } from "@/components/Common/interaction-suppression"
 import {
   getPlayerRatingBadgeIcon,
@@ -69,7 +62,6 @@ import {
 } from "@/lib/user-roles"
 import { cn, truncateText } from "@/lib/utils"
 import { getInitials } from "@/utils"
-import { ProfileHistoryDialog } from "../Profile/ProfileHistoryDialog"
 import { getProfileFriendsQueryOptions } from "../Profile/profile-utils"
 import {
   ReportPlayerDialog,
@@ -84,15 +76,18 @@ const AddBanDialog = lazy(async () => {
   return { default: module.AddBanDialog }
 })
 
+const EditPlayer = lazy(() => import("@/components/AdminPlayers/EditPlayer"))
+
+const ProfileHistoryDialog = lazy(async () => {
+  const module = await import("../Profile/ProfileHistoryDialog")
+  return { default: module.ProfileHistoryDialog }
+})
+
 const countryNameFormatter =
   typeof Intl !== "undefined" && "DisplayNames" in Intl
     ? new Intl.DisplayNames(["en"], { type: "region" })
     : null
 
-const flagComponents = Flags as Record<
-  string,
-  ComponentType<SVGProps<SVGSVGElement>>
->
 const steamid64Pattern = /^\d{17}$/
 
 function isUnknownSteamid64(steamid64?: string | null): boolean {
@@ -354,7 +349,11 @@ export function PlayerContextMenuItems({
                 closeMenu={closeMenu}
               />
             ) : null}
-            {player ? <EditPlayer player={player} /> : null}
+            {player ? (
+              <Suspense fallback={null}>
+                <EditPlayer player={player} />
+              </Suspense>
+            ) : null}
             {canViewProfileHistory ? (
               <DropdownMenuItem
                 data-testid="profile-history-menu-item"
@@ -389,12 +388,14 @@ export function PlayerContextMenuItems({
           </DropdownMenuGroup>
         </>
       ) : null}
-      {!onOpenProfileHistory ? (
-        <ProfileHistoryDialog
-          identifier={steamid64}
-          onOpenChange={setProfileHistoryOpen}
-          open={profileHistoryOpen}
-        />
+      {!onOpenProfileHistory && profileHistoryOpen ? (
+        <Suspense fallback={null}>
+          <ProfileHistoryDialog
+            identifier={steamid64}
+            onOpenChange={setProfileHistoryOpen}
+            open={profileHistoryOpen}
+          />
+        </Suspense>
       ) : null}
     </>
   )
@@ -522,6 +523,8 @@ export function PlayerDisplay({
       : undefined)
   const [menuOpen, setMenuOpen] = useState(false)
   const [addBanDialogOpen, setAddBanDialogOpen] = useState(false)
+  // Keep pending ban mutations alive when the dialog closes.
+  const [addBanDialogMounted, setAddBanDialogMounted] = useState(false)
   const [profileHistoryOpen, setProfileHistoryOpen] = useState(false)
   const [reportDialogOpen, setReportDialogOpen] = useState(false)
   const [avatarLoadFailed, setAvatarLoadFailed] = useState(false)
@@ -597,7 +600,7 @@ export function PlayerDisplay({
     (!hideAvatarWithoutSteamid64 || steamid64Pattern.test(steamid64))
 
   const countryCode = resolvedPlayer?.country?.toUpperCase() || null
-  const FlagComponent = countryCode ? flagComponents[countryCode] : null
+  const flagSrc = getCountryFlagSrc(countryCode)
   const countryName =
     countryCode && countryNameFormatter
       ? countryNameFormatter.of(countryCode) || countryCode
@@ -708,7 +711,7 @@ export function PlayerDisplay({
   const identityBadges = (
     <span className="flex shrink-0 items-center gap-1">
       {showEffectiveCountryFlag && presentation !== "card" ? (
-        FlagComponent ? (
+        flagSrc ? (
           <Tooltip>
             <TooltipTrigger asChild>
               <span
@@ -717,7 +720,9 @@ export function PlayerDisplay({
                 role="img"
                 aria-label={countryName || countryCode || "Unknown country"}
               >
-                <FlagComponent
+                <img
+                  src={flagSrc}
+                  alt=""
                   className={cn("shrink-0", compact ? "h-3.5 w-5" : "h-4 w-6")}
                 />
               </span>
@@ -861,14 +866,13 @@ export function PlayerDisplay({
           title={fullDisplayLabel}
         >
           {layout === "stacked" ? identityBadges : null}
-          {presentation === "card" &&
-            showEffectiveCountryFlag &&
-            FlagComponent && (
-              <FlagComponent
-                className="mr-2 inline-block h-4 w-6 align-middle"
-                aria-label={countryName ?? undefined}
-              />
-            )}
+          {presentation === "card" && showEffectiveCountryFlag && flagSrc && (
+            <img
+              src={flagSrc}
+              className="mr-2 inline-block h-4 w-6 align-middle"
+              alt={countryName || countryCode || "Unknown country"}
+            />
+          )}
           {clanTag ? (
             <span className="shrink-0 whitespace-pre text-muted-foreground">
               {clanTag}
@@ -1010,7 +1014,10 @@ export function PlayerDisplay({
           closeMenu={() => setMenuOpen(false)}
           displayName={displayName}
           hasProfileLink={hasProfileLink}
-          onAddBan={() => setAddBanDialogOpen(true)}
+          onAddBan={() => {
+            setAddBanDialogMounted(true)
+            setAddBanDialogOpen(true)
+          }}
           onOpenProfileHistory={() => setProfileHistoryOpen(true)}
           player={
             resolvedPlayer
@@ -1036,24 +1043,30 @@ export function PlayerDisplay({
           player: resolvedPlayer,
         }}
       />
-      <Suspense fallback={null}>
-        <AddBanDialog
-          open={addBanDialogOpen}
-          onOpenChange={handleAddBanDialogOpenChange}
-          initialPlayer={{
-            steamid64,
-            displayName,
-            name: resolvedPlayer?.name ?? displayName,
-            alias: resolvedPlayer?.alias ?? null,
-            country: resolvedPlayer?.country ?? null,
-          }}
-        />
-      </Suspense>
-      <ProfileHistoryDialog
-        identifier={steamid64}
-        onOpenChange={setProfileHistoryOpen}
-        open={profileHistoryOpen}
-      />
+      {addBanDialogMounted ? (
+        <Suspense fallback={null}>
+          <AddBanDialog
+            open={addBanDialogOpen}
+            onOpenChange={handleAddBanDialogOpenChange}
+            initialPlayer={{
+              steamid64,
+              displayName,
+              name: resolvedPlayer?.name ?? displayName,
+              alias: resolvedPlayer?.alias ?? null,
+              country: resolvedPlayer?.country ?? null,
+            }}
+          />
+        </Suspense>
+      ) : null}
+      {profileHistoryOpen ? (
+        <Suspense fallback={null}>
+          <ProfileHistoryDialog
+            identifier={steamid64}
+            onOpenChange={setProfileHistoryOpen}
+            open={profileHistoryOpen}
+          />
+        </Suspense>
+      ) : null}
     </DropdownMenu>
   )
 }

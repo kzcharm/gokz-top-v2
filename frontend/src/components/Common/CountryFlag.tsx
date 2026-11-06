@@ -1,5 +1,3 @@
-import * as Flags from "country-flag-icons/react/3x2"
-import type { ComponentType, SVGProps } from "react"
 import { useTranslation } from "react-i18next"
 
 import noneFlagSrc from "@/assets/flags/none.svg"
@@ -11,10 +9,21 @@ import {
 import { compareLocaleText, getLocale } from "@/i18n/locale"
 import { cn } from "@/lib/utils"
 
-const flagComponents = Flags as Record<
-  string,
-  ComponentType<SVGProps<SVGSVGElement>>
->
+const flagUrls = import.meta.glob<string>("@flags/*.svg", {
+  eager: true,
+  import: "default",
+  query: "?url&no-inline",
+})
+const flagSources = Object.fromEntries(
+  Object.entries(flagUrls).map(([path, url]) => [
+    path.slice(path.lastIndexOf("/") + 1, -4).replace(/-/g, "_"),
+    url,
+  ]),
+)
+
+export function getCountryFlagSrc(countryCode?: string | null) {
+  return countryCode ? flagSources[countryCode.toUpperCase()] : undefined
+}
 
 function resolveCountryName(
   countryCode: string | null,
@@ -39,7 +48,7 @@ function resolveCountryName(
 }
 
 export function getCountryOptions(locale: string = getLocale()) {
-  return Object.keys(flagComponents)
+  return Object.keys(flagSources)
     .map((countryCode) => ({
       countryCode,
       name: resolveCountryName(countryCode, locale) || countryCode,
@@ -76,15 +85,13 @@ export function CountryFlag({
 }: CountryFlagProps) {
   const { t, i18n } = useTranslation()
   const normalizedCountryCode = countryCode?.toUpperCase() || null
-  const FlagComponent = normalizedCountryCode
-    ? flagComponents[normalizedCountryCode]
-    : null
+  const flagSrc = getCountryFlagSrc(normalizedCountryCode)
   const countryName = getCountryName(
     normalizedCountryCode,
     i18n.resolvedLanguage,
   )
 
-  if (!FlagComponent) {
+  if (!flagSrc) {
     return (
       <img
         src={noneFlagSrc}
@@ -99,11 +106,10 @@ export function CountryFlag({
   }
 
   const content = (
-    <FlagComponent
-      role="img"
-      aria-label={
-        countryName || normalizedCountryCode || t("common.unknownCountry")
-      }
+    <img
+      src={flagSrc}
+      loading="lazy"
+      alt={countryName || normalizedCountryCode || t("common.unknownCountry")}
       className={cn("h-4 w-6 shrink-0", className)}
     />
   )

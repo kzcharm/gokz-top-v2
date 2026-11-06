@@ -553,6 +553,52 @@ test("Bans page shows Add Ban flows to admins and refreshes after create", async
     .dispatchEvent("contextmenu")
   await page.getByRole("menuitem", { name: "Add Ban" }).click()
   await expect(page.getByRole("heading", { name: "Add Ban" })).toBeVisible()
+  await page.getByRole("textbox", { name: "Notes" }).fill("Discard this draft")
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("heading", { name: "Add Ban" })).toHaveCount(0)
+  await expect(page).toHaveURL(/\/bans$/)
+  await page
+    .getByRole("link", { name: /Banned Player 1/ })
+    .dispatchEvent("contextmenu")
+  await page.getByRole("menuitem", { name: "Add Ban" }).click()
+  await expect(page.getByRole("heading", { name: "Add Ban" })).toBeVisible()
+  await expect(page.getByRole("textbox", { name: "Notes" })).toHaveValue("")
+
+  let releasePendingBan = () => {}
+  const pendingBan = new Promise<void>((resolve) => {
+    releasePendingBan = resolve
+  })
+  await page.route("**/v1/bans", async (route) => {
+    if (route.request().method() !== "POST") {
+      await route.fallback()
+      return
+    }
+    createdBodies.push(route.request().postDataJSON())
+    await pendingBan
+    await route.fulfill({ json: buildBan(1000, "manual") })
+  })
+  await page.getByRole("combobox", { name: "Ban Type" }).click()
+  await page.getByRole("option", { name: "Bhop Macro" }).click()
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Add Ban" })
+    .click()
+  await expect.poll(() => createdBodies.length).toBe(2)
+  await page.keyboard.press("Escape")
+  await expect(page.getByRole("heading", { name: "Add Ban" })).toHaveCount(0)
+  await page
+    .getByRole("link", { name: /Banned Player 1/ })
+    .dispatchEvent("contextmenu")
+  await page.getByRole("menuitem", { name: "Add Ban" }).click()
+  try {
+    await expect(
+      page.getByRole("dialog").getByRole("button", { name: "Cancel" }),
+    ).toBeDisabled()
+  } finally {
+    releasePendingBan()
+  }
+  await expect(page.getByRole("heading", { name: "Add Ban" })).toHaveCount(0)
+  expect(createdBodies).toHaveLength(2)
 })
 
 test("Users without admin moderation rights do not see Add Ban entry points", async ({
