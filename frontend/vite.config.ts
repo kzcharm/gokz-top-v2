@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process"
+import { createRequire } from "node:module"
 import path from "node:path"
-import { fileURLToPath } from "node:url"
 import tailwindcss from "@tailwindcss/vite"
 import { tanstackRouter } from "@tanstack/router-plugin/vite"
 import react from "@vitejs/plugin-react-swc"
@@ -49,11 +49,13 @@ export default defineConfig(({ command }) => ({
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "@flags": fileURLToPath(
-        new URL(
-          "./3x2",
-          import.meta.resolve("country-flag-icons/package.json"),
+      "@flags": path.join(
+        path.dirname(
+          createRequire(import.meta.url).resolve(
+            "country-flag-icons/package.json",
+          ),
         ),
+        "3x2",
       ),
     },
   },
