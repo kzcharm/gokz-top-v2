@@ -158,3 +158,28 @@ async def test_bonus_requires_its_own_filter(db, mode):
 @pytest.mark.parametrize("submitted,minimum", [(0, 0), (1, None), (0, 171)])
 async def test_missing_version_evidence_is_ineligible(submitted, minimum):
     assert not mode_version_supported(submitted=submitted, minimum=minimum)
+
+
+@pytest.mark.parametrize("configuration", ["ready", "missing-map", "bonus-only"])
+async def test_readiness_batches_map_and_main_course(db, monkeypatch, configuration):
+    group, server, run = await setup_finish(db, KZMode.KZT)
+    if configuration == "missing-map":
+        run.map_name = "kz_unknown"
+    elif configuration == "bonus-only":
+        course = (await db.exec(select(MapCourse))).one()
+        course.stage = 1
+        await db.flush()
+
+    queries = 0
+    original_exec = db.exec
+
+    async def counted_exec(*args, **kwargs):
+        nonlocal queries
+        queries += 1
+        return await original_exec(*args, **kwargs)
+
+    monkeypatch.setattr(db, "exec", counted_exec)
+    status = await readiness(db, group, server, run)
+    assert status["map_valid"] is (configuration == "ready")
+    assert status["modes"]["KZT"] is (configuration == "ready")
+    assert queries == (3 if configuration == "ready" else 2)

@@ -190,11 +190,13 @@ def test_concurrent_receipts_and_conflicting_uuid(monkeypatch):
                             )
                 # Even an administrative group-row lock must not block auth.
                 async with AsyncSession(engine, expire_on_commit=False) as first:
-                    await first.exec(
-                        select(ServerGroup)
-                        .where(ServerGroup.id == group_id)
-                        .with_for_update()
-                    )
+                    locked_group = (
+                        await first.exec(
+                            select(ServerGroup)
+                            .where(ServerGroup.id == group_id)
+                            .with_for_update()
+                        )
+                    ).one()
                     async with AsyncSession(engine, expire_on_commit=False) as second:
                         authenticated = await asyncio.wait_for(
                             _get_server_group_from_api_key(
@@ -203,6 +205,11 @@ def test_concurrent_receipts_and_conflicting_uuid(monkeypatch):
                             timeout=2,
                         )
                         assert authenticated.id == group_id
+                        assert (
+                            authenticated.last_api_key_used_at
+                            == locked_group.last_api_key_used_at
+                        )
+                        assert authenticated not in second.dirty
                     await first.rollback()
             finally:
                 await engine.dispose()

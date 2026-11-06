@@ -1,6 +1,7 @@
 """Compute direct-record server readiness from authenticated heartbeat evidence."""
 
-from sqlmodel import select
+from sqlalchemy import and_
+from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app.models import (
@@ -29,29 +30,24 @@ async def build_records_status(
 ) -> dict[str, object]:
     evidence = payload.gokz_top_status
     assert evidence is not None
-    map_obj = (
+    map_row = (
         await session.exec(
-            select(Map).where(Map.name == payload.map.rsplit("/", 1)[-1])
+            select(Map, col(MapCourse.id))
+            .outerjoin(
+                MapCourse,
+                and_(col(MapCourse.map_id) == col(Map.id), col(MapCourse.stage) == 0),
+            )
+            .where(Map.name == payload.map.rsplit("/", 1)[-1])
         )
     ).first()
-    course = (
-        (
-            await session.exec(
-                select(MapCourse).where(
-                    MapCourse.map_id == map_obj.id, MapCourse.stage == 0
-                )
-            )
-        ).first()
-        if map_obj
-        else None
-    )
+    map_obj, course_id = map_row if map_row is not None else (None, None)
     configured_modes = {
         mode.name_short: mode.latest_version
         for mode in (await session.exec(select(Mode))).all()
     }
     filter_modes = (
         await available_record_filter_modes(session, map_id=map_obj.id, stage=0)
-        if map_obj and course
+        if map_obj and course_id is not None
         else set()
     )
     modes = {
@@ -78,7 +74,7 @@ async def build_records_status(
             and map_obj.validated
             and evidence.bsp_size > 0
             and map_obj.filesize == evidence.bsp_size
-            and course
+            and course_id is not None
         ),
         "modes": modes,
         "checked_at": payload.observed_at.isoformat(),

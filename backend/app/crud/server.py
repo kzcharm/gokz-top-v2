@@ -7,8 +7,9 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, Literal
 
 from pydantic import ValidationError
-from sqlalchemy import func, or_, text
+from sqlalchemy import func, or_, text, update
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.attributes import set_committed_value
 from sqlmodel import col, select
 from sqlmodel.ext.asyncio.session import AsyncSession
 
@@ -474,15 +475,21 @@ async def mark_server_group_api_key_used(
     # autoflush holds this shared group row across scoring or network I/O and
     # serializes every game instance's heartbeat/upload behind one request.
     available = (
-        await session.exec(
-            select(ServerGroup.id)
-            .where(ServerGroup.id == group.id)
-            .with_for_update(skip_locked=True)
-        )
-    ).first()
-    if available is not None:
-        group.last_api_key_used_at = get_datetime_utc()
-        session.add(group)
+        select(ServerGroup.id)
+        .where(ServerGroup.id == group.id)
+        .with_for_update(skip_locked=True)
+    )
+    result = await session.exec(
+        update(ServerGroup)
+        .where(col(ServerGroup.id).in_(available))
+        # Evaluate the timestamp after acquiring the row lock.
+        .values(last_api_key_used_at=func.clock_timestamp())
+        .returning(col(ServerGroup.last_api_key_used_at))
+        .execution_options(synchronize_session=False)
+    )
+    used_at = result.scalar_one_or_none()
+    if used_at is not None:
+        set_committed_value(group, "last_api_key_used_at", used_at)
     # Usage tracking is best effort when an administrator already owns the row.
     await session.commit()
 
@@ -1011,7 +1018,7 @@ async def upsert_server_from_plugin_heartbeat(
             )
         ).first()
         endpoint = await get_server_by_endpoint(
-            session=session, ip=payload.ip, port=payload.port
+            session=session, ip=payload.ip, port=payload.port, hydrate=False
         )
         if known is not None:
             if known.group_id != group.id:
@@ -1043,6 +1050,7 @@ async def upsert_server_from_plugin_heartbeat(
         session=session,
         ip=payload.ip,
         port=payload.port,
+        hydrate=False,
     )
     now = get_datetime_utc()
 
@@ -1082,6 +1090,7 @@ async def upsert_server_from_plugin_heartbeat(
                 session=session,
                 ip=payload.ip,
                 port=payload.port,
+                hydrate=False,
             )
             if server is None:
                 raise ValueError("Server already exists") from exc

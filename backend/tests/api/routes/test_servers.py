@@ -5,6 +5,7 @@ from decimal import Decimal
 
 import pytest
 from httpx import AsyncClient
+from sqlalchemy import event
 from sqlmodel.ext.asyncio.session import AsyncSession
 
 from app import crud
@@ -39,6 +40,33 @@ from tests.utils.server import (
 )
 
 pytestmark = pytest.mark.asyncio
+
+
+async def test_server_group_api_key_usage_needs_one_statement(
+    db: AsyncSession,
+) -> None:
+    group, _ = await create_server_group(db)
+    original = group.model_dump(exclude={"last_api_key_used_at"})
+    statements: list[str] = []
+
+    def capture(_connection, _cursor, statement, _parameters, _context, _many):
+        if statement.startswith(("SELECT", "UPDATE", "INSERT", "DELETE")):
+            statements.append(statement)
+
+    connection = await db.connection()
+    event.listen(connection.sync_connection, "before_cursor_execute", capture)
+    try:
+        await server_crud.mark_server_group_api_key_used(session=db, group=group)
+    finally:
+        event.remove(connection.sync_connection, "before_cursor_execute", capture)
+
+    assert len(statements) == 1
+    assert statements[0].startswith("UPDATE")
+    observed_at = group.last_api_key_used_at
+    assert observed_at is not None
+    await db.refresh(group)
+    assert group.last_api_key_used_at == observed_at
+    assert group.model_dump(exclude={"last_api_key_used_at"}) == original
 
 
 async def _create_map(
