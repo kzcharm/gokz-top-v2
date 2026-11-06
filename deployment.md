@@ -23,6 +23,27 @@ contributors and automation agents.
 The repository no longer relies on a long-lived `dev` branch for normal
 deployment.
 
+### Chronological record-history index
+
+Revision `fa7caf33aca5` adds `ix_record_valid_map_stage_history` with
+`CREATE INDEX CONCURRENTLY` in an Alembic autocommit block. Let Alembic manage
+the transaction boundary; do not wrap this migration in an external transaction.
+The downgrade drops only this index, also concurrently, and preserves records.
+
+Plan disk and WAL headroom before rollout. On a local database with approximately
+27.8 million records, the index occupied 2.63 GB and built in 43 seconds; these
+are local measurements, not production duration or capacity guarantees.
+Concurrent construction still scans the table, consumes CPU and I/O, and can
+wait for existing transactions. Monitor `pg_stat_progress_create_index` and
+verify `pg_index.indisvalid` and `indisready` after completion.
+
+If construction fails, inspect the index and Alembic revision before retrying.
+When this revision has not advanced and its named index is invalid, remove that
+invalid index with `DROP INDEX CONCURRENTLY` outside a transaction, then rerun
+the migration. Do not use `IF NOT EXISTS` to silently accept an invalid index.
+Use a checkout containing this revision when operating a local database already
+upgraded to it; older checkouts cannot resolve the new Alembic revision.
+
 ## Staging Deployment Flow
 
 The `.github/workflows/deploy-staging.yml` workflow runs on every push to

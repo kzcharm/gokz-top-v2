@@ -346,6 +346,16 @@ class Record(RecordBase, table=True):
             postgresql_where=text("is_valid = true"),
         ),
         Index(
+            "ix_record_valid_map_stage_history",
+            "map_id",
+            "stage",
+            "created_at",
+            "id",
+            "uuid",
+            postgresql_include=["steamid64", "server_id", "mode", "teleports", "time"],
+            postgresql_where=text("is_valid = true"),
+        ),
+        Index(
             "ix_record_valid_pro_map_stage_mode_player_time",
             "map_id",
             "stage",
