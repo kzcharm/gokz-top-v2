@@ -58,6 +58,7 @@ async def test_sync_bans_from_globalapi_backfills_with_large_limit(
         updated_since: datetime | None = None,
     ) -> list[dict[str, Any]]:
         del client
+        assert not db.in_transaction()
         assert updated_since is None
         calls.append((offset, limit, created_since))
         if offset == 0:

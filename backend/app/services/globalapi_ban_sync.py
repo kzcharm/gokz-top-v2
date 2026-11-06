@@ -401,6 +401,9 @@ async def sync_bans_from_globalapi(
         ) - timedelta(seconds=settings.GLOBALAPI_BANS_INCREMENTAL_OVERLAP_SECONDS)
         limit = settings.GLOBALAPI_BANS_INCREMENTAL_LIMIT
 
+    # Release the anchor read's connection before waiting on GlobalAPI.
+    await session.commit()
+
     processed = 0
     created = 0
     updated = 0

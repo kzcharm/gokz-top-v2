@@ -173,6 +173,43 @@ def _payload(
     }
 
 
+async def test_sync_releases_tier_read_but_keeps_filter_pages_atomic(
+    db: AsyncSession,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    await _create_map(db, id=981200)
+
+    async def _load_tiers(**_: object) -> dict[int, VanillaTierEntry]:
+        await db.exec(select(Map.id, Map.name).where(Map.id == 981200))
+        return {}
+
+    async def _fetch(
+        *, client: object, offset: int, limit: int
+    ) -> list[dict[str, Any]]:
+        del client
+        assert limit == 1
+        if offset == 0:
+            assert not db.in_transaction()
+            return [_payload(id=981600, map_id=981200, stage=0, mode_id=200)]
+        assert db.in_transaction()
+        raise record_filter_sync.GlobalApiRecordFilterSyncError("second page failed")
+
+    monkeypatch.setattr(
+        record_filter_sync.settings, "GLOBALAPI_RECORD_FILTERS_LIMIT", 1
+    )
+    monkeypatch.setattr(record_filter_sync, "load_vanilla_tiers_by_map_id", _load_tiers)
+    monkeypatch.setattr(
+        record_filter_sync, "fetch_record_filters_from_globalapi", _fetch
+    )
+
+    with pytest.raises(
+        record_filter_sync.GlobalApiRecordFilterSyncError, match="second page failed"
+    ):
+        await record_filter_sync.sync_record_filters_from_globalapi(session=db)
+    await db.rollback()
+    assert await db.get(RecordFilter, 981600) is None
+
+
 async def test_sync_record_filters_from_globalapi_syncs_multiple_pages(
     db: AsyncSession,
     monkeypatch: pytest.MonkeyPatch,

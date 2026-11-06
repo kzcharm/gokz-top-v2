@@ -199,6 +199,7 @@ async def test_busy_record_defers_without_advancing_or_skipping_cursor(
 
     async def fetch(*, client, record_id):
         del client
+        assert not db.in_transaction()
         if path == "probe" and record_id == start:
             return record_sync.RecordFetchResult(kind="null")
         return record_sync.RecordFetchResult(kind="record", payload={"id": record_id})

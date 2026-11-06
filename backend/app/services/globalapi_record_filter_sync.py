@@ -253,6 +253,8 @@ async def sync_record_filters_from_globalapi(
             session=session,
             client=client,
         )
+        # Release the tier lookup before HTTP; filter page writes remain atomic.
+        await session.commit()
         offset = 0
         while True:
             payloads = await fetch_record_filters_from_globalapi(

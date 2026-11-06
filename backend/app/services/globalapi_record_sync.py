@@ -757,6 +757,7 @@ async def _backfill_missing_records_in_db_range(
         )
 
         for record_id in missing_record_ids:
+            await session.commit()
             attempted_missing_ids += 1
             fetch_result = await _fetch_record_with_retry(
                 client=client,
